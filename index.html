@@ -112,6 +112,15 @@
   th, td { padding: 6px 4px; text-align: left; border-bottom: 1px solid var(--border); }
   th { color: var(--muted); font-weight: 500; }
 
+  .ajuda h2 { margin-top: 0; font-size: 1.1rem; }
+  .ajuda h3 { font-size: 0.95rem; color: var(--accent); margin: 20px 0 6px; }
+  .ajuda h3:first-of-type { margin-top: 4px; }
+  .ajuda p { margin: 4px 0; font-size: 0.9rem; line-height: 1.5; color: var(--text); }
+  .ajuda code {
+    background: #0f172a; border: 1px solid var(--border); border-radius: 4px;
+    padding: 1px 6px; font-size: 0.85rem;
+  }
+
   .loading-dots { display: inline-flex; gap: 4px; vertical-align: middle; }
   .loading-dots span {
     width: 8px; height: 8px; border-radius: 50%;
@@ -175,6 +184,7 @@
     <div class="tabs">
       <button id="tabBusca" class="active">Buscar</button>
       <button id="tabHistorico">Histórico</button>
+      <button id="tabAjuda">Ajuda</button>
     </div>
 
     <div id="painelBusca">
@@ -212,6 +222,36 @@
     <div id="painelHistorico" class="hidden">
       <div class="card">
         <div id="historicoLista"></div>
+      </div>
+    </div>
+
+    <div id="painelAjuda" class="hidden">
+      <div class="card ajuda">
+        <h2>Como usar</h2>
+
+        <h3>1. Buscar preço e estoque</h3>
+        <p>No campo <strong>Lojas</strong>, digite o número de uma ou mais lojas separadas por vírgula (ex: <code>32,171</code>). No campo <strong>Código de barras</strong>, digite ou escaneie o código do produto e toque em <strong>Buscar</strong>.</p>
+        <p>O preço aparece na hora. O estoque de cada loja carrega logo em seguida — mostra o total de peças da referência naquela loja e a lista de cores/numerações disponíveis.</p>
+
+        <h3>2. Câmera</h3>
+        <p>Toque no botão <strong>📷</strong> ao lado do campo de código de barras para escanear com a câmera do celular, em vez de digitar.</p>
+
+        <h3>3. Toda a rede</h3>
+        <p>O botão <strong>Toda a rede</strong> preenche automaticamente o campo de lojas com todas as lojas cadastradas, para você ver o estoque em toda a rede de uma vez.</p>
+
+        <h3>4. Lojas favoritas</h3>
+        <p>As lojas que você digitar ficam salvas automaticamente no seu perfil — da próxima vez que entrar (mesmo em outro celular), elas já vêm preenchidas.</p>
+
+        <h3>5. Histórico</h3>
+        <p>A aba <strong>Histórico</strong> mostra suas últimas buscas. Toque em qualquer item para repetir aquela busca na hora.</p>
+
+        <h3>6. Instalar no celular</h3>
+        <p><strong>Android (Chrome):</strong> abra o site e toque em "Instalar app" quando aparecer, ou no menu ⋮ → "Adicionar à tela inicial".</p>
+        <p><strong>iPhone (Safari):</strong> toque no ícone de compartilhar (□↑) → "Adicionar à Tela de Início".</p>
+        <p>Depois de instalado, abre direto como um app, sem barra de endereço.</p>
+
+        <h3>Dúvidas ou problemas</h3>
+        <p>Se algo não funcionar como esperado, entre em contato com quem administra o sistema.</p>
       </div>
     </div>
   </div>
@@ -252,8 +292,10 @@ const $btnSair = document.getElementById("btnSair");
 
 const $tabBusca = document.getElementById("tabBusca");
 const $tabHistorico = document.getElementById("tabHistorico");
+const $tabAjuda = document.getElementById("tabAjuda");
 const $painelBusca = document.getElementById("painelBusca");
 const $painelHistorico = document.getElementById("painelHistorico");
+const $painelAjuda = document.getElementById("painelAjuda");
 const $historicoLista = document.getElementById("historicoLista");
 
 const $codigo = document.getElementById("codigo");
@@ -384,20 +426,26 @@ sb.auth.onAuthStateChange((_event, session) => {
 
 // ---------- ABAS ----------
 
-$tabBusca.addEventListener("click", () => {
-  $tabBusca.classList.add("active");
-  $tabHistorico.classList.remove("active");
-  $painelBusca.classList.remove("hidden");
-  $painelHistorico.classList.add("hidden");
-});
+const ABAS = [
+  { tab: $tabBusca, painel: $painelBusca },
+  { tab: $tabHistorico, painel: $painelHistorico },
+  { tab: $tabAjuda, painel: $painelAjuda },
+];
 
+function mostrarAba(tabAlvo) {
+  ABAS.forEach(({ tab, painel }) => {
+    const ativa = tab === tabAlvo;
+    tab.classList.toggle("active", ativa);
+    painel.classList.toggle("hidden", !ativa);
+  });
+}
+
+$tabBusca.addEventListener("click", () => mostrarAba($tabBusca));
 $tabHistorico.addEventListener("click", () => {
-  $tabHistorico.classList.add("active");
-  $tabBusca.classList.remove("active");
-  $painelHistorico.classList.remove("hidden");
-  $painelBusca.classList.add("hidden");
+  mostrarAba($tabHistorico);
   carregarHistorico();
 });
+$tabAjuda.addEventListener("click", () => mostrarAba($tabAjuda));
 
 // ---------- HISTÓRICO ----------
 
