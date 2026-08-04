@@ -144,6 +144,15 @@
   .historico-item:hover { background: #0f172a; }
   .historico-item .h-produto { font-size: 0.9rem; }
   .historico-item .h-meta { font-size: 0.75rem; color: var(--muted); }
+  .h-conteudo { flex: 1; min-width: 0; }
+  .h-acoes { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+  .h-btn {
+    background: none; border: none; padding: 6px 8px; font-size: 1.1rem;
+    cursor: pointer; border-radius: 6px; color: var(--muted); line-height: 1;
+  }
+  .h-btn:hover { background: var(--card); }
+  .h-btn.favorito.ativo { color: #facc15; }
+  .h-btn.apagar:hover { color: var(--danger); }
 
   .modal-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,0.7);
@@ -184,6 +193,7 @@
     <div class="tabs">
       <button id="tabBusca" class="active">Buscar</button>
       <button id="tabHistorico">Histórico</button>
+      <button id="tabFavoritos">Favoritos</button>
       <button id="tabAjuda">Ajuda</button>
     </div>
 
@@ -225,6 +235,12 @@
       </div>
     </div>
 
+    <div id="painelFavoritos" class="hidden">
+      <div class="card">
+        <div id="favoritosLista"></div>
+      </div>
+    </div>
+
     <div id="painelAjuda" class="hidden">
       <div class="card ajuda">
         <h2>Como usar</h2>
@@ -243,9 +259,12 @@
         <p>As lojas que você digitar ficam salvas automaticamente no seu perfil — da próxima vez que entrar (mesmo em outro celular), elas já vêm preenchidas.</p>
 
         <h3>5. Histórico</h3>
-        <p>A aba <strong>Histórico</strong> mostra suas últimas buscas. Toque em qualquer item para repetir aquela busca na hora.</p>
+        <p>A aba <strong>Histórico</strong> mostra suas últimas buscas. Toque no item para repetir aquela busca. Toque na estrela ☆ pra favoritar, ou na lixeira 🗑 pra apagar aquele item do histórico.</p>
 
-        <h3>6. Instalar no celular</h3>
+        <h3>6. Favoritos</h3>
+        <p>A aba <strong>Favoritos</strong> mostra só as buscas que você marcou com a estrela — útil pra produtos que você consulta com frequência.</p>
+
+        <h3>7. Instalar no celular</h3>
         <p><strong>Android (Chrome):</strong> abra o site e toque em "Instalar app" quando aparecer, ou no menu ⋮ → "Adicionar à tela inicial".</p>
         <p><strong>iPhone (Safari):</strong> toque no ícone de compartilhar (□↑) → "Adicionar à Tela de Início".</p>
         <p>Depois de instalado, abre direto como um app, sem barra de endereço.</p>
@@ -292,11 +311,14 @@ const $btnSair = document.getElementById("btnSair");
 
 const $tabBusca = document.getElementById("tabBusca");
 const $tabHistorico = document.getElementById("tabHistorico");
+const $tabFavoritos = document.getElementById("tabFavoritos");
 const $tabAjuda = document.getElementById("tabAjuda");
 const $painelBusca = document.getElementById("painelBusca");
 const $painelHistorico = document.getElementById("painelHistorico");
+const $painelFavoritos = document.getElementById("painelFavoritos");
 const $painelAjuda = document.getElementById("painelAjuda");
 const $historicoLista = document.getElementById("historicoLista");
+const $favoritosLista = document.getElementById("favoritosLista");
 
 const $codigo = document.getElementById("codigo");
 const $lojas = document.getElementById("lojas");
@@ -429,6 +451,7 @@ sb.auth.onAuthStateChange((_event, session) => {
 const ABAS = [
   { tab: $tabBusca, painel: $painelBusca },
   { tab: $tabHistorico, painel: $painelHistorico },
+  { tab: $tabFavoritos, painel: $painelFavoritos },
   { tab: $tabAjuda, painel: $painelAjuda },
 ];
 
@@ -445,9 +468,55 @@ $tabHistorico.addEventListener("click", () => {
   mostrarAba($tabHistorico);
   carregarHistorico();
 });
+$tabFavoritos.addEventListener("click", () => {
+  mostrarAba($tabFavoritos);
+  carregarFavoritos();
+});
 $tabAjuda.addEventListener("click", () => mostrarAba($tabAjuda));
 
-// ---------- HISTÓRICO ----------
+// ---------- HISTÓRICO / FAVORITOS ----------
+
+function renderListaItens(container, data, { vazio }) {
+  if (!data || data.length === 0) {
+    container.innerHTML = `<div class="msg">${vazio}</div>`;
+    return;
+  }
+
+  container.innerHTML = data.map(h => `
+    <div class="historico-item" data-id="${h.id}" data-codigo="${h.codigo_barras}" data-lojas="${h.lojas || ""}">
+      <div class="h-conteudo">
+        <div class="h-produto">${h.produto || h.codigo_barras}</div>
+        <div class="h-meta">Lojas ${h.lojas || "-"} · ${new Date(h.criado_em).toLocaleString("pt-BR")}</div>
+      </div>
+      <div class="h-acoes">
+        <span>${h.preco != null ? fmtMoeda(h.preco) : ""}</span>
+        <button class="h-btn favorito ${h.favorito ? "ativo" : ""}" title="Favoritar">${h.favorito ? "★" : "☆"}</button>
+        <button class="h-btn apagar" title="Apagar">🗑</button>
+      </div>
+    </div>
+  `).join("");
+
+  container.querySelectorAll(".historico-item").forEach(el => {
+    const id = el.dataset.id;
+
+    el.querySelector(".h-conteudo").addEventListener("click", () => {
+      $codigo.value = el.dataset.codigo;
+      $lojas.value = el.dataset.lojas;
+      $tabBusca.click();
+      buscar();
+    });
+
+    el.querySelector(".favorito").addEventListener("click", (e) => {
+      e.stopPropagation();
+      alternarFavorito(id, !el.querySelector(".favorito").classList.contains("ativo"));
+    });
+
+    el.querySelector(".apagar").addEventListener("click", (e) => {
+      e.stopPropagation();
+      apagarHistorico(id);
+    });
+  });
+}
 
 async function carregarHistorico() {
   if (!currentUser) return;
@@ -463,29 +532,36 @@ async function carregarHistorico() {
     $historicoLista.innerHTML = `<div class="msg err">Erro ao carregar histórico: ${error.message}</div>`;
     return;
   }
-  if (!data || data.length === 0) {
-    $historicoLista.innerHTML = `<div class="msg">Nenhuma busca ainda.</div>`;
+  renderListaItens($historicoLista, data, { vazio: "Nenhuma busca ainda." });
+}
+
+async function carregarFavoritos() {
+  if (!currentUser) return;
+  $favoritosLista.innerHTML = `<div class="msg">Carregando favoritos...</div>`;
+
+  const { data, error } = await sb
+    .from("historico")
+    .select("*")
+    .eq("favorito", true)
+    .order("criado_em", { ascending: false });
+
+  if (error) {
+    $favoritosLista.innerHTML = `<div class="msg err">Erro ao carregar favoritos: ${error.message}</div>`;
     return;
   }
+  renderListaItens($favoritosLista, data, { vazio: "Nenhum favorito ainda. Toque na estrela ☆ no histórico pra favoritar." });
+}
 
-  $historicoLista.innerHTML = data.map(h => `
-    <div class="historico-item" data-codigo="${h.codigo_barras}" data-lojas="${h.lojas || ""}">
-      <div>
-        <div class="h-produto">${h.produto || h.codigo_barras}</div>
-        <div class="h-meta">Lojas ${h.lojas || "-"} · ${new Date(h.criado_em).toLocaleString("pt-BR")}</div>
-      </div>
-      <div>${h.preco != null ? fmtMoeda(h.preco) : ""}</div>
-    </div>
-  `).join("");
+async function alternarFavorito(id, novoValor) {
+  await sb.from("historico").update({ favorito: novoValor }).eq("id", id);
+  if (!$painelHistorico.classList.contains("hidden")) carregarHistorico();
+  if (!$painelFavoritos.classList.contains("hidden")) carregarFavoritos();
+}
 
-  $historicoLista.querySelectorAll(".historico-item").forEach(el => {
-    el.addEventListener("click", () => {
-      $codigo.value = el.dataset.codigo;
-      $lojas.value = el.dataset.lojas;
-      $tabBusca.click();
-      buscar();
-    });
-  });
+async function apagarHistorico(id) {
+  await sb.from("historico").delete().eq("id", id);
+  if (!$painelHistorico.classList.contains("hidden")) carregarHistorico();
+  if (!$painelFavoritos.classList.contains("hidden")) carregarFavoritos();
 }
 
 async function salvarHistorico(item, lojasStr) {
