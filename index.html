@@ -87,6 +87,10 @@
   }
   button:active { background: var(--accent-dim); }
   button:disabled { opacity: 0.5; cursor: default; }
+  #buscar.btn-parar { background: var(--danger); color: #fff; }
+  #buscar.btn-parar:active { background: #c53030; }
+  .btn-parar-busca { background: var(--danger); color: #fff; border: none; }
+  .btn-parar-busca:active { background: #c53030; }
   .row { display: flex; gap: 8px; align-items: stretch; margin-bottom: 12px; }
   .row > input { margin-bottom: 0; flex: 1; min-width: 0; }
   .row-lojas { flex-wrap: wrap; }
@@ -1007,8 +1011,8 @@ function criarLojaCardEl(loja) {
   return div;
 }
 
-async function buscarPreco(codigo, primeiraLoja) {
-  const resp = await fetch(`${API_BASE}/${encodeURIComponent(codigo)}/${encodeURIComponent(primeiraLoja)}`);
+async function buscarPreco(codigo, primeiraLoja, signal) {
+  const resp = await fetch(`${API_BASE}/${encodeURIComponent(codigo)}/${encodeURIComponent(primeiraLoja)}`, { signal });
   const data = await resp.json();
   return (data.precos || []).find(p => p.cdSKU && p.cdSKU !== 0) || null;
 }
@@ -1017,28 +1021,28 @@ async function buscarPreco(codigo, primeiraLoja) {
 // em vez do JSON de estoque, principalmente sob carga. Aqui a gente valida a
 // resposta e tenta de novo uma vez antes de desistir, pra reduzir os "Erro ao
 // buscar estoque" causados por instabilidade do lado deles.
-async function fetchEstoqueComRetry(url, tentativas = 2) {
+async function fetchEstoqueComRetry(url, signal, tentativas = 2) {
   for (let i = 0; i < tentativas; i++) {
     try {
-      const resp = await fetch(url);
+      const resp = await fetch(url, { signal });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const data = await resp.json();
       if (!Array.isArray(data)) throw new Error("Resposta de estoque inesperada");
       return data;
     } catch (e) {
-      if (i === tentativas - 1) throw e;
+      if (e.name === "AbortError" || i === tentativas - 1) throw e;
     }
   }
 }
 
-async function buscarEstoqueLoja(item, loja, estoqueCache, cardEl) {
+async function buscarEstoqueLoja(item, loja, estoqueCache, cardEl, signal) {
   const $qtd = cardEl.querySelector(".estoque-qtd");
   const $tabela = cardEl.querySelector(".tabela-wrap");
 
   if (!estoqueCache.has(item.cdReferencia)) {
     estoqueCache.set(
       item.cdReferencia,
-      fetchEstoqueComRetry(`${API_BASE}/estoque/${encodeURIComponent(item.cdReferencia)}/${encodeURIComponent(loja)}`)
+      fetchEstoqueComRetry(`${API_BASE}/estoque/${encodeURIComponent(item.cdReferencia)}/${encodeURIComponent(loja)}`, signal)
     );
   }
   const estData = await estoqueCache.get(item.cdReferencia);
@@ -1069,12 +1073,21 @@ async function buscarEstoqueLoja(item, loja, estoqueCache, cardEl) {
   }
 }
 
-async function tentarBuscarEstoque(item, loja, cache, cardEl) {
+async function tentarBuscarEstoque(item, loja, cache, cardEl, signal) {
   try {
-    await buscarEstoqueLoja(item, loja, cache, cardEl);
+    await buscarEstoqueLoja(item, loja, cache, cardEl, signal);
   } catch (e) {
     console.error(e);
     const info = infoLoja(loja);
+
+    if (e.name === "AbortError") {
+      cardEl.innerHTML = `
+        <div class="loja-titulo">Loja ${loja}</div>
+        ${info ? `<div class="loja-endereco">${info}</div>` : ""}
+        <div class="msg">Busca interrompida.</div>`;
+      return;
+    }
+
     cardEl.innerHTML = `
       <div class="loja-titulo">Loja ${loja}</div>
       ${info ? `<div class="loja-endereco">${info}</div>` : ""}
@@ -1087,6 +1100,16 @@ async function tentarBuscarEstoque(item, loja, cache, cardEl) {
   }
 }
 
+// Enquanto uma busca do botão principal está em andamento, guarda o
+// controlador aqui pra dar pra cancelar clicando de novo no botão (que vira
+// vermelho e escrito "Parar busca").
+let controladorBuscaAtual = null;
+
+function setBotaoBuscarParar(parar) {
+  $buscar.textContent = parar ? "Parar busca" : "Buscar";
+  $buscar.classList.toggle("btn-parar", parar);
+}
+
 // No modo padrão, reaproveita a área fixa de resultado (resumoCard/resultados).
 // No modo "múltiplos itens", cria um bloco novo e independente pra cada busca,
 // sem travar o campo/botão — assim dá pra já buscar o próximo item enquanto
@@ -1094,6 +1117,9 @@ async function tentarBuscarEstoque(item, loja, cache, cardEl) {
 async function executarBusca(codigo, lojasStrRaw, multiplo) {
   const lojas = parseLojas(lojasStrRaw);
   if (!codigo || lojas.length === 0) return;
+
+  const controller = new AbortController();
+  const signal = controller.signal;
 
   let produtoEl, precoEl, precoOriginalEl, gridEl;
   let setBuscaStatus = () => {};
@@ -1111,7 +1137,7 @@ async function executarBusca(codigo, lojasStrRaw, multiplo) {
       </div>
       <div class="msg busca-status">Buscando preço...</div>
       <div class="lojas-grid" style="margin-top:16px;"></div>
-      <button class="secondary full btn-remover-busca" style="margin-top:12px;">Remover</button>`;
+      <button class="secondary full btn-parar-busca">Parar busca</button>`;
     $buscasMultiplas.prepend(bloco);
 
     produtoEl = bloco.querySelector(".resumo-produto");
@@ -1124,9 +1150,14 @@ async function executarBusca(codigo, lojasStrRaw, multiplo) {
       statusEl.textContent = texto;
       statusEl.className = "msg busca-status" + (isErr ? " err" : "");
     };
-    bloco.querySelector(".btn-remover-busca").addEventListener("click", () => bloco.remove());
+    const $btnParar = bloco.querySelector(".btn-parar-busca");
+    $btnParar.addEventListener("click", () => {
+      if ($btnParar.textContent === "Remover") { bloco.remove(); return; }
+      controller.abort();
+    });
   } else {
-    $buscar.disabled = true;
+    controladorBuscaAtual = controller;
+    setBotaoBuscarParar(true);
     $resumoCard.classList.remove("show");
     $resultados.innerHTML = "";
     produtoEl = $resumoProduto;
@@ -1139,7 +1170,7 @@ async function executarBusca(codigo, lojasStrRaw, multiplo) {
   setBuscaStatus("Buscando preço...");
 
   try {
-    const item = await buscarPreco(codigo, lojas[0]);
+    const item = await buscarPreco(codigo, lojas[0], signal);
     if (!item) {
       setBuscaStatus("Produto não encontrado.", true);
       return;
@@ -1166,17 +1197,33 @@ async function executarBusca(codigo, lojasStrRaw, multiplo) {
     });
 
     const estoqueCache = new Map();
-    await Promise.all(cardEls.map(({ loja, el }) => tentarBuscarEstoque(item, loja, estoqueCache, el)));
+    await Promise.all(cardEls.map(({ loja, el }) => tentarBuscarEstoque(item, loja, estoqueCache, el, signal)));
     setBuscaStatus("");
   } catch (e) {
-    setBuscaStatus("Erro ao buscar. Verifique a conexão.", true);
-    console.error(e);
+    if (e.name === "AbortError") {
+      setBuscaStatus("Busca interrompida.");
+    } else {
+      setBuscaStatus("Erro ao buscar. Verifique a conexão.", true);
+      console.error(e);
+    }
   } finally {
-    if (!multiplo) $buscar.disabled = false;
+    if (multiplo) {
+      const bloco = gridEl.closest(".busca-multipla");
+      const $btnParar = bloco && bloco.querySelector(".btn-parar-busca");
+      if ($btnParar) $btnParar.textContent = "Remover";
+    } else {
+      controladorBuscaAtual = null;
+      setBotaoBuscarParar(false);
+    }
   }
 }
 
 function buscar() {
+  if (controladorBuscaAtual) {
+    controladorBuscaAtual.abort();
+    return;
+  }
+
   const codigo = $codigo.value.trim();
   const lojasStr = $lojas.value;
   const multiplo = $modoMultiplo.checked;
