@@ -93,21 +93,15 @@
     display: flex; justify-content: space-between; align-items: center;
     margin-bottom: 16px; font-size: 0.85rem; color: var(--muted);
   }
-  .tabs-wrap { position: relative; margin-bottom: 16px; }
-  .tabs-wrap::after {
-    content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 28px;
-    background: linear-gradient(to right, transparent, var(--bg));
-    pointer-events: none;
-  }
+  .tabs-wrap { margin-bottom: 16px; }
   .tabs {
-    display: flex; gap: 8px;
-    overflow-x: auto; -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 8px;
   }
-  .tabs::-webkit-scrollbar { display: none; }
   .tabs button {
-    flex: 1 0 auto; white-space: nowrap;
     background: var(--card); color: var(--muted); border: 1px solid var(--border);
+    white-space: normal; line-height: 1.2;
   }
   .tabs button.active { background: var(--accent); color: #04220f; border-color: var(--accent); }
 
