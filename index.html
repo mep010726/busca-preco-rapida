@@ -304,8 +304,19 @@ function resetTurnstile() {
   }
 }
 
+// Lê o token direto do widget na hora do clique, em vez de confiar só na
+// variável setada pelo callback (mais confiável contra corridas de timing).
+function getTurnstileToken() {
+  if (typeof turnstile !== "undefined" && turnstileWidgetId !== null) {
+    const t = turnstile.getResponse(turnstileWidgetId);
+    if (t) return t;
+  }
+  return turnstileToken;
+}
+
 $btnEntrar.addEventListener("click", async () => {
-  if (!turnstileToken) {
+  const token = getTurnstileToken();
+  if (!token) {
     setAuthMsg("Complete a verificação de segurança antes de continuar.", true);
     return;
   }
@@ -313,14 +324,15 @@ $btnEntrar.addEventListener("click", async () => {
   const { error } = await sb.auth.signInWithPassword({
     email: $authEmail.value.trim(),
     password: $authSenha.value,
-    options: { captchaToken: turnstileToken },
+    options: { captchaToken: token },
   });
   resetTurnstile();
   if (error) setAuthMsg(error.message, true);
 });
 
 $btnCriarConta.addEventListener("click", async () => {
-  if (!turnstileToken) {
+  const token = getTurnstileToken();
+  if (!token) {
     setAuthMsg("Complete a verificação de segurança antes de continuar.", true);
     return;
   }
@@ -328,7 +340,7 @@ $btnCriarConta.addEventListener("click", async () => {
   const { error } = await sb.auth.signUp({
     email: $authEmail.value.trim(),
     password: $authSenha.value,
-    options: { captchaToken: turnstileToken },
+    options: { captchaToken: token },
   });
   resetTurnstile();
   if (error) {
