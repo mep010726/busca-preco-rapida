@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Busca Preço Rápida</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --accent: #22c55e;
+    --accent-dim: #16a34a;
+    --danger: #ef4444;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --border: #334155;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+    padding: 24px 12px;
+  }
+  .wrap { width: 100%; max-width: 720px; }
+  h1 { font-size: 1.25rem; margin: 0 0 16px; text-align: center; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
+  input, select {
+    width: 100%;
+    padding: 12px;
+    font-size: 1.1rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: #0f172a;
+    color: var(--text);
+    margin-bottom: 12px;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+  button {
+    padding: 14px;
+    font-size: 1.05rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #04220f;
+    cursor: pointer;
+  }
+  button.full { width: 100%; }
+  button.secondary { background: #0f172a; color: var(--text); border: 1px solid var(--border); }
+  button.icon { padding: 12px 16px; font-size: 1.3rem; flex: 0 0 auto; }
+  button:active { background: var(--accent-dim); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .row { display: flex; gap: 8px; align-items: stretch; }
+  .row > input { margin-bottom: 0; flex: 1; }
+  .hidden { display: none !important; }
+  .result { display: none; }
+  .result.show { display: block; }
+
+  .topbar {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px; font-size: 0.85rem; color: var(--muted);
+  }
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tabs button { flex: 1; background: var(--card); color: var(--muted); border: 1px solid var(--border); }
+  .tabs button.active { background: var(--accent); color: #04220f; border-color: var(--accent); }
+
+  .resumo { display: flex; align-items: center; gap: 16px; }
+  .resumo-preco { font-size: 1.8rem; font-weight: 700; color: var(--accent); white-space: nowrap; }
+  .resumo-preco-original { font-size: 0.85rem; color: var(--muted); text-decoration: line-through; }
+  .resumo-produto { color: var(--muted); font-size: 0.9rem; flex: 1; }
+
+  .lojas-grid { display: flex; flex-wrap: wrap; gap: 16px; }
+  .loja-card { flex: 1 1 260px; min-width: 220px; }
+  .loja-titulo {
+    font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em;
+    margin-bottom: 8px;
+  }
+  .estoque-badge {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px; border-radius: 8px; background: #0f172a; border: 1px solid var(--border);
+  }
+  .estoque-qtd { font-size: 1.6rem; font-weight: 700; }
+  .estoque-qtd.zero { color: var(--danger); }
+  .estoque-qtd.pos { color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.85rem; }
+  td.pos { color: var(--accent); font-weight: 600; }
+  td.zero { color: var(--muted); }
+  th, td { padding: 6px 4px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; }
+
+  .loading-dots { display: inline-flex; gap: 4px; vertical-align: middle; }
+  .loading-dots span {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--muted);
+    animation: dot-bounce 1s infinite ease-in-out both;
+  }
+  .loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+  .loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+  @keyframes dot-bounce {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+    40% { transform: scale(1); opacity: 1; }
+  }
+
+  .msg { text-align: center; color: var(--muted); padding: 8px; }
+  .msg.err { color: var(--danger); }
+
+  .historico-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid var(--border); cursor: pointer;
+  }
+  .historico-item:hover { background: #0f172a; }
+  .historico-item .h-produto { font-size: 0.9rem; }
+  .historico-item .h-meta { font-size: 0.75rem; color: var(--muted); }
+
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px;
+  }
+  .modal-box {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; width: 100%; max-width: 420px;
+  }
+  #camReader { width: 100%; border-radius: 8px; overflow: hidden; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Busca Preço Rápida</h1>
+
+  <!-- TELA DE LOGIN -->
+  <div id="authCard" class="card">
+    <label for="authEmail">E-mail</label>
+    <input id="authEmail" type="email" placeholder="seu@email.com">
+    <label for="authSenha">Senha</label>
+    <input id="authSenha" type="password" placeholder="••••••••">
+    <div id="turnstileWidget" style="margin-bottom:12px;"></div>
+    <div id="authMsg" class="msg"></div>
+    <div class="row">
+      <button id="btnEntrar" class="full">Entrar</button>
+      <button id="btnCriarConta" class="full secondary">Criar conta</button>
+    </div>
+  </div>
+
+  <!-- APP (só aparece logado) -->
+  <div id="app" class="hidden">
+    <div class="topbar">
+      <span id="userEmail"></span>
+      <button id="btnSair" class="secondary" style="padding:8px 12px;">Sair</button>
+    </div>
+
+    <div class="tabs">
+      <button id="tabBusca" class="active">Buscar</button>
+      <button id="tabHistorico">Histórico</button>
+    </div>
+
+    <div id="painelBusca">
+      <div class="card">
+        <label for="lojas">Lojas (separe por vírgula)</label>
+        <div class="row">
+          <input id="lojas" type="text" inputmode="numeric" placeholder="Ex: 32,171" value="1">
+          <button id="btnRedeToda" class="secondary" style="white-space:nowrap;">Toda a rede</button>
+        </div>
+
+        <label for="codigo">Código de barras</label>
+        <div class="row">
+          <input id="codigo" type="text" inputmode="numeric" placeholder="Escaneie ou digite" autofocus>
+          <button id="btnCamera" class="icon" title="Escanear com a câmera">📷</button>
+        </div>
+
+        <button id="buscar" class="full">Buscar</button>
+      </div>
+
+      <div id="status"></div>
+
+      <div id="resumoCard" class="card result">
+        <div class="resumo">
+          <div class="resumo-produto" id="resumoProduto"></div>
+          <div style="text-align:right;">
+            <div class="resumo-preco-original" id="resumoPrecoOriginal"></div>
+            <div class="resumo-preco" id="resumoPreco"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="resultados" class="lojas-grid"></div>
+    </div>
+
+    <div id="painelHistorico" class="hidden">
+      <div class="card">
+        <div id="historicoLista"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CÂMERA -->
+  <div id="camModal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div id="camReader"></div>
+      <button id="btnFecharCam" class="full secondary" style="margin-top:12px;">Fechar câmera</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ====== CONFIGURE AQUI (Supabase > Settings > API) ======
+const SUPABASE_URL = "https://izjymicfgxtqafhlceyf.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_mRNqGL9jboRCjHfnq1kG0Q_paalFq0C";
+// Cloudflare Turnstile > Site Key (dashboard.cloudflare.com > Turnstile)
+const TURNSTILE_SITE_KEY = "0x4AAAAAAEGYOswRL545WBG-";
+// ==========================================================
+
+// Todas as lojas da rede (usadas pela opção "ver em toda rede")
+const TODAS_AS_LOJAS = [1, 2, 4, 12, 22, 31, 32, 151, 171];
+
+const API_BASE = "https://credito.mersan.co/api/v1/buscapreco";
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const $authCard = document.getElementById("authCard");
+const $authEmail = document.getElementById("authEmail");
+const $authSenha = document.getElementById("authSenha");
+const $authMsg = document.getElementById("authMsg");
+const $btnEntrar = document.getElementById("btnEntrar");
+const $btnCriarConta = document.getElementById("btnCriarConta");
+
+const $app = document.getElementById("app");
+const $userEmail = document.getElementById("userEmail");
+const $btnSair = document.getElementById("btnSair");
+
+const $tabBusca = document.getElementById("tabBusca");
+const $tabHistorico = document.getElementById("tabHistorico");
+const $painelBusca = document.getElementById("painelBusca");
+const $painelHistorico = document.getElementById("painelHistorico");
+const $historicoLista = document.getElementById("historicoLista");
+
+const $codigo = document.getElementById("codigo");
+const $lojas = document.getElementById("lojas");
+const $btnRedeToda = document.getElementById("btnRedeToda");
+const $buscar = document.getElementById("buscar");
+const $status = document.getElementById("status");
+const $resumoCard = document.getElementById("resumoCard");
+const $resumoProduto = document.getElementById("resumoProduto");
+const $resumoPreco = document.getElementById("resumoPreco");
+const $resumoPrecoOriginal = document.getElementById("resumoPrecoOriginal");
+const $resultados = document.getElementById("resultados");
+
+const $btnCamera = document.getElementById("btnCamera");
+const $camModal = document.getElementById("camModal");
+const $btnFecharCam = document.getElementById("btnFecharCam");
+
+let currentUser = null;
+let html5Qrcode = null;
+
+// ---------- AUTENTICAÇÃO ----------
+
+function setAuthMsg(txt, isErr) {
+  $authMsg.textContent = txt || "";
+  $authMsg.className = "msg " + (isErr ? "err" : "");
+}
+
+// ---------- Turnstile (verificação anti-robô) ----------
+let turnstileToken = null;
+let turnstileWidgetId = null;
+
+function onTurnstileSuccess(token) {
+  turnstileToken = token;
+}
+function onTurnstileExpired() {
+  turnstileToken = null;
+}
+window.onTurnstileSuccess = onTurnstileSuccess;
+window.onTurnstileExpired = onTurnstileExpired;
+
+function renderTurnstile() {
+  if (turnstileWidgetId !== null) return;
+  if (typeof turnstile === "undefined") {
+    setTimeout(renderTurnstile, 200); // script do Turnstile ainda carregando
+    return;
+  }
+  turnstileWidgetId = turnstile.render("#turnstileWidget", {
+    sitekey: TURNSTILE_SITE_KEY,
+    callback: "onTurnstileSuccess",
+    "expired-callback": "onTurnstileExpired",
+  });
+}
+
+function resetTurnstile() {
+  turnstileToken = null;
+  if (typeof turnstile !== "undefined" && turnstileWidgetId !== null) {
+    turnstile.reset(turnstileWidgetId);
+  }
+}
+
+$btnEntrar.addEventListener("click", async () => {
+  if (!turnstileToken) {
+    setAuthMsg("Complete a verificação de segurança antes de continuar.", true);
+    return;
+  }
+  setAuthMsg("Entrando...");
+  const { error } = await sb.auth.signInWithPassword({
+    email: $authEmail.value.trim(),
+    password: $authSenha.value,
+    options: { captchaToken: turnstileToken },
+  });
+  resetTurnstile();
+  if (error) setAuthMsg(error.message, true);
+});
+
+$btnCriarConta.addEventListener("click", async () => {
+  if (!turnstileToken) {
+    setAuthMsg("Complete a verificação de segurança antes de continuar.", true);
+    return;
+  }
+  setAuthMsg("Criando conta...");
+  const { error } = await sb.auth.signUp({
+    email: $authEmail.value.trim(),
+    password: $authSenha.value,
+    options: { captchaToken: turnstileToken },
+  });
+  resetTurnstile();
+  if (error) {
+    setAuthMsg(error.message, true);
+  } else {
+    setAuthMsg("Conta criada! Verifique seu e-mail e clique no link de confirmação antes de entrar.");
+  }
+});
+
+$btnSair.addEventListener("click", () => sb.auth.signOut());
+
+sb.auth.onAuthStateChange((_event, session) => {
+  currentUser = session ? session.user : null;
+  if (currentUser) {
+    $authCard.classList.add("hidden");
+    $app.classList.remove("hidden");
+    $userEmail.textContent = currentUser.email;
+
+    // Lojas favoritas ficam salvas no perfil do usuário (user_metadata),
+    // então acompanham o funcionário em qualquer dispositivo/login.
+    const lojasSalvas = currentUser.user_metadata && currentUser.user_metadata.lojas_favoritas;
+    if (lojasSalvas) $lojas.value = lojasSalvas;
+
+    carregarHistorico();
+  } else {
+    $authCard.classList.remove("hidden");
+    $app.classList.add("hidden");
+    renderTurnstile();
+  }
+});
+
+// ---------- ABAS ----------
+
+$tabBusca.addEventListener("click", () => {
+  $tabBusca.classList.add("active");
+  $tabHistorico.classList.remove("active");
+  $painelBusca.classList.remove("hidden");
+  $painelHistorico.classList.add("hidden");
+});
+
+$tabHistorico.addEventListener("click", () => {
+  $tabHistorico.classList.add("active");
+  $tabBusca.classList.remove("active");
+  $painelHistorico.classList.remove("hidden");
+  $painelBusca.classList.add("hidden");
+  carregarHistorico();
+});
+
+// ---------- HISTÓRICO ----------
+
+async function carregarHistorico() {
+  if (!currentUser) return;
+  $historicoLista.innerHTML = `<div class="msg">Carregando histórico...</div>`;
+
+  const { data, error } = await sb
+    .from("historico")
+    .select("*")
+    .order("criado_em", { ascending: false })
+    .limit(30);
+
+  if (error) {
+    $historicoLista.innerHTML = `<div class="msg err">Erro ao carregar histórico: ${error.message}</div>`;
+    return;
+  }
+  if (!data || data.length === 0) {
+    $historicoLista.innerHTML = `<div class="msg">Nenhuma busca ainda.</div>`;
+    return;
+  }
+
+  $historicoLista.innerHTML = data.map(h => `
+    <div class="historico-item" data-codigo="${h.codigo_barras}" data-lojas="${h.lojas || ""}">
+      <div>
+        <div class="h-produto">${h.produto || h.codigo_barras}</div>
+        <div class="h-meta">Lojas ${h.lojas || "-"} · ${new Date(h.criado_em).toLocaleString("pt-BR")}</div>
+      </div>
+      <div>${h.preco != null ? fmtMoeda(h.preco) : ""}</div>
+    </div>
+  `).join("");
+
+  $historicoLista.querySelectorAll(".historico-item").forEach(el => {
+    el.addEventListener("click", () => {
+      $codigo.value = el.dataset.codigo;
+      $lojas.value = el.dataset.lojas;
+      $tabBusca.click();
+      buscar();
+    });
+  });
+}
+
+async function salvarHistorico(item, lojasStr) {
+  if (!currentUser) return;
+  await sb.from("historico").insert({
+    user_id: currentUser.id,
+    codigo_barras: item.cdProduto,
+    produto: item.dsProduto,
+    preco: item.vlPrecoPromocao > 0 ? item.vlPrecoPromocao : item.vlPreco,
+    lojas: lojasStr,
+  });
+}
+
+// ---------- CÂMERA (QR / código de barras) ----------
+
+$btnCamera.addEventListener("click", async () => {
+  $camModal.classList.remove("hidden");
+  html5Qrcode = new Html5Qrcode("camReader");
+  try {
+    await html5Qrcode.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 250, height: 150 } },
+      (decodedText) => {
+        $codigo.value = decodedText;
+        fecharCamera();
+        buscar();
+      },
+      () => {} // erro de frame individual, ignorar
+    );
+  } catch (e) {
+    console.error(e);
+    $camModal.classList.add("hidden");
+    setStatus("Não foi possível acessar a câmera.", true);
+  }
+});
+
+$btnFecharCam.addEventListener("click", fecharCamera);
+
+function fecharCamera() {
+  if (html5Qrcode) {
+    html5Qrcode.stop().then(() => html5Qrcode.clear()).catch(() => {});
+    html5Qrcode = null;
+  }
+  $camModal.classList.add("hidden");
+}
+
+// ---------- BUSCA DE PREÇO / ESTOQUE ----------
+
+function fmtMoeda(v) {
+  return Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function setStatus(html, isErr) {
+  $status.innerHTML = html ? `<div class="msg ${isErr ? "err" : ""}">${html}</div>` : "";
+}
+
+function parseLojas(raw) {
+  return [...new Set(
+    raw.split(/[,\s]+/).map(s => s.trim()).filter(Boolean).map(Number)
+  )].filter(n => !Number.isNaN(n));
+}
+
+function cardEstoqueLoading(loja) {
+  return `
+    <div class="loja-card" id="card-loja-${loja}">
+      <div class="loja-titulo">Loja ${loja}</div>
+      <div class="estoque-badge">
+        <span>Estoque</span>
+        <span class="estoque-qtd"><span class="loading-dots"><span></span><span></span><span></span></span></span>
+      </div>
+      <div class="tabela-wrap"></div>
+    </div>`;
+}
+
+async function buscarPreco(codigo, primeiraLoja) {
+  const resp = await fetch(`${API_BASE}/${encodeURIComponent(codigo)}/${encodeURIComponent(primeiraLoja)}`);
+  const data = await resp.json();
+  return (data.precos || []).find(p => p.cdSKU && p.cdSKU !== 0) || null;
+}
+
+async function buscarEstoqueLoja(item, loja, estoqueCache) {
+  const el = document.getElementById(`card-loja-${loja}`);
+  const $qtd = el.querySelector(".estoque-qtd");
+  const $tabela = el.querySelector(".tabela-wrap");
+
+  if (!estoqueCache.has(item.cdReferencia)) {
+    estoqueCache.set(
+      item.cdReferencia,
+      fetch(`${API_BASE}/estoque/${encodeURIComponent(item.cdReferencia)}/${encodeURIComponent(loja)}`)
+        .then(r => r.json())
+    );
+  }
+  const estData = await estoqueCache.get(item.cdReferencia);
+
+  const lojaNum = Number(loja);
+  const linhasLoja = estData.filter(r => r.cd_empresa === lojaNum);
+
+  const qtdTotal = linhasLoja.reduce((soma, r) => soma + r.qt_stock, 0);
+  $qtd.textContent = qtdTotal;
+  $qtd.className = "estoque-qtd " + (qtdTotal > 0 ? "pos" : "zero");
+
+  const comEstoque = linhasLoja.filter(r => r.qt_stock > 0);
+  if (comEstoque.length > 0) {
+    let rows = comEstoque
+      .sort((a, b) => a.ds_cor.localeCompare(b.ds_cor) || a.ds_tamanho.localeCompare(b.ds_tamanho))
+      .map(r => {
+        const atual = r.cd_produto === item.cdSKU ? ' style="font-weight:700;"' : "";
+        return `<tr${atual}><td>${r.ds_cor}</td><td>${r.ds_tamanho}</td><td class="pos">${r.qt_stock}</td></tr>`;
+      })
+      .join("");
+    $tabela.innerHTML = `
+      <table>
+        <thead><tr><th>Cor</th><th>Tam</th><th>Qtd</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  } else {
+    $tabela.innerHTML = `<div class="msg">Nenhuma outra numeração com estoque nesta loja.</div>`;
+  }
+}
+
+async function buscar() {
+  const codigo = $codigo.value.trim();
+  const lojas = parseLojas($lojas.value);
+  if (!codigo || lojas.length === 0) return;
+
+  $buscar.disabled = true;
+  setStatus("Buscando preço...");
+  $resumoCard.classList.remove("show");
+  $resultados.innerHTML = "";
+
+  try {
+    const item = await buscarPreco(codigo, lojas[0]);
+    if (!item) {
+      setStatus("Produto não encontrado.", true);
+      return;
+    }
+
+    $resumoProduto.textContent = `${item.cdSKU} - ${item.dsProduto}`;
+    if (item.vlPrecoPromocao && item.vlPrecoPromocao > 0 && item.vlPrecoPromocao !== item.vlPreco) {
+      $resumoPrecoOriginal.textContent = fmtMoeda(item.vlPreco);
+      $resumoPreco.textContent = fmtMoeda(item.vlPrecoPromocao);
+    } else {
+      $resumoPrecoOriginal.textContent = "";
+      $resumoPreco.textContent = fmtMoeda(item.vlPreco);
+    }
+    $resumoCard.classList.add("show");
+
+    salvarHistorico(item, $lojas.value.trim());
+
+    setStatus("Consultando estoque...");
+    $resultados.innerHTML = lojas.map(cardEstoqueLoading).join("");
+
+    const estoqueCache = new Map();
+    const buscas = lojas.map(loja =>
+      buscarEstoqueLoja(item, loja, estoqueCache).catch(e => {
+        console.error(e);
+        const el = document.getElementById(`card-loja-${loja}`);
+        if (el) el.innerHTML = `<div class="loja-titulo">Loja ${loja}</div><div class="msg err">Erro ao buscar estoque.</div>`;
+      })
+    );
+    await Promise.all(buscas);
+    setStatus("");
+  } catch (e) {
+    setStatus("Erro ao buscar. Verifique a conexão.", true);
+    console.error(e);
+  } finally {
+    $buscar.disabled = false;
+    $codigo.select();
+  }
+}
+
+$buscar.addEventListener("click", buscar);
+$codigo.addEventListener("keydown", e => { if (e.key === "Enter") buscar(); });
+
+// As lojas escolhidas ficam salvas no perfil do usuário (sincroniza entre
+// dispositivos); enquanto não há login, usa um rascunho local.
+$lojas.addEventListener("change", () => {
+  localStorage.setItem("bp_lojas", $lojas.value);
+  if (currentUser) {
+    sb.auth.updateUser({ data: { lojas_favoritas: $lojas.value } });
+  }
+});
+$lojas.value = localStorage.getItem("bp_lojas") || "1";
+
+$btnRedeToda.addEventListener("click", () => {
+  $lojas.value = TODAS_AS_LOJAS.join(",");
+  $lojas.dispatchEvent(new Event("change"));
+});
+</script>
+</body>
+</html>
