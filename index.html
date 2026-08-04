@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Busca Preço Rápida</title>
 
 <!-- PWA: permite instalar como app no celular -->
@@ -74,8 +74,11 @@
   button.icon { padding: 12px 16px; font-size: 1.3rem; flex: 0 0 auto; }
   button:active { background: var(--accent-dim); }
   button:disabled { opacity: 0.5; cursor: default; }
-  .row { display: flex; gap: 8px; align-items: stretch; }
-  .row > input { margin-bottom: 0; flex: 1; }
+  .row { display: flex; gap: 8px; align-items: stretch; margin-bottom: 12px; }
+  .row > input { margin-bottom: 0; flex: 1; min-width: 0; }
+  .row-lojas { flex-wrap: wrap; }
+  .row-lojas > input { flex: 1 1 200px; }
+  .row-lojas > button { flex: 0 0 auto; }
   .hidden { display: none !important; }
   .result { display: none; }
   .result.show { display: block; }
@@ -84,8 +87,14 @@
     display: flex; justify-content: space-between; align-items: center;
     margin-bottom: 16px; font-size: 0.85rem; color: var(--muted);
   }
+  .tabs-wrap { position: relative; margin-bottom: 16px; }
+  .tabs-wrap::after {
+    content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 28px;
+    background: linear-gradient(to right, transparent, var(--bg));
+    pointer-events: none;
+  }
   .tabs {
-    display: flex; gap: 8px; margin-bottom: 16px;
+    display: flex; gap: 8px;
     overflow-x: auto; -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
@@ -183,8 +192,6 @@
     button { padding: 11px; font-size: 0.95rem; }
     .tabs button { padding: 10px 12px; font-size: 0.85rem; }
     button.icon { padding: 10px 12px; font-size: 1.15rem; }
-    .row { flex-wrap: wrap; }
-    .row > input { flex: 1 1 100%; }
     .resumo { flex-wrap: wrap; gap: 8px; }
     .resumo-preco { font-size: 1.5rem; }
     .loja-card { flex: 1 1 100%; min-width: 0; }
@@ -217,18 +224,20 @@
       <button id="btnSair" class="secondary" style="padding:8px 12px;">Sair</button>
     </div>
 
-    <div class="tabs">
-      <button id="tabBusca" class="active">Buscar</button>
-      <button id="tabHistorico">Histórico</button>
-      <button id="tabFavoritos">Favoritos</button>
-      <button id="tabMaisProcurados">Mais Procurados</button>
-      <button id="tabAjuda">Ajuda</button>
+    <div class="tabs-wrap">
+      <div class="tabs">
+        <button id="tabBusca" class="active">Buscar</button>
+        <button id="tabHistorico">Histórico</button>
+        <button id="tabFavoritos">Favoritos</button>
+        <button id="tabMaisProcurados">Mais Procurados</button>
+        <button id="tabAjuda">Ajuda</button>
+      </div>
     </div>
 
     <div id="painelBusca">
       <div class="card">
         <label for="lojas">Lojas (separe por vírgula)</label>
-        <div class="row">
+        <div class="row row-lojas">
           <input id="lojas" type="text" inputmode="numeric" placeholder="Ex: 32,171" value="1">
           <button id="btnRedeToda" class="secondary" style="white-space:nowrap;">Toda a rede</button>
         </div>
