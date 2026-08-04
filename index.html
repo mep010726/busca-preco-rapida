@@ -81,6 +81,10 @@
   }
   button.full { width: 100%; }
   button.secondary { background: #0f172a; color: var(--text); border: 1px solid var(--border); }
+  .link-btn {
+    background: none; border: none; color: var(--muted); font-size: 0.8rem;
+    text-decoration: underline; padding: 8px 0; width: auto; font-weight: 400;
+  }
   button.icon {
     padding: 12px 16px; flex: 0 0 auto;
     display: flex; align-items: center; justify-content: center;
@@ -231,6 +235,28 @@
       <button id="btnEntrar" class="full">Entrar</button>
       <button id="btnCriarConta" class="full secondary">Criar conta</button>
     </div>
+    <button id="linkEsqueciSenha" class="link-btn">Esqueci minha senha</button>
+  </div>
+
+  <!-- RECUPERAR SENHA: pede o e-mail e envia o link -->
+  <div id="recuperarCard" class="card hidden">
+    <label for="recuperarEmail">E-mail</label>
+    <input id="recuperarEmail" type="email" placeholder="seu@email.com">
+    <div id="recuperarMsg" class="msg"></div>
+    <div class="row">
+      <button id="btnEnviarRecuperacao" class="full">Enviar link de recuperação</button>
+      <button id="btnCancelarRecuperacao" class="full secondary">Voltar</button>
+    </div>
+  </div>
+
+  <!-- Aparece quando o usuário clica no link recebido por e-mail -->
+  <div id="novaSenhaCard" class="card hidden">
+    <label for="novaSenha1">Nova senha</label>
+    <input id="novaSenha1" type="password" placeholder="••••••••">
+    <label for="novaSenha2">Confirme a nova senha</label>
+    <input id="novaSenha2" type="password" placeholder="••••••••">
+    <div id="novaSenhaMsg" class="msg"></div>
+    <button id="btnSalvarNovaSenha" class="full">Salvar nova senha</button>
   </div>
 
   <!-- APP (só aparece logado) -->
@@ -350,6 +376,12 @@
         <h3>10. Atualizações automáticas</h3>
         <p>Quando o app recebe uma atualização, ele detecta sozinho e recarrega a tela automaticamente — não precisa apertar F5 nem reinstalar.</p>
 
+        <h3>11. Esqueci minha senha</h3>
+        <p>Na tela de login, toque em <strong>"Esqueci minha senha"</strong>, informe seu e-mail e você recebe um link pra criar uma nova senha.</p>
+
+        <h3>12. Sem conexão no modo múltiplos itens</h3>
+        <p>Se a internet cair no meio de uma busca com o modo "múltiplos itens" ligado, o bloco daquele item mostra "sem conexão" e tenta de novo sozinho assim que a internet voltar — não precisa refazer a busca manualmente.</p>
+
         <h3>Dúvidas ou problemas</h3>
         <p>Se algo não funcionar como esperado, use o campo de sugestão abaixo pra reportar.</p>
       </div>
@@ -457,6 +489,19 @@ const $authSenha = document.getElementById("authSenha");
 const $authMsg = document.getElementById("authMsg");
 const $btnEntrar = document.getElementById("btnEntrar");
 const $btnCriarConta = document.getElementById("btnCriarConta");
+const $linkEsqueciSenha = document.getElementById("linkEsqueciSenha");
+
+const $recuperarCard = document.getElementById("recuperarCard");
+const $recuperarEmail = document.getElementById("recuperarEmail");
+const $recuperarMsg = document.getElementById("recuperarMsg");
+const $btnEnviarRecuperacao = document.getElementById("btnEnviarRecuperacao");
+const $btnCancelarRecuperacao = document.getElementById("btnCancelarRecuperacao");
+
+const $novaSenhaCard = document.getElementById("novaSenhaCard");
+const $novaSenha1 = document.getElementById("novaSenha1");
+const $novaSenha2 = document.getElementById("novaSenha2");
+const $novaSenhaMsg = document.getElementById("novaSenhaMsg");
+const $btnSalvarNovaSenha = document.getElementById("btnSalvarNovaSenha");
 
 const $app = document.getElementById("app");
 const $userEmail = document.getElementById("userEmail");
@@ -592,23 +637,129 @@ $btnCriarConta.addEventListener("click", async () => {
 
 $btnSair.addEventListener("click", () => sb.auth.signOut());
 
-sb.auth.onAuthStateChange((_event, session) => {
-  currentUser = session ? session.user : null;
-  if (currentUser) {
-    $authCard.classList.add("hidden");
-    $app.classList.remove("hidden");
-    $userEmail.textContent = currentUser.email;
+// ---------- RECUPERAÇÃO DE SENHA ----------
 
-    // Lojas favoritas ficam salvas no perfil do usuário (user_metadata),
-    // então acompanham o funcionário em qualquer dispositivo/login.
-    const lojasSalvas = currentUser.user_metadata && currentUser.user_metadata.lojas_favoritas;
-    if (lojasSalvas) $lojas.value = lojasSalvas;
+$linkEsqueciSenha.addEventListener("click", () => {
+  $authCard.classList.add("hidden");
+  $recuperarCard.classList.remove("hidden");
+  $recuperarEmail.value = $authEmail.value;
+  $recuperarMsg.textContent = "";
+});
 
-    carregarHistorico();
+$btnCancelarRecuperacao.addEventListener("click", () => {
+  $recuperarCard.classList.add("hidden");
+  $authCard.classList.remove("hidden");
+});
+
+$btnEnviarRecuperacao.addEventListener("click", async () => {
+  const email = $recuperarEmail.value.trim();
+  if (!email) return;
+
+  $btnEnviarRecuperacao.disabled = true;
+  $recuperarMsg.textContent = "Enviando...";
+  $recuperarMsg.className = "msg";
+
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin,
+  });
+
+  $btnEnviarRecuperacao.disabled = false;
+  if (error) {
+    $recuperarMsg.textContent = error.message;
+    $recuperarMsg.className = "msg err";
   } else {
-    $authCard.classList.remove("hidden");
+    $recuperarMsg.textContent = "Link enviado! Verifique seu e-mail e clique no link pra criar uma nova senha.";
+    $recuperarMsg.className = "msg";
+  }
+});
+
+$btnSalvarNovaSenha.addEventListener("click", async () => {
+  const s1 = $novaSenha1.value;
+  const s2 = $novaSenha2.value;
+  if (!s1 || s1.length < 6) {
+    $novaSenhaMsg.textContent = "A senha precisa ter pelo menos 6 caracteres.";
+    $novaSenhaMsg.className = "msg err";
+    return;
+  }
+  if (s1 !== s2) {
+    $novaSenhaMsg.textContent = "As senhas não são iguais.";
+    $novaSenhaMsg.className = "msg err";
+    return;
+  }
+
+  $btnSalvarNovaSenha.disabled = true;
+  $novaSenhaMsg.textContent = "Salvando...";
+  $novaSenhaMsg.className = "msg";
+
+  const { error } = await sb.auth.updateUser({ password: s1 });
+
+  $btnSalvarNovaSenha.disabled = false;
+  if (error) {
+    $novaSenhaMsg.textContent = error.message;
+    $novaSenhaMsg.className = "msg err";
+    return;
+  }
+
+  $novaSenhaCard.classList.add("hidden");
+  $novaSenha1.value = "";
+  $novaSenha2.value = "";
+  emRecuperacaoDeSenha = false;
+
+  // A troca de senha não dispara um novo evento de login sozinha — usamos a
+  // sessão que já temos (criada quando o usuário clicou no link do e-mail)
+  // pra já deixar ele logado direto no app.
+  const { data } = await sb.auth.getSession();
+  if (data.session) mostrarAppLogado(data.session.user);
+});
+
+function mostrarAppLogado(user) {
+  currentUser = user;
+  $authCard.classList.add("hidden");
+  $recuperarCard.classList.add("hidden");
+  $novaSenhaCard.classList.add("hidden");
+  $app.classList.remove("hidden");
+  $userEmail.textContent = currentUser.email;
+
+  // Lojas favoritas ficam salvas no perfil do usuário (user_metadata),
+  // então acompanham o funcionário em qualquer dispositivo/login.
+  const lojasSalvas = currentUser.user_metadata && currentUser.user_metadata.lojas_favoritas;
+  if (lojasSalvas) $lojas.value = lojasSalvas;
+
+  carregarHistorico();
+}
+
+function mostrarTelaLogin() {
+  currentUser = null;
+  $authCard.classList.remove("hidden");
+  $recuperarCard.classList.add("hidden");
+  $novaSenhaCard.classList.add("hidden");
+  $app.classList.add("hidden");
+  renderTurnstile();
+}
+
+// Enquanto o usuário está no meio da troca de senha, o app ignora eventos de
+// login automático (a sessão temporária de recuperação não deve abrir o app).
+let emRecuperacaoDeSenha = false;
+
+sb.auth.onAuthStateChange((event, session) => {
+  // Ao clicar no link de recuperação por e-mail, o Supabase cria uma sessão
+  // temporária e dispara esse evento — mostramos o formulário de nova senha
+  // em vez de deixar entrar direto no app.
+  if (event === "PASSWORD_RECOVERY") {
+    emRecuperacaoDeSenha = true;
+    $authCard.classList.add("hidden");
+    $recuperarCard.classList.add("hidden");
     $app.classList.add("hidden");
-    renderTurnstile();
+    $novaSenhaCard.classList.remove("hidden");
+    return;
+  }
+
+  if (emRecuperacaoDeSenha) return;
+
+  if (session) {
+    mostrarAppLogado(session.user);
+  } else {
+    mostrarTelaLogin();
   }
 });
 
@@ -1139,6 +1290,18 @@ async function tentarBuscarEstoque(item, loja, cache, cardEl, signal) {
       return;
     }
 
+    if (!navigator.onLine || e instanceof TypeError) {
+      cardEl.innerHTML = `
+        <div class="loja-titulo">Loja ${loja}</div>
+        ${info ? `<div class="loja-endereco">${info}</div>` : ""}
+        <div class="msg err">Sem conexão — vai tentar de novo sozinho quando a internet voltar.</div>`;
+      window.addEventListener("online", () => {
+        cardEl.innerHTML = cardEstoqueLoadingInner(loja);
+        tentarBuscarEstoque(item, loja, new Map(), cardEl);
+      }, { once: true });
+      return;
+    }
+
     cardEl.innerHTML = `
       <div class="loja-titulo">Loja ${loja}</div>
       ${info ? `<div class="loja-endereco">${info}</div>` : ""}
@@ -1253,6 +1416,14 @@ async function executarBusca(codigo, lojasStrRaw, multiplo) {
   } catch (e) {
     if (e.name === "AbortError") {
       setBuscaStatus("Busca interrompida.");
+    } else if (multiplo && (!navigator.onLine || e instanceof TypeError)) {
+      // Sem internet: agenda pra tentar de novo sozinho quando a conexão
+      // voltar, em vez de só mostrar erro (só faz sentido no modo múltiplos
+      // itens — no modo padrão o usuário já vê e pode clicar Buscar de novo).
+      setBuscaStatus("Sem conexão — vai tentar de novo sozinho quando a internet voltar.", true);
+      window.addEventListener("online", () => {
+        executarBusca(codigo, lojasStrRaw, true);
+      }, { once: true });
     } else {
       setBuscaStatus("Erro ao buscar. Verifique a conexão.", true);
       console.error(e);
