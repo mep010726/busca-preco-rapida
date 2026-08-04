@@ -153,6 +153,9 @@
   .h-btn:hover { background: var(--card); }
   .h-btn.favorito.ativo { color: #facc15; }
   .h-btn.apagar:hover { color: var(--danger); }
+  .h-btn.sugerir:hover { color: var(--accent); }
+  .h-btn.aprovar:hover { color: var(--accent); }
+  .h-btn.rejeitar:hover { color: var(--danger); }
 
   .modal-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,0.7);
@@ -194,6 +197,7 @@
       <button id="tabBusca" class="active">Buscar</button>
       <button id="tabHistorico">Histórico</button>
       <button id="tabFavoritos">Favoritos</button>
+      <button id="tabMaisProcurados">Mais Procurados</button>
       <button id="tabAjuda">Ajuda</button>
     </div>
 
@@ -241,6 +245,16 @@
       </div>
     </div>
 
+    <div id="painelMaisProcurados" class="hidden">
+      <div id="mpPendentesCard" class="card hidden">
+        <div class="loja-titulo">Pendentes de revisão</div>
+        <div id="mpPendentesLista"></div>
+      </div>
+      <div class="card">
+        <div id="mpAprovadosLista"></div>
+      </div>
+    </div>
+
     <div id="painelAjuda" class="hidden">
       <div class="card ajuda">
         <h2>Como usar</h2>
@@ -264,7 +278,10 @@
         <h3>6. Favoritos</h3>
         <p>A aba <strong>Favoritos</strong> mostra só as buscas que você marcou com a estrela — útil pra produtos que você consulta com frequência.</p>
 
-        <h3>7. Instalar no celular</h3>
+        <h3>7. Mais Procurados</h3>
+        <p>No histórico, toque no ícone <strong>📌</strong> pra sugerir um item para os "Mais Procurados" — uma lista compartilhada com todos os usuários do app. A sugestão fica pendente até ser revisada; se aprovada, aparece pra todo mundo na aba <strong>Mais Procurados</strong>.</p>
+
+        <h3>8. Instalar no celular</h3>
         <p><strong>Android (Chrome):</strong> abra o site e toque em "Instalar app" quando aparecer, ou no menu ⋮ → "Adicionar à tela inicial".</p>
         <p><strong>iPhone (Safari):</strong> toque no ícone de compartilhar (□↑) → "Adicionar à Tela de Início".</p>
         <p>Depois de instalado, abre direto como um app, sem barra de endereço.</p>
@@ -295,6 +312,9 @@ const TURNSTILE_SITE_KEY = "0x4AAAAAAEGYOswRL545WBG-";
 // Todas as lojas da rede (usadas pela opção "ver em toda rede")
 const TODAS_AS_LOJAS = [1, 2, 4, 12, 22, 31, 32, 151, 171];
 
+// Único e-mail com permissão de aprovar/rejeitar sugestões de Mais Procurados
+const ADMIN_EMAIL = "lucasfsa1998@hotmail.com";
+
 const API_BASE = "https://credito.mersan.co/api/v1/buscapreco";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -312,13 +332,18 @@ const $btnSair = document.getElementById("btnSair");
 const $tabBusca = document.getElementById("tabBusca");
 const $tabHistorico = document.getElementById("tabHistorico");
 const $tabFavoritos = document.getElementById("tabFavoritos");
+const $tabMaisProcurados = document.getElementById("tabMaisProcurados");
 const $tabAjuda = document.getElementById("tabAjuda");
 const $painelBusca = document.getElementById("painelBusca");
 const $painelHistorico = document.getElementById("painelHistorico");
 const $painelFavoritos = document.getElementById("painelFavoritos");
+const $painelMaisProcurados = document.getElementById("painelMaisProcurados");
 const $painelAjuda = document.getElementById("painelAjuda");
 const $historicoLista = document.getElementById("historicoLista");
 const $favoritosLista = document.getElementById("favoritosLista");
+const $mpPendentesCard = document.getElementById("mpPendentesCard");
+const $mpPendentesLista = document.getElementById("mpPendentesLista");
+const $mpAprovadosLista = document.getElementById("mpAprovadosLista");
 
 const $codigo = document.getElementById("codigo");
 const $lojas = document.getElementById("lojas");
@@ -452,6 +477,7 @@ const ABAS = [
   { tab: $tabBusca, painel: $painelBusca },
   { tab: $tabHistorico, painel: $painelHistorico },
   { tab: $tabFavoritos, painel: $painelFavoritos },
+  { tab: $tabMaisProcurados, painel: $painelMaisProcurados },
   { tab: $tabAjuda, painel: $painelAjuda },
 ];
 
@@ -472,18 +498,22 @@ $tabFavoritos.addEventListener("click", () => {
   mostrarAba($tabFavoritos);
   carregarFavoritos();
 });
+$tabMaisProcurados.addEventListener("click", () => {
+  mostrarAba($tabMaisProcurados);
+  carregarMaisProcurados();
+});
 $tabAjuda.addEventListener("click", () => mostrarAba($tabAjuda));
 
 // ---------- HISTÓRICO / FAVORITOS ----------
 
-function renderListaItens(container, data, { vazio }) {
+function renderListaItens(container, data, { vazio, mostrarSugerir }) {
   if (!data || data.length === 0) {
     container.innerHTML = `<div class="msg">${vazio}</div>`;
     return;
   }
 
   container.innerHTML = data.map(h => `
-    <div class="historico-item" data-id="${h.id}" data-codigo="${h.codigo_barras}" data-lojas="${h.lojas || ""}">
+    <div class="historico-item" data-id="${h.id}" data-codigo="${h.codigo_barras}" data-lojas="${h.lojas || ""}" data-produto="${(h.produto || "").replace(/"/g, "&quot;")}" data-preco="${h.preco != null ? h.preco : ""}">
       <div class="h-conteudo">
         <div class="h-produto">${h.produto || h.codigo_barras}</div>
         <div class="h-meta">Lojas ${h.lojas || "-"} · ${new Date(h.criado_em).toLocaleString("pt-BR")}</div>
@@ -491,6 +521,7 @@ function renderListaItens(container, data, { vazio }) {
       <div class="h-acoes">
         <span>${h.preco != null ? fmtMoeda(h.preco) : ""}</span>
         <button class="h-btn favorito ${h.favorito ? "ativo" : ""}" title="Favoritar">${h.favorito ? "★" : "☆"}</button>
+        ${mostrarSugerir ? '<button class="h-btn sugerir" title="Sugerir para Mais Procurados">📌</button>' : ""}
         <button class="h-btn apagar" title="Apagar">🗑</button>
       </div>
     </div>
@@ -515,6 +546,19 @@ function renderListaItens(container, data, { vazio }) {
       e.stopPropagation();
       apagarHistorico(id);
     });
+
+    const $sugerir = el.querySelector(".sugerir");
+    if ($sugerir) {
+      $sugerir.addEventListener("click", (e) => {
+        e.stopPropagation();
+        sugerirMaisProcurado({
+          codigo_barras: el.dataset.codigo,
+          produto: el.dataset.produto,
+          preco: el.dataset.preco ? Number(el.dataset.preco) : null,
+          lojas: el.dataset.lojas,
+        }, $sugerir);
+      });
+    }
   });
 }
 
@@ -532,7 +576,7 @@ async function carregarHistorico() {
     $historicoLista.innerHTML = `<div class="msg err">Erro ao carregar histórico: ${error.message}</div>`;
     return;
   }
-  renderListaItens($historicoLista, data, { vazio: "Nenhuma busca ainda." });
+  renderListaItens($historicoLista, data, { vazio: "Nenhuma busca ainda.", mostrarSugerir: true });
 }
 
 async function carregarFavoritos() {
@@ -573,6 +617,100 @@ async function salvarHistorico(item, lojasStr) {
     preco: item.vlPrecoPromocao > 0 ? item.vlPrecoPromocao : item.vlPreco,
     lojas: lojasStr,
   });
+}
+
+// ---------- MAIS PROCURADOS ----------
+
+function ehAdmin() {
+  return currentUser && currentUser.email === ADMIN_EMAIL;
+}
+
+async function sugerirMaisProcurado(item, $botao) {
+  if (!currentUser) return;
+  $botao.disabled = true;
+  const { error } = await sb.from("mais_procurados").insert({
+    sugerido_por: currentUser.id,
+    codigo_barras: item.codigo_barras,
+    produto: item.produto,
+    preco: item.preco,
+    lojas: item.lojas,
+  });
+  if (error) {
+    alert("Erro ao sugerir: " + error.message);
+    $botao.disabled = false;
+  } else {
+    $botao.textContent = "✅";
+  }
+}
+
+function renderListaMaisProcurados(container, data, { vazio, comRevisao }) {
+  if (!data || data.length === 0) {
+    container.innerHTML = `<div class="msg">${vazio}</div>`;
+    return;
+  }
+
+  container.innerHTML = data.map(h => `
+    <div class="historico-item" data-id="${h.id}">
+      <div class="h-conteudo">
+        <div class="h-produto">${h.produto || h.codigo_barras}</div>
+        <div class="h-meta">Lojas ${h.lojas || "-"} · sugerido em ${new Date(h.criado_em).toLocaleString("pt-BR")}</div>
+      </div>
+      <div class="h-acoes">
+        <span>${h.preco != null ? fmtMoeda(h.preco) : ""}</span>
+        ${comRevisao ? `
+          <button class="h-btn aprovar" title="Aprovar">✔</button>
+          <button class="h-btn rejeitar" title="Rejeitar">✖</button>
+        ` : ""}
+      </div>
+    </div>
+  `).join("");
+
+  if (comRevisao) {
+    container.querySelectorAll(".historico-item").forEach(el => {
+      const id = el.dataset.id;
+      el.querySelector(".aprovar").addEventListener("click", () => revisarMaisProcurado(id, "aprovado"));
+      el.querySelector(".rejeitar").addEventListener("click", () => revisarMaisProcurado(id, "rejeitado"));
+    });
+  }
+}
+
+async function carregarMaisProcurados() {
+  if (!currentUser) return;
+
+  if (ehAdmin()) {
+    $mpPendentesCard.classList.remove("hidden");
+    $mpPendentesLista.innerHTML = `<div class="msg">Carregando pendentes...</div>`;
+    const { data: pendentes, error: errPend } = await sb
+      .from("mais_procurados")
+      .select("*")
+      .eq("status", "pendente")
+      .order("criado_em", { ascending: false });
+    if (errPend) {
+      $mpPendentesLista.innerHTML = `<div class="msg err">Erro: ${errPend.message}</div>`;
+    } else {
+      renderListaMaisProcurados($mpPendentesLista, pendentes, { vazio: "Nenhuma sugestão pendente.", comRevisao: true });
+    }
+  } else {
+    $mpPendentesCard.classList.add("hidden");
+  }
+
+  $mpAprovadosLista.innerHTML = `<div class="msg">Carregando...</div>`;
+  const { data: aprovados, error } = await sb
+    .from("mais_procurados")
+    .select("*")
+    .eq("status", "aprovado")
+    .order("criado_em", { ascending: false });
+
+  if (error) {
+    $mpAprovadosLista.innerHTML = `<div class="msg err">Erro ao carregar: ${error.message}</div>`;
+    return;
+  }
+  renderListaMaisProcurados($mpAprovadosLista, aprovados, { vazio: "Nenhum item aprovado ainda." });
+}
+
+async function revisarMaisProcurado(id, status) {
+  await sb.from("mais_procurados").update({ status, revisado_em: new Date().toISOString() }).eq("id", id);
+  carregarMaisProcurados();
 }
 
 // ---------- CÂMERA (QR / código de barras) ----------
