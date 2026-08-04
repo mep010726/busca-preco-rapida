@@ -244,7 +244,7 @@
 
         <label for="codigo">Código de barras</label>
         <div class="row">
-          <input id="codigo" type="text" inputmode="numeric" placeholder="Escaneie ou digite" autofocus>
+          <input id="codigo" type="text" inputmode="numeric" placeholder="Escaneie ou digite">
           <button id="btnCamera" class="icon" title="Escanear com a câmera">📷</button>
         </div>
 
@@ -683,7 +683,7 @@ function renderListaMaisProcurados(container, data, { vazio, comRevisao }) {
   }
 
   container.innerHTML = data.map(h => `
-    <div class="historico-item" data-id="${h.id}">
+    <div class="historico-item" data-id="${h.id}" data-codigo="${h.codigo_barras}" data-lojas="${h.lojas || ""}">
       <div class="h-conteudo">
         <div class="h-produto">${h.produto || h.codigo_barras}</div>
         <div class="h-meta">Lojas ${h.lojas || "-"} · sugerido em ${new Date(h.criado_em).toLocaleString("pt-BR")}</div>
@@ -698,13 +698,23 @@ function renderListaMaisProcurados(container, data, { vazio, comRevisao }) {
     </div>
   `).join("");
 
-  if (comRevisao) {
-    container.querySelectorAll(".historico-item").forEach(el => {
-      const id = el.dataset.id;
+  container.querySelectorAll(".historico-item").forEach(el => {
+    const id = el.dataset.id;
+
+    if (!comRevisao) {
+      el.querySelector(".h-conteudo").addEventListener("click", () => {
+        $codigo.value = el.dataset.codigo;
+        $lojas.value = el.dataset.lojas;
+        $tabBusca.click();
+        buscar();
+      });
+    }
+
+    if (comRevisao) {
       el.querySelector(".aprovar").addEventListener("click", () => revisarMaisProcurado(id, "aprovado"));
       el.querySelector(".rejeitar").addEventListener("click", () => revisarMaisProcurado(id, "rejeitado"));
-    });
-  }
+    }
+  });
 }
 
 async function carregarMaisProcurados() {
@@ -795,22 +805,42 @@ function parseLojas(raw) {
   )].filter(n => !Number.isNaN(n));
 }
 
-function cardEstoqueLoading(loja) {
+function cardEstoqueLoadingInner(loja) {
   return `
-    <div class="loja-card" id="card-loja-${loja}">
-      <div class="loja-titulo">Loja ${loja}</div>
-      <div class="estoque-badge">
-        <span>Estoque</span>
-        <span class="estoque-qtd"><span class="loading-dots"><span></span><span></span><span></span></span></span>
-      </div>
-      <div class="tabela-wrap"></div>
-    </div>`;
+    <div class="loja-titulo">Loja ${loja}</div>
+    <div class="estoque-badge">
+      <span>Estoque</span>
+      <span class="estoque-qtd"><span class="loading-dots"><span></span><span></span><span></span></span></span>
+    </div>
+    <div class="tabela-wrap"></div>`;
+}
+
+function cardEstoqueLoading(loja) {
+  return `<div class="loja-card" id="card-loja-${loja}">${cardEstoqueLoadingInner(loja)}</div>`;
 }
 
 async function buscarPreco(codigo, primeiraLoja) {
   const resp = await fetch(`${API_BASE}/${encodeURIComponent(codigo)}/${encodeURIComponent(primeiraLoja)}`);
   const data = await resp.json();
   return (data.precos || []).find(p => p.cdSKU && p.cdSKU !== 0) || null;
+}
+
+// O site da Mersan às vezes demora muito ou devolve uma página de erro (HTML)
+// em vez do JSON de estoque, principalmente sob carga. Aqui a gente valida a
+// resposta e tenta de novo uma vez antes de desistir, pra reduzir os "Erro ao
+// buscar estoque" causados por instabilidade do lado deles.
+async function fetchEstoqueComRetry(url, tentativas = 2) {
+  for (let i = 0; i < tentativas; i++) {
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      if (!Array.isArray(data)) throw new Error("Resposta de estoque inesperada");
+      return data;
+    } catch (e) {
+      if (i === tentativas - 1) throw e;
+    }
+  }
 }
 
 async function buscarEstoqueLoja(item, loja, estoqueCache) {
@@ -821,8 +851,7 @@ async function buscarEstoqueLoja(item, loja, estoqueCache) {
   if (!estoqueCache.has(item.cdReferencia)) {
     estoqueCache.set(
       item.cdReferencia,
-      fetch(`${API_BASE}/estoque/${encodeURIComponent(item.cdReferencia)}/${encodeURIComponent(loja)}`)
-        .then(r => r.json())
+      fetchEstoqueComRetry(`${API_BASE}/estoque/${encodeURIComponent(item.cdReferencia)}/${encodeURIComponent(loja)}`)
     );
   }
   const estData = await estoqueCache.get(item.cdReferencia);
@@ -850,6 +879,24 @@ async function buscarEstoqueLoja(item, loja, estoqueCache) {
       </table>`;
   } else {
     $tabela.innerHTML = `<div class="msg">Nenhuma outra numeração com estoque nesta loja.</div>`;
+  }
+}
+
+async function tentarBuscarEstoque(item, loja, cache) {
+  try {
+    await buscarEstoqueLoja(item, loja, cache);
+  } catch (e) {
+    console.error(e);
+    const el = document.getElementById(`card-loja-${loja}`);
+    if (!el) return;
+    el.innerHTML = `
+      <div class="loja-titulo">Loja ${loja}</div>
+      <div class="msg err">Erro ao buscar estoque (a Mersan pode estar lenta ou instável).</div>
+      <button class="secondary full btn-tentar-de-novo">Tentar de novo</button>`;
+    el.querySelector(".btn-tentar-de-novo").addEventListener("click", () => {
+      el.innerHTML = cardEstoqueLoadingInner(loja);
+      tentarBuscarEstoque(item, loja, new Map());
+    });
   }
 }
 
@@ -886,21 +933,13 @@ async function buscar() {
     $resultados.innerHTML = lojas.map(cardEstoqueLoading).join("");
 
     const estoqueCache = new Map();
-    const buscas = lojas.map(loja =>
-      buscarEstoqueLoja(item, loja, estoqueCache).catch(e => {
-        console.error(e);
-        const el = document.getElementById(`card-loja-${loja}`);
-        if (el) el.innerHTML = `<div class="loja-titulo">Loja ${loja}</div><div class="msg err">Erro ao buscar estoque.</div>`;
-      })
-    );
-    await Promise.all(buscas);
+    await Promise.all(lojas.map(loja => tentarBuscarEstoque(item, loja, estoqueCache)));
     setStatus("");
   } catch (e) {
     setStatus("Erro ao buscar. Verifique a conexão.", true);
     console.error(e);
   } finally {
     $buscar.disabled = false;
-    $codigo.select();
   }
 }
 
