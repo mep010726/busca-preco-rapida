@@ -93,6 +93,8 @@
   .btn-parar-busca:active { background: #c53030; }
   .row { display: flex; gap: 8px; align-items: stretch; margin-bottom: 12px; }
   .row > input { margin-bottom: 0; flex: 1; min-width: 0; }
+  .row > button.full { flex: 1; width: auto; }
+  #btnTorch.ativo { background: var(--accent); color: #04220f; border-color: var(--accent); }
   .row-lojas { flex-wrap: wrap; }
   .row-lojas > input { flex: 1 1 200px; }
   .row-lojas > button { flex: 0 0 auto; }
@@ -369,8 +371,14 @@
   <!-- MODAL CÂMERA -->
   <div id="camModal" class="modal-overlay hidden">
     <div class="modal-box">
+      <select id="camSelect" class="hidden" style="margin-bottom:12px;"></select>
       <div id="camReader"></div>
-      <button id="btnFecharCam" class="full secondary" style="margin-top:12px;">Fechar câmera</button>
+      <div class="row" style="margin-top:12px;">
+        <button id="btnTorch" class="secondary icon hidden" title="Ligar/desligar luz">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.3A7 7 0 0 0 12 2z"/></svg>
+        </button>
+        <button id="btnFecharCam" class="full secondary">Fechar câmera</button>
+      </div>
     </div>
   </div>
 </div>
@@ -492,6 +500,8 @@ const $buscasMultiplas = document.getElementById("buscasMultiplas");
 const $btnCamera = document.getElementById("btnCamera");
 const $camModal = document.getElementById("camModal");
 const $btnFecharCam = document.getElementById("btnFecharCam");
+const $camSelect = document.getElementById("camSelect");
+const $btnTorch = document.getElementById("btnTorch");
 
 let currentUser = null;
 let html5Qrcode = null;
@@ -945,24 +955,95 @@ async function carregarSugestoes() {
 
 // ---------- CÂMERA (QR / código de barras) ----------
 
+let torchLigada = false;
+
+async function iniciarCamera(cameraIdOuConfig) {
+  html5Qrcode = new Html5Qrcode("camReader");
+  torchLigada = false;
+  $btnTorch.classList.add("hidden");
+
+  await html5Qrcode.start(
+    cameraIdOuConfig,
+    { fps: 10, qrbox: { width: 250, height: 150 } },
+    (decodedText) => {
+      $codigo.value = decodedText;
+      fecharCamera();
+      buscar();
+    },
+    () => {} // erro de frame individual, ignorar
+  );
+
+  // Mostra o botão de lanterna só se o dispositivo/lente atual suportar.
+  try {
+    const capacidades = html5Qrcode.getRunningTrackCameraCapabilities();
+    const torch = capacidades.torchFeature();
+    if (torch.isSupported()) $btnTorch.classList.remove("hidden");
+  } catch (e) {
+    // API de torch não suportada nesse navegador — mantém o botão escondido.
+  }
+}
+
 $btnCamera.addEventListener("click", async () => {
   $camModal.classList.remove("hidden");
-  html5Qrcode = new Html5Qrcode("camReader");
+  $camSelect.innerHTML = "";
+  $camSelect.classList.add("hidden");
+
   try {
-    await html5Qrcode.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: { width: 250, height: 150 } },
-      (decodedText) => {
-        $codigo.value = decodedText;
-        fecharCamera();
-        buscar();
-      },
-      () => {} // erro de frame individual, ignorar
-    );
+    const cameras = await Html5Qrcode.getCameras();
+    const idSalvo = localStorage.getItem("bp_camera_id");
+
+    if (cameras && cameras.length > 1) {
+      cameras.forEach(cam => {
+        const opt = document.createElement("option");
+        opt.value = cam.id;
+        opt.textContent = cam.label || `Câmera ${cam.id}`;
+        $camSelect.appendChild(opt);
+      });
+      $camSelect.classList.remove("hidden");
+
+      const existeSalva = cameras.some(c => c.id === idSalvo);
+      // Sem preferência salva, prioriza a última câmera traseira da lista —
+      // costuma ser a lente principal em aparelhos com múltiplas lentes.
+      const traseiras = cameras.filter(c => /back|tras|rear/i.test(c.label || ""));
+      const padrao = existeSalva ? idSalvo : (traseiras.at(-1) || cameras.at(-1)).id;
+      $camSelect.value = padrao;
+
+      await iniciarCamera(padrao);
+    } else if (cameras && cameras.length === 1) {
+      await iniciarCamera(cameras[0].id);
+    } else {
+      await iniciarCamera({ facingMode: "environment" });
+    }
   } catch (e) {
     console.error(e);
     $camModal.classList.add("hidden");
     setStatus("Não foi possível acessar a câmera.", true);
+  }
+});
+
+$camSelect.addEventListener("change", async () => {
+  const novoId = $camSelect.value;
+  localStorage.setItem("bp_camera_id", novoId);
+  if (html5Qrcode) {
+    await html5Qrcode.stop().then(() => html5Qrcode.clear()).catch(() => {});
+  }
+  try {
+    await iniciarCamera(novoId);
+  } catch (e) {
+    console.error(e);
+    setStatus("Não foi possível trocar de câmera.", true);
+  }
+});
+
+$btnTorch.addEventListener("click", async () => {
+  if (!html5Qrcode) return;
+  try {
+    const capacidades = html5Qrcode.getRunningTrackCameraCapabilities();
+    torchLigada = !torchLigada;
+    await capacidades.torchFeature().apply(torchLigada);
+    $btnTorch.classList.toggle("ativo", torchLigada);
+  } catch (e) {
+    console.error(e);
   }
 });
 
@@ -973,6 +1054,8 @@ function fecharCamera() {
     html5Qrcode.stop().then(() => html5Qrcode.clear()).catch(() => {});
     html5Qrcode = null;
   }
+  torchLigada = false;
+  $btnTorch.classList.remove("ativo");
   $camModal.classList.add("hidden");
 }
 
