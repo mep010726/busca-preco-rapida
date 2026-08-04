@@ -1088,9 +1088,26 @@ $btnRedeToda.addEventListener("click", () => {
 // Registra o service worker: guarda o "shell" do app (HTML/manifest/ícones)
 // em cache, então abrir de novo é instantâneo mesmo com internet ruim.
 // Preço e estoque continuam sempre buscados ao vivo, nunca do cache.
+//
+// Também detecta quando uma nova versão do app foi publicada e recarrega
+// a página sozinho, sem o usuário precisar apertar F5/atualizar.
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js").catch(console.error);
+  window.addEventListener("load", async () => {
+    try {
+      const reg = await navigator.serviceWorker.register("sw.js");
+
+      // Verifica se tem versão nova a cada 60s enquanto o app estiver aberto
+      setInterval(() => reg.update().catch(() => {}), 60000);
+
+      let jaRecarregou = false;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (jaRecarregou) return;
+        jaRecarregou = true;
+        window.location.reload();
+      });
+    } catch (e) {
+      console.error(e);
+    }
   });
 }
 </script>

@@ -1,4 +1,4 @@
-const CACHE_NAME = "busca-preco-shell-v1";
+const CACHE_NAME = "busca-preco-shell-v2";
 const SHELL_FILES = ["/", "/index.html", "/manifest.json", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -25,18 +25,18 @@ self.addEventListener("fetch", (event) => {
   // direto pra rede, pra nunca mostrar preco/estoque desatualizado.
   if (url.origin !== self.location.origin) return;
 
+  // Network-first: sempre tenta buscar a versao mais nova primeiro, e so usa
+  // o cache se estiver offline. Isso garante que, ao reabrir o app, ele
+  // carrega a atualizacao mais recente em vez de uma copia antiga guardada.
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const network = fetch(event.request)
-        .then((resp) => {
-          if (resp.ok) {
-            const clone = resp.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
-          return resp;
-        })
-        .catch(() => cached);
-      return cached || network;
-    })
+    fetch(event.request)
+      .then((resp) => {
+        if (resp.ok) {
+          const clone = resp.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return resp;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
