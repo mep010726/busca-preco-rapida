@@ -799,6 +799,7 @@ function renderListaMaisProcurados(container, data, { vazio, comRevisao }) {
           <button class="h-btn aprovar" title="Aprovar">${ICONE_CHECK}</button>
           <button class="h-btn rejeitar" title="Rejeitar">${ICONE_X}</button>
         ` : ""}
+        ${!comRevisao && ehAdmin() ? `<button class="h-btn apagar-mp" title="Apagar">${ICONE_LIXEIRA}</button>` : ""}
       </div>
     </div>
   `).join("");
@@ -813,6 +814,13 @@ function renderListaMaisProcurados(container, data, { vazio, comRevisao }) {
         $tabBusca.click();
         buscar();
       });
+      const $apagar = el.querySelector(".apagar-mp");
+      if ($apagar) {
+        $apagar.addEventListener("click", (e) => {
+          e.stopPropagation();
+          apagarMaisProcurado(id);
+        });
+      }
     }
 
     if (comRevisao) {
@@ -858,6 +866,11 @@ async function carregarMaisProcurados() {
 
 async function revisarMaisProcurado(id, status) {
   await sb.from("mais_procurados").update({ status, revisado_em: new Date().toISOString() }).eq("id", id);
+  carregarMaisProcurados();
+}
+
+async function apagarMaisProcurado(id) {
+  await sb.from("mais_procurados").delete().eq("id", id);
   carregarMaisProcurados();
 }
 
