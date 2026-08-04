@@ -81,7 +81,10 @@
   }
   button.full { width: 100%; }
   button.secondary { background: #0f172a; color: var(--text); border: 1px solid var(--border); }
-  button.icon { padding: 12px 16px; font-size: 1.3rem; flex: 0 0 auto; }
+  button.icon {
+    padding: 12px 16px; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center;
+  }
   button:active { background: var(--accent-dim); }
   button:disabled { opacity: 0.5; cursor: default; }
   .row { display: flex; gap: 8px; align-items: stretch; margin-bottom: 12px; }
@@ -168,11 +171,14 @@
   .h-conteudo { flex: 1; min-width: 0; }
   .h-acoes { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
   .h-btn {
-    background: none; border: none; padding: 6px 8px; font-size: 1.1rem;
+    background: none; border: none; padding: 6px 8px;
+    display: inline-flex; align-items: center; justify-content: center;
     cursor: pointer; border-radius: 6px; color: var(--muted); line-height: 1;
   }
   .h-btn:hover { background: var(--card); }
+  .h-btn:disabled { opacity: 0.6; cursor: default; }
   .h-btn.favorito.ativo { color: #facc15; }
+  .h-btn.sugerir.ativo { color: var(--accent); }
   .h-btn.apagar:hover { color: var(--danger); }
   .h-btn.sugerir:hover { color: var(--accent); }
   .h-btn.aprovar:hover { color: var(--accent); }
@@ -195,7 +201,7 @@
     input, select { padding: 10px; font-size: 1rem; }
     button { padding: 11px; font-size: 0.95rem; }
     .tabs button { padding: 10px 4px; }
-    button.icon { padding: 10px 12px; font-size: 1.15rem; }
+    button.icon { padding: 10px 12px; }
     .resumo { flex-wrap: wrap; gap: 8px; }
     .resumo-preco { font-size: 1.5rem; }
     .loja-card { flex: 1 1 100%; min-width: 0; }
@@ -249,7 +255,9 @@
         <label for="codigo">Código de barras</label>
         <div class="row">
           <input id="codigo" type="text" inputmode="numeric" placeholder="Escaneie ou digite">
-          <button id="btnCamera" class="icon" title="Escanear com a câmera">📷</button>
+          <button id="btnCamera" class="icon" title="Escanear com a câmera">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </button>
         </div>
 
         <label class="checkbox-row">
@@ -308,7 +316,7 @@
         <p>O preço aparece na hora. O estoque de cada loja carrega logo em seguida — mostra o total de peças da referência naquela loja, a lista de cores/numerações disponíveis, e embaixo do nome da loja aparece o endereço/cidade dela.</p>
 
         <h3>2. Câmera</h3>
-        <p>Toque no botão <strong>📷</strong> ao lado do campo de código de barras para escanear com a câmera do celular, em vez de digitar.</p>
+        <p>Toque no ícone de câmera ao lado do campo de código de barras para escanear com a câmera do celular, em vez de digitar.</p>
 
         <h3>3. Toda a rede</h3>
         <p>O botão <strong>Toda a rede</strong> preenche automaticamente o campo de lojas com todas as lojas cadastradas, para você ver o estoque em toda a rede de uma vez.</p>
@@ -320,13 +328,13 @@
         <p>As lojas que você digitar ficam salvas automaticamente no seu perfil — da próxima vez que entrar (mesmo em outro celular), elas já vêm preenchidas.</p>
 
         <h3>6. Histórico</h3>
-        <p>A aba <strong>Histórico</strong> mostra suas últimas buscas. Toque no item para repetir aquela busca. Toque na estrela ☆ pra favoritar, no ícone 📌 pra sugerir para os "Mais Procurados", ou na lixeira 🗑 pra apagar aquele item do histórico.</p>
+        <p>A aba <strong>Histórico</strong> mostra suas últimas buscas. Toque no item para repetir aquela busca. Toque no ícone de estrela pra favoritar, no de pin pra sugerir para os "Mais Procurados", ou no de lixeira pra apagar aquele item do histórico.</p>
 
         <h3>7. Favoritos</h3>
         <p>A aba <strong>Favoritos</strong> mostra só as buscas que você marcou com a estrela — útil pra produtos que você consulta com frequência.</p>
 
         <h3>8. Mais Procurados</h3>
-        <p>No histórico, toque no ícone <strong>📌</strong> pra sugerir um item para os "Mais Procurados" — uma lista compartilhada com todos os usuários do app. A sugestão fica pendente até ser revisada; se aprovada, aparece pra todo mundo na aba <strong>Mais Procurados</strong>, e qualquer um pode tocar no item pra repetir a busca na hora.</p>
+        <p>No histórico, toque no ícone de pin pra sugerir um item para os "Mais Procurados" — uma lista compartilhada com todos os usuários do app. A sugestão fica pendente até ser revisada; se aprovada, aparece pra todo mundo na aba <strong>Mais Procurados</strong>, e qualquer um pode tocar no item pra repetir a busca na hora.</p>
 
         <h3>9. Instalar no celular</h3>
         <p><strong>Android (Chrome):</strong> abra o site direto no Chrome (não dentro do WhatsApp/Instagram) e toque em "Instalar app" quando aparecer, ou no menu ⋮ → "Adicionar à tela inicial".</p>
@@ -422,6 +430,14 @@ const TODAS_AS_LOJAS = Object.keys(LOJAS_INFO).map(Number);
 const ADMIN_EMAIL = "lucasfsa1998@hotmail.com";
 
 const API_BASE = "https://credito.mersan.co/api/v1/buscapreco";
+
+// Ícones em SVG (flat, sem emoji) usados nos botões de ação das listas
+const ICONE_ESTRELA_CHEIA = `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+const ICONE_ESTRELA_VAZIA = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+const ICONE_PIN = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 6.5-9 12-9 12s-9-5.5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`;
+const ICONE_LIXEIRA = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
+const ICONE_CHECK = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+const ICONE_X = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const $authCard = document.getElementById("authCard");
@@ -641,9 +657,9 @@ function renderListaItens(container, data, { vazio, mostrarSugerir }) {
       </div>
       <div class="h-acoes">
         <span>${h.preco != null ? fmtMoeda(h.preco) : ""}</span>
-        <button class="h-btn favorito ${h.favorito ? "ativo" : ""}" title="Favoritar">${h.favorito ? "★" : "☆"}</button>
-        ${mostrarSugerir ? '<button class="h-btn sugerir" title="Sugerir para Mais Procurados">📌</button>' : ""}
-        <button class="h-btn apagar" title="Apagar">🗑</button>
+        <button class="h-btn favorito ${h.favorito ? "ativo" : ""}" title="Favoritar">${h.favorito ? ICONE_ESTRELA_CHEIA : ICONE_ESTRELA_VAZIA}</button>
+        ${mostrarSugerir ? `<button class="h-btn sugerir" title="Sugerir para Mais Procurados">${ICONE_PIN}</button>` : ""}
+        <button class="h-btn apagar" title="Apagar">${ICONE_LIXEIRA}</button>
       </div>
     </div>
   `).join("");
@@ -714,7 +730,7 @@ async function carregarFavoritos() {
     $favoritosLista.innerHTML = `<div class="msg err">Erro ao carregar favoritos: ${error.message}</div>`;
     return;
   }
-  renderListaItens($favoritosLista, data, { vazio: "Nenhum favorito ainda. Toque na estrela ☆ no histórico pra favoritar." });
+  renderListaItens($favoritosLista, data, { vazio: "Nenhum favorito ainda. Toque na estrela no histórico pra favoritar." });
 }
 
 async function alternarFavorito(id, novoValor) {
@@ -760,7 +776,8 @@ async function sugerirMaisProcurado(item, $botao) {
     alert("Erro ao sugerir: " + error.message);
     $botao.disabled = false;
   } else {
-    $botao.textContent = "✅";
+    $botao.innerHTML = ICONE_CHECK;
+    $botao.classList.add("ativo");
   }
 }
 
@@ -779,8 +796,8 @@ function renderListaMaisProcurados(container, data, { vazio, comRevisao }) {
       <div class="h-acoes">
         <span>${h.preco != null ? fmtMoeda(h.preco) : ""}</span>
         ${comRevisao ? `
-          <button class="h-btn aprovar" title="Aprovar">✔</button>
-          <button class="h-btn rejeitar" title="Rejeitar">✖</button>
+          <button class="h-btn aprovar" title="Aprovar">${ICONE_CHECK}</button>
+          <button class="h-btn rejeitar" title="Rejeitar">${ICONE_X}</button>
         ` : ""}
       </div>
     </div>
@@ -896,7 +913,7 @@ async function carregarSugestoes() {
         <div style="margin-top:6px; font-size:0.9rem;">${s.texto.replace(/</g, "&lt;")}</div>
       </div>
       <div class="h-acoes">
-        <button class="h-btn apagar-sugestao" title="Apagar">🗑</button>
+        <button class="h-btn apagar-sugestao" title="Apagar">${ICONE_LIXEIRA}</button>
       </div>
     </div>
   `).join("");
