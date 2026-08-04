@@ -4,6 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Busca Preço Rápida</title>
+
+<!-- PWA: permite instalar como app no celular -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f172a">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Busca Preço">
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
@@ -616,6 +626,15 @@ $btnRedeToda.addEventListener("click", () => {
   $lojas.value = TODAS_AS_LOJAS.join(",");
   $lojas.dispatchEvent(new Event("change"));
 });
+
+// Registra o service worker: guarda o "shell" do app (HTML/manifest/ícones)
+// em cache, então abrir de novo é instantâneo mesmo com internet ruim.
+// Preço e estoque continuam sempre buscados ao vivo, nunca do cache.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(console.error);
+  });
+}
 </script>
 </body>
 </html>
