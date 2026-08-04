@@ -59,6 +59,12 @@
     margin-bottom: 12px;
   }
   input:focus, select:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+  .checkbox-row {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.85rem; color: var(--muted); margin-bottom: 12px; cursor: pointer;
+  }
+  .checkbox-row input[type="checkbox"] { width: auto; margin: 0; }
+  .busca-multipla { position: relative; }
   button {
     padding: 14px;
     font-size: 1.05rem;
@@ -248,6 +254,11 @@
           <button id="btnCamera" class="icon" title="Escanear com a câmera">📷</button>
         </div>
 
+        <label class="checkbox-row">
+          <input type="checkbox" id="modoMultiplo">
+          Carregar múltiplos itens ao mesmo tempo
+        </label>
+
         <button id="buscar" class="full">Buscar</button>
       </div>
 
@@ -264,6 +275,8 @@
       </div>
 
       <div id="resultados" class="lojas-grid"></div>
+
+      <div id="buscasMultiplas"></div>
     </div>
 
     <div id="painelHistorico" class="hidden">
@@ -302,19 +315,22 @@
         <h3>3. Toda a rede</h3>
         <p>O botão <strong>Toda a rede</strong> preenche automaticamente o campo de lojas com todas as lojas cadastradas, para você ver o estoque em toda a rede de uma vez.</p>
 
-        <h3>4. Lojas favoritas</h3>
+        <h3>4. Múltiplos itens ao mesmo tempo</h3>
+        <p>Marque <strong>"Carregar múltiplos itens ao mesmo tempo"</strong> para não esperar um item terminar de carregar pra buscar o próximo. Cada busca vira um bloco separado na tela, carregando em paralelo — útil pra bipar vários produtos em sequência rápida.</p>
+
+        <h3>5. Lojas favoritas</h3>
         <p>As lojas que você digitar ficam salvas automaticamente no seu perfil — da próxima vez que entrar (mesmo em outro celular), elas já vêm preenchidas.</p>
 
-        <h3>5. Histórico</h3>
+        <h3>6. Histórico</h3>
         <p>A aba <strong>Histórico</strong> mostra suas últimas buscas. Toque no item para repetir aquela busca. Toque na estrela ☆ pra favoritar, ou na lixeira 🗑 pra apagar aquele item do histórico.</p>
 
-        <h3>6. Favoritos</h3>
+        <h3>7. Favoritos</h3>
         <p>A aba <strong>Favoritos</strong> mostra só as buscas que você marcou com a estrela — útil pra produtos que você consulta com frequência.</p>
 
-        <h3>7. Mais Procurados</h3>
+        <h3>8. Mais Procurados</h3>
         <p>No histórico, toque no ícone <strong>📌</strong> pra sugerir um item para os "Mais Procurados" — uma lista compartilhada com todos os usuários do app. A sugestão fica pendente até ser revisada; se aprovada, aparece pra todo mundo na aba <strong>Mais Procurados</strong>.</p>
 
-        <h3>8. Instalar no celular</h3>
+        <h3>9. Instalar no celular</h3>
         <p><strong>Android (Chrome):</strong> abra o site e toque em "Instalar app" quando aparecer, ou no menu ⋮ → "Adicionar à tela inicial".</p>
         <p><strong>iPhone (Safari):</strong> toque no ícone de compartilhar (□↑) → "Adicionar à Tela de Início".</p>
         <p>Depois de instalado, abre direto como um app, sem barra de endereço.</p>
@@ -388,6 +404,8 @@ const $resumoProduto = document.getElementById("resumoProduto");
 const $resumoPreco = document.getElementById("resumoPreco");
 const $resumoPrecoOriginal = document.getElementById("resumoPrecoOriginal");
 const $resultados = document.getElementById("resultados");
+const $modoMultiplo = document.getElementById("modoMultiplo");
+const $buscasMultiplas = document.getElementById("buscasMultiplas");
 
 const $btnCamera = document.getElementById("btnCamera");
 const $camModal = document.getElementById("camModal");
@@ -815,8 +833,11 @@ function cardEstoqueLoadingInner(loja) {
     <div class="tabela-wrap"></div>`;
 }
 
-function cardEstoqueLoading(loja) {
-  return `<div class="loja-card" id="card-loja-${loja}">${cardEstoqueLoadingInner(loja)}</div>`;
+function criarLojaCardEl(loja) {
+  const div = document.createElement("div");
+  div.className = "loja-card";
+  div.innerHTML = cardEstoqueLoadingInner(loja);
+  return div;
 }
 
 async function buscarPreco(codigo, primeiraLoja) {
@@ -843,10 +864,9 @@ async function fetchEstoqueComRetry(url, tentativas = 2) {
   }
 }
 
-async function buscarEstoqueLoja(item, loja, estoqueCache) {
-  const el = document.getElementById(`card-loja-${loja}`);
-  const $qtd = el.querySelector(".estoque-qtd");
-  const $tabela = el.querySelector(".tabela-wrap");
+async function buscarEstoqueLoja(item, loja, estoqueCache, cardEl) {
+  const $qtd = cardEl.querySelector(".estoque-qtd");
+  const $tabela = cardEl.querySelector(".tabela-wrap");
 
   if (!estoqueCache.has(item.cdReferencia)) {
     estoqueCache.set(
@@ -882,65 +902,120 @@ async function buscarEstoqueLoja(item, loja, estoqueCache) {
   }
 }
 
-async function tentarBuscarEstoque(item, loja, cache) {
+async function tentarBuscarEstoque(item, loja, cache, cardEl) {
   try {
-    await buscarEstoqueLoja(item, loja, cache);
+    await buscarEstoqueLoja(item, loja, cache, cardEl);
   } catch (e) {
     console.error(e);
-    const el = document.getElementById(`card-loja-${loja}`);
-    if (!el) return;
-    el.innerHTML = `
+    cardEl.innerHTML = `
       <div class="loja-titulo">Loja ${loja}</div>
       <div class="msg err">Erro ao buscar estoque (a Mersan pode estar lenta ou instável).</div>
       <button class="secondary full btn-tentar-de-novo">Tentar de novo</button>`;
-    el.querySelector(".btn-tentar-de-novo").addEventListener("click", () => {
-      el.innerHTML = cardEstoqueLoadingInner(loja);
-      tentarBuscarEstoque(item, loja, new Map());
+    cardEl.querySelector(".btn-tentar-de-novo").addEventListener("click", () => {
+      cardEl.innerHTML = cardEstoqueLoadingInner(loja);
+      tentarBuscarEstoque(item, loja, new Map(), cardEl);
     });
   }
 }
 
-async function buscar() {
-  const codigo = $codigo.value.trim();
-  const lojas = parseLojas($lojas.value);
+// No modo padrão, reaproveita a área fixa de resultado (resumoCard/resultados).
+// No modo "múltiplos itens", cria um bloco novo e independente pra cada busca,
+// sem travar o campo/botão — assim dá pra já buscar o próximo item enquanto
+// o anterior ainda está carregando.
+async function executarBusca(codigo, lojasStrRaw, multiplo) {
+  const lojas = parseLojas(lojasStrRaw);
   if (!codigo || lojas.length === 0) return;
 
-  $buscar.disabled = true;
-  setStatus("Buscando preço...");
-  $resumoCard.classList.remove("show");
-  $resultados.innerHTML = "";
+  let produtoEl, precoEl, precoOriginalEl, gridEl;
+  let setBuscaStatus = () => {};
+
+  if (multiplo) {
+    const bloco = document.createElement("div");
+    bloco.className = "card result show busca-multipla";
+    bloco.innerHTML = `
+      <div class="resumo">
+        <div class="resumo-produto"></div>
+        <div style="text-align:right;">
+          <div class="resumo-preco-original"></div>
+          <div class="resumo-preco"></div>
+        </div>
+      </div>
+      <div class="msg busca-status">Buscando preço...</div>
+      <div class="lojas-grid" style="margin-top:16px;"></div>
+      <button class="secondary full btn-remover-busca" style="margin-top:12px;">Remover</button>`;
+    $buscasMultiplas.prepend(bloco);
+
+    produtoEl = bloco.querySelector(".resumo-produto");
+    precoEl = bloco.querySelector(".resumo-preco");
+    precoOriginalEl = bloco.querySelector(".resumo-preco-original");
+    gridEl = bloco.querySelector(".lojas-grid");
+    const statusEl = bloco.querySelector(".busca-status");
+    setBuscaStatus = (texto, isErr) => {
+      if (!texto) { statusEl.remove(); return; }
+      statusEl.textContent = texto;
+      statusEl.className = "msg busca-status" + (isErr ? " err" : "");
+    };
+    bloco.querySelector(".btn-remover-busca").addEventListener("click", () => bloco.remove());
+  } else {
+    $buscar.disabled = true;
+    $resumoCard.classList.remove("show");
+    $resultados.innerHTML = "";
+    produtoEl = $resumoProduto;
+    precoEl = $resumoPreco;
+    precoOriginalEl = $resumoPrecoOriginal;
+    gridEl = $resultados;
+    setBuscaStatus = setStatus;
+  }
+
+  setBuscaStatus("Buscando preço...");
 
   try {
     const item = await buscarPreco(codigo, lojas[0]);
     if (!item) {
-      setStatus("Produto não encontrado.", true);
+      setBuscaStatus("Produto não encontrado.", true);
       return;
     }
 
-    $resumoProduto.textContent = `${item.cdSKU} - ${item.dsProduto}`;
+    produtoEl.textContent = `${item.cdSKU} - ${item.dsProduto}`;
     if (item.vlPrecoPromocao && item.vlPrecoPromocao > 0 && item.vlPrecoPromocao !== item.vlPreco) {
-      $resumoPrecoOriginal.textContent = fmtMoeda(item.vlPreco);
-      $resumoPreco.textContent = fmtMoeda(item.vlPrecoPromocao);
+      precoOriginalEl.textContent = fmtMoeda(item.vlPreco);
+      precoEl.textContent = fmtMoeda(item.vlPrecoPromocao);
     } else {
-      $resumoPrecoOriginal.textContent = "";
-      $resumoPreco.textContent = fmtMoeda(item.vlPreco);
+      precoOriginalEl.textContent = "";
+      precoEl.textContent = fmtMoeda(item.vlPreco);
     }
-    $resumoCard.classList.add("show");
+    if (!multiplo) $resumoCard.classList.add("show");
 
-    salvarHistorico(item, $lojas.value.trim());
+    salvarHistorico(item, lojasStrRaw.trim());
 
-    setStatus("Consultando estoque...");
-    $resultados.innerHTML = lojas.map(cardEstoqueLoading).join("");
+    setBuscaStatus("Consultando estoque...");
+
+    const cardEls = lojas.map(loja => {
+      const el = criarLojaCardEl(loja);
+      gridEl.appendChild(el);
+      return { loja, el };
+    });
 
     const estoqueCache = new Map();
-    await Promise.all(lojas.map(loja => tentarBuscarEstoque(item, loja, estoqueCache)));
-    setStatus("");
+    await Promise.all(cardEls.map(({ loja, el }) => tentarBuscarEstoque(item, loja, estoqueCache, el)));
+    setBuscaStatus("");
   } catch (e) {
-    setStatus("Erro ao buscar. Verifique a conexão.", true);
+    setBuscaStatus("Erro ao buscar. Verifique a conexão.", true);
     console.error(e);
   } finally {
-    $buscar.disabled = false;
+    if (!multiplo) $buscar.disabled = false;
   }
+}
+
+function buscar() {
+  const codigo = $codigo.value.trim();
+  const lojasStr = $lojas.value;
+  const multiplo = $modoMultiplo.checked;
+  if (!codigo) return;
+
+  if (multiplo) $codigo.value = ""; // libera o campo na hora pro próximo item
+
+  executarBusca(codigo, lojasStr, multiplo);
 }
 
 $buscar.addEventListener("click", buscar);
