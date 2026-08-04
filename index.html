@@ -48,7 +48,7 @@
     margin-bottom: 16px;
   }
   label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
-  input, select {
+  input, select, textarea {
     width: 100%;
     padding: 12px;
     font-size: 1.1rem;
@@ -58,7 +58,7 @@
     color: var(--text);
     margin-bottom: 12px;
   }
-  input:focus, select:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
   .checkbox-row {
     display: flex; align-items: center; gap: 8px;
     font-size: 0.85rem; color: var(--muted); margin-bottom: 12px; cursor: pointer;
@@ -308,7 +308,7 @@
 
         <h3>1. Buscar preço e estoque</h3>
         <p>No campo <strong>Lojas</strong>, digite o número de uma ou mais lojas separadas por vírgula (ex: <code>32,171</code>). No campo <strong>Código de barras</strong>, digite ou escaneie o código do produto e toque em <strong>Buscar</strong>.</p>
-        <p>O preço aparece na hora. O estoque de cada loja carrega logo em seguida — mostra o total de peças da referência naquela loja e a lista de cores/numerações disponíveis.</p>
+        <p>O preço aparece na hora. O estoque de cada loja carrega logo em seguida — mostra o total de peças da referência naquela loja, a lista de cores/numerações disponíveis, e embaixo do nome da loja aparece o endereço/cidade dela.</p>
 
         <h3>2. Câmera</h3>
         <p>Toque no botão <strong>📷</strong> ao lado do campo de código de barras para escanear com a câmera do celular, em vez de digitar.</p>
@@ -317,27 +317,42 @@
         <p>O botão <strong>Toda a rede</strong> preenche automaticamente o campo de lojas com todas as lojas cadastradas, para você ver o estoque em toda a rede de uma vez.</p>
 
         <h3>4. Múltiplos itens ao mesmo tempo</h3>
-        <p>Marque <strong>"Carregar múltiplos itens ao mesmo tempo"</strong> para não esperar um item terminar de carregar pra buscar o próximo. Cada busca vira um bloco separado na tela, carregando em paralelo — útil pra bipar vários produtos em sequência rápida.</p>
+        <p>Marque <strong>"Carregar múltiplos itens ao mesmo tempo"</strong> para não esperar um item terminar de carregar pra buscar o próximo. Cada busca vira um bloco separado na tela, carregando em paralelo — útil pra bipar vários produtos em sequência rápida. Cada bloco tem um botão "Remover" pra tirar da tela quando não precisar mais.</p>
 
         <h3>5. Lojas favoritas</h3>
         <p>As lojas que você digitar ficam salvas automaticamente no seu perfil — da próxima vez que entrar (mesmo em outro celular), elas já vêm preenchidas.</p>
 
         <h3>6. Histórico</h3>
-        <p>A aba <strong>Histórico</strong> mostra suas últimas buscas. Toque no item para repetir aquela busca. Toque na estrela ☆ pra favoritar, ou na lixeira 🗑 pra apagar aquele item do histórico.</p>
+        <p>A aba <strong>Histórico</strong> mostra suas últimas buscas. Toque no item para repetir aquela busca. Toque na estrela ☆ pra favoritar, no ícone 📌 pra sugerir para os "Mais Procurados", ou na lixeira 🗑 pra apagar aquele item do histórico.</p>
 
         <h3>7. Favoritos</h3>
         <p>A aba <strong>Favoritos</strong> mostra só as buscas que você marcou com a estrela — útil pra produtos que você consulta com frequência.</p>
 
         <h3>8. Mais Procurados</h3>
-        <p>No histórico, toque no ícone <strong>📌</strong> pra sugerir um item para os "Mais Procurados" — uma lista compartilhada com todos os usuários do app. A sugestão fica pendente até ser revisada; se aprovada, aparece pra todo mundo na aba <strong>Mais Procurados</strong>.</p>
+        <p>No histórico, toque no ícone <strong>📌</strong> pra sugerir um item para os "Mais Procurados" — uma lista compartilhada com todos os usuários do app. A sugestão fica pendente até ser revisada; se aprovada, aparece pra todo mundo na aba <strong>Mais Procurados</strong>, e qualquer um pode tocar no item pra repetir a busca na hora.</p>
 
         <h3>9. Instalar no celular</h3>
-        <p><strong>Android (Chrome):</strong> abra o site e toque em "Instalar app" quando aparecer, ou no menu ⋮ → "Adicionar à tela inicial".</p>
+        <p><strong>Android (Chrome):</strong> abra o site direto no Chrome (não dentro do WhatsApp/Instagram) e toque em "Instalar app" quando aparecer, ou no menu ⋮ → "Adicionar à tela inicial".</p>
         <p><strong>iPhone (Safari):</strong> toque no ícone de compartilhar (□↑) → "Adicionar à Tela de Início".</p>
         <p>Depois de instalado, abre direto como um app, sem barra de endereço.</p>
 
+        <h3>10. Atualizações automáticas</h3>
+        <p>Quando o app recebe uma atualização, ele detecta sozinho e recarrega a tela automaticamente — não precisa apertar F5 nem reinstalar.</p>
+
         <h3>Dúvidas ou problemas</h3>
-        <p>Se algo não funcionar como esperado, entre em contato com quem administra o sistema.</p>
+        <p>Se algo não funcionar como esperado, use o campo de sugestão abaixo pra reportar.</p>
+      </div>
+
+      <div class="card">
+        <div class="loja-titulo" style="margin-bottom:10px;">Enviar sugestão ou reportar problema</div>
+        <textarea id="sugestaoTexto" rows="4" placeholder="Escreva aqui sua sugestão, dúvida ou problema encontrado..." style="width:100%; resize:vertical; font-family:inherit;"></textarea>
+        <div id="sugestaoMsg" class="msg"></div>
+        <button id="btnEnviarSugestao" class="full" style="margin-top:8px;">Enviar</button>
+      </div>
+
+      <div id="sugestoesAdminCard" class="card hidden">
+        <div class="loja-titulo" style="margin-bottom:10px;">Sugestões recebidas</div>
+        <div id="sugestoesLista"></div>
       </div>
     </div>
   </div>
@@ -438,6 +453,11 @@ const $favoritosLista = document.getElementById("favoritosLista");
 const $mpPendentesCard = document.getElementById("mpPendentesCard");
 const $mpPendentesLista = document.getElementById("mpPendentesLista");
 const $mpAprovadosLista = document.getElementById("mpAprovadosLista");
+const $sugestaoTexto = document.getElementById("sugestaoTexto");
+const $sugestaoMsg = document.getElementById("sugestaoMsg");
+const $btnEnviarSugestao = document.getElementById("btnEnviarSugestao");
+const $sugestoesAdminCard = document.getElementById("sugestoesAdminCard");
+const $sugestoesLista = document.getElementById("sugestoesLista");
 
 const $codigo = document.getElementById("codigo");
 const $lojas = document.getElementById("lojas");
@@ -598,7 +618,15 @@ $tabMaisProcurados.addEventListener("click", () => {
   mostrarAba($tabMaisProcurados);
   carregarMaisProcurados();
 });
-$tabAjuda.addEventListener("click", () => mostrarAba($tabAjuda));
+$tabAjuda.addEventListener("click", () => {
+  mostrarAba($tabAjuda);
+  if (ehAdmin()) {
+    $sugestoesAdminCard.classList.remove("hidden");
+    carregarSugestoes();
+  } else {
+    $sugestoesAdminCard.classList.add("hidden");
+  }
+});
 
 // ---------- HISTÓRICO / FAVORITOS ----------
 
@@ -817,6 +845,71 @@ async function carregarMaisProcurados() {
 async function revisarMaisProcurado(id, status) {
   await sb.from("mais_procurados").update({ status, revisado_em: new Date().toISOString() }).eq("id", id);
   carregarMaisProcurados();
+}
+
+// ---------- SUGESTÕES ----------
+
+$btnEnviarSugestao.addEventListener("click", async () => {
+  const texto = $sugestaoTexto.value.trim();
+  if (!texto || !currentUser) return;
+
+  $btnEnviarSugestao.disabled = true;
+  $sugestaoMsg.textContent = "Enviando...";
+  $sugestaoMsg.className = "msg";
+
+  const { error } = await sb.from("sugestoes").insert({
+    user_id: currentUser.id,
+    email: currentUser.email,
+    texto,
+  });
+
+  $btnEnviarSugestao.disabled = false;
+  if (error) {
+    $sugestaoMsg.textContent = "Erro ao enviar: " + error.message;
+    $sugestaoMsg.className = "msg err";
+  } else {
+    $sugestaoTexto.value = "";
+    $sugestaoMsg.textContent = "Sugestão enviada, obrigado!";
+    $sugestaoMsg.className = "msg";
+  }
+});
+
+async function carregarSugestoes() {
+  $sugestoesLista.innerHTML = `<div class="msg">Carregando...</div>`;
+
+  const { data, error } = await sb
+    .from("sugestoes")
+    .select("*")
+    .order("criado_em", { ascending: false });
+
+  if (error) {
+    $sugestoesLista.innerHTML = `<div class="msg err">Erro ao carregar: ${error.message}</div>`;
+    return;
+  }
+  if (!data || data.length === 0) {
+    $sugestoesLista.innerHTML = `<div class="msg">Nenhuma sugestão recebida ainda.</div>`;
+    return;
+  }
+
+  $sugestoesLista.innerHTML = data.map(s => `
+    <div class="historico-item" style="cursor:default; align-items:flex-start;">
+      <div class="h-conteudo">
+        <div class="h-produto">${s.email}</div>
+        <div class="h-meta">${new Date(s.criado_em).toLocaleString("pt-BR")}</div>
+        <div style="margin-top:6px; font-size:0.9rem;">${s.texto.replace(/</g, "&lt;")}</div>
+      </div>
+      <div class="h-acoes">
+        <button class="h-btn apagar-sugestao" title="Apagar">🗑</button>
+      </div>
+    </div>
+  `).join("");
+
+  $sugestoesLista.querySelectorAll(".apagar-sugestao").forEach((btn, i) => {
+    btn.addEventListener("click", async () => {
+      await sb.from("sugestoes").delete().eq("id", data[i].id);
+      carregarSugestoes();
+    });
+  });
 }
 
 // ---------- CÂMERA (QR / código de barras) ----------
