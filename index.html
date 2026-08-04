@@ -120,8 +120,9 @@
   .loja-card { flex: 1 1 260px; min-width: 220px; }
   .loja-titulo {
     font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em;
-    margin-bottom: 8px;
+    margin-bottom: 2px;
   }
+  .loja-endereco { font-size: 0.78rem; color: var(--muted); margin-bottom: 8px; }
   .estoque-badge {
     display: flex; justify-content: space-between; align-items: center;
     padding: 12px; border-radius: 8px; background: #0f172a; border: 1px solid var(--border);
@@ -358,8 +359,52 @@ const SUPABASE_ANON_KEY = "sb_publishable_mRNqGL9jboRCjHfnq1kG0Q_paalFq0C";
 const TURNSTILE_SITE_KEY = "0x4AAAAAAEGYOswRL545WBG-";
 // ==========================================================
 
+// Cadastro de lojas da rede: nome, endereço e cidade de cada uma, pra
+// mostrar onde fica quando o estoque de uma loja aparece na tela.
+const LOJAS_INFO = {
+  1:   { nome: "Mersan",          endereco: "R Sales Barbosa, 130 – Centro",              cidade: "Feira de Santana - BA" },
+  3:   { nome: "Mersan",          endereco: "R Sales Barbosa, 186 – Centro",              cidade: "Feira de Santana - BA" },
+  4:   { nome: "Mersan",          endereco: "Av. Sr. dos Passos, 1236 – Centro",          cidade: "Feira de Santana - BA" },
+  11:  { nome: "Mersan",          endereco: "Rua Marechal Deodoro, 47",                   cidade: "Feira de Santana - BA" },
+  12:  { nome: "Mersan",          endereco: "Av. Sr. dos Passos, 1073",                   cidade: "Feira de Santana - BA" },
+  22:  { nome: "Mersan",          endereco: "Av Senhor dos Passos, 1164",                 cidade: "Feira de Santana - BA" },
+  31:  { nome: "Mersan",          endereco: "Av João Durval Carneiro, 3665",              cidade: "Feira de Santana - BA" },
+  32:  { nome: "Mersan",          endereco: "Av João Durval Carneiro, 3665",              cidade: "Feira de Santana - BA" },
+  41:  { nome: "Arezzo",          endereco: "Av João Durval Carneiro, 3665",              cidade: "Feira de Santana - BA" },
+  51:  { nome: "Levi's",          endereco: "Av João Durval Carneiro, 3665",              cidade: "Feira de Santana - BA" },
+  91:  { nome: "Levi's",          endereco: "Av Tancredo Neves, 148",                     cidade: "Salvador - BA" },
+  105: { nome: "Credmais",        endereco: "Av Governador João Durval Ca.",              cidade: "Feira de Santana - BA" },
+  111: { nome: "Mersan",          endereco: "Pça. da Bandeira, 27",                       cidade: "Alagoinhas - BA" },
+  121: { nome: "Mersan",          endereco: "Pç João Pedreira, 66 – Centro",              cidade: "Feira de Santana - BA" },
+  141: { nome: "Mersan",          endereco: "Av. Antonio Nogueira, 63",                   cidade: "Serrinha - BA" },
+  142: { nome: "Mersan",          endereco: "Pça Luis Nogueira, 547",                     cidade: "Serrinha - BA" },
+  151: { nome: "Mersan",          endereco: "R Juracy Magalhães, 487 – Ponto Central",    cidade: "Feira de Santana - BA" },
+  161: { nome: "Mersan",          endereco: "R Sales Barbosa, 90 – Centro",               cidade: "Feira de Santana - BA" },
+  171: { nome: "Mersan Sport",    endereco: "Av João Durval Carneiro, 3665",              cidade: "Feira de Santana - BA" },
+  181: { nome: "Mersan",          endereco: "Pça da Bandeira, 17",                        cidade: "Alagoinhas - BA" },
+  191: { nome: "Schutz",          endereco: "Av João Durval Carneiro, 3665",              cidade: "Feira de Santana - BA" },
+  211: { nome: "Mersan",          endereco: "Rua Floriano Peixoto, 88",                   cidade: "Conceição do Coité - BA" },
+  221: { nome: "Mersan",          endereco: "R Francisco Batista, 94",                    cidade: "Alagoinhas - BA" },
+  231: { nome: "Levi's",          endereco: "Av Tancredo Neves, 2915",                    cidade: "Salvador - BA" },
+  241: { nome: "Mersan Criança",  endereco: "Av João Durval Carneiro, 3665",              cidade: "Feira de Santana - BA" },
+  251: { nome: "Mersan",          endereco: "Avenida Aziz Maron, S/N",                    cidade: "Itabuna - BA" },
+  261: { nome: "Mersan",          endereco: "Rua Ramiro Pimentel, 65",                    cidade: "Itaberaba - BA" },
+  271: { nome: "M Martan",        endereco: "Av João Durval Carneiro, 3665",              cidade: "Feira de Santana - BA" },
+  281: { nome: "Arezzo",          endereco: "Pç Rui Barbosa, 152",                        cidade: "Alagoinhas - BA" },
+  291: { nome: "Usaflex",         endereco: "Av João Durval Carneiro, 3665",              cidade: "Feira de Santana - BA" },
+  311: { nome: "Mersan",          endereco: "R Sales Barbosa, 138",                       cidade: "Feira de Santana - BA" },
+  312: { nome: "Mersan",          endereco: "R Marechal Deodoro, 41",                     cidade: "Feira de Santana - BA" },
+  321: { nome: "Mersan",          endereco: "Av Tancredo Neves, 2915",                    cidade: "Salvador - BA" },
+  361: { nome: "Arezzo",          endereco: "R. Roberto Santos, 96",                      cidade: "Santo Antônio de Jesus - BA" },
+};
+
+function infoLoja(loja) {
+  const info = LOJAS_INFO[Number(loja)];
+  return info ? `${info.nome} · ${info.endereco}, ${info.cidade}` : "";
+}
+
 // Todas as lojas da rede (usadas pela opção "ver em toda rede")
-const TODAS_AS_LOJAS = [1, 2, 4, 12, 22, 31, 32, 151, 171];
+const TODAS_AS_LOJAS = Object.keys(LOJAS_INFO).map(Number);
 
 // Único e-mail com permissão de aprovar/rejeitar sugestões de Mais Procurados
 const ADMIN_EMAIL = "lucasfsa1998@hotmail.com";
@@ -824,8 +869,10 @@ function parseLojas(raw) {
 }
 
 function cardEstoqueLoadingInner(loja) {
+  const info = infoLoja(loja);
   return `
     <div class="loja-titulo">Loja ${loja}</div>
+    ${info ? `<div class="loja-endereco">${info}</div>` : ""}
     <div class="estoque-badge">
       <span>Estoque</span>
       <span class="estoque-qtd"><span class="loading-dots"><span></span><span></span><span></span></span></span>
@@ -907,8 +954,10 @@ async function tentarBuscarEstoque(item, loja, cache, cardEl) {
     await buscarEstoqueLoja(item, loja, cache, cardEl);
   } catch (e) {
     console.error(e);
+    const info = infoLoja(loja);
     cardEl.innerHTML = `
       <div class="loja-titulo">Loja ${loja}</div>
+      ${info ? `<div class="loja-endereco">${info}</div>` : ""}
       <div class="msg err">Erro ao buscar estoque (a Mersan pode estar lenta ou instável).</div>
       <button class="secondary full btn-tentar-de-novo">Tentar de novo</button>`;
     cardEl.querySelector(".btn-tentar-de-novo").addEventListener("click", () => {
