@@ -389,6 +389,7 @@
 
         <h3>13. Configurações</h3>
         <p>Toque no ícone de engrenagem ao lado de "Sair" pra editar seu nome, código de vendedor e a loja em que você trabalha, ou pra alterar sua senha diretamente (sem precisar de e-mail).</p>
+        <p>Nas Configurações também tem a opção <strong>"Este aparelho tem bipador físico"</strong> — marque num tablet/PC com leitor de código de barras conectado, e o campo de código de barras fica sempre pronto pra receber a leitura, sem precisar tocar nele antes de cada bipada. Essa opção fica salva por aparelho, não por conta — em celular sem bipador é melhor deixar desmarcada.</p>
 
         <h3>Dúvidas ou problemas</h3>
         <p>Se algo não funcionar como esperado, use o campo de sugestão abaixo pra reportar.</p>
@@ -437,6 +438,13 @@
 
       <div id="cfgMsg" class="msg"></div>
       <button id="btnSalvarConfig" class="full">Salvar</button>
+
+      <hr style="border: none; border-top: 1px solid var(--border); margin: 20px 0;">
+
+      <label class="checkbox-row">
+        <input type="checkbox" id="cfgBipador">
+        Este aparelho tem bipador físico (mantém o campo de código sempre pronto pra ler, sem abrir teclado na tela)
+      </label>
 
       <hr style="border: none; border-top: 1px solid var(--border); margin: 20px 0;">
 
@@ -558,6 +566,7 @@ const $cfgSenha1 = document.getElementById("cfgSenha1");
 const $cfgSenha2 = document.getElementById("cfgSenha2");
 const $cfgSenhaMsg = document.getElementById("cfgSenhaMsg");
 const $btnSalvarSenhaConfig = document.getElementById("btnSalvarSenhaConfig");
+const $cfgBipador = document.getElementById("cfgBipador");
 
 const $tabBusca = document.getElementById("tabBusca");
 const $tabHistorico = document.getElementById("tabHistorico");
@@ -691,6 +700,18 @@ $btnSair.addEventListener("click", () => sb.auth.signOut());
 
 // ---------- CONFIGURAÇÕES DO VENDEDOR ----------
 
+// Preferência do APARELHO (não da conta): se marcado, o campo de código de
+// barras fica sempre em foco pronto pra receber leitura de um bipador físico
+// (USB/Bluetooth). Fica salva no navegador, não no login — cada tablet/PC
+// guarda a própria escolha.
+function bipadorAtivo() {
+  return localStorage.getItem("bp_bipador") === "1";
+}
+
+function talvezFocarCodigo() {
+  if (bipadorAtivo()) $codigo.focus();
+}
+
 $btnConfig.addEventListener("click", () => {
   const meta = (currentUser && currentUser.user_metadata) || {};
   $cfgNome.value = meta.nome_vendedor || "";
@@ -700,7 +721,13 @@ $btnConfig.addEventListener("click", () => {
   $cfgSenha1.value = "";
   $cfgSenha2.value = "";
   $cfgSenhaMsg.textContent = "";
+  $cfgBipador.checked = bipadorAtivo();
   $configModal.classList.remove("hidden");
+});
+
+$cfgBipador.addEventListener("change", () => {
+  localStorage.setItem("bp_bipador", $cfgBipador.checked ? "1" : "0");
+  talvezFocarCodigo();
 });
 
 $btnFecharConfig.addEventListener("click", () => $configModal.classList.add("hidden"));
@@ -850,6 +877,7 @@ function mostrarAppLogado(user) {
   if (lojasSalvas) $lojas.value = lojasSalvas;
 
   carregarHistorico();
+  talvezFocarCodigo();
 }
 
 function mostrarTelaLogin() {
@@ -905,7 +933,10 @@ function mostrarAba(tabAlvo) {
   });
 }
 
-$tabBusca.addEventListener("click", () => mostrarAba($tabBusca));
+$tabBusca.addEventListener("click", () => {
+  mostrarAba($tabBusca);
+  talvezFocarCodigo();
+});
 $tabHistorico.addEventListener("click", () => {
   mostrarAba($tabHistorico);
   carregarHistorico();
@@ -1561,6 +1592,7 @@ async function executarBusca(codigo, lojasStrRaw, multiplo) {
       controladorBuscaAtual = null;
       setBotaoBuscarParar(false);
     }
+    talvezFocarCodigo();
   }
 }
 
