@@ -415,6 +415,10 @@
   <!-- MODAL CÂMERA -->
   <div id="camModal" class="modal-overlay hidden">
     <div class="modal-box">
+      <div id="nativeVideoWrap" class="hidden" style="position:relative;">
+        <video id="nativeVideo" playsinline muted autoplay style="width:100%; border-radius:8px; display:block;"></video>
+        <div style="position:absolute; left:8%; right:8%; top:50%; height:2px; background:var(--accent); opacity:0.85; pointer-events:none;"></div>
+      </div>
       <div id="camReader"></div>
       <div id="camDebug" class="msg" style="font-size:0.72rem; opacity:0.7;"></div>
       <div class="row" style="margin-top:12px;">
@@ -612,6 +616,8 @@ const $camModal = document.getElementById("camModal");
 const $btnFecharCam = document.getElementById("btnFecharCam");
 const $btnTorch = document.getElementById("btnTorch");
 const $camDebug = document.getElementById("camDebug");
+const $nativeVideoWrap = document.getElementById("nativeVideoWrap");
+const $nativeVideo = document.getElementById("nativeVideo");
 
 let currentUser = null;
 let html5Qrcode = null;
@@ -1437,9 +1443,87 @@ async function iniciarCamera(cameraIdOuConfig, videoConstraints) {
 }
 
 let fecharCameraDebugCleanup = null;
+let pararScanNativo = null;
+
+// Caminho preferencial: usa a API nativa do navegador (BarcodeDetector) em
+// vez de decodificar em JavaScript. Quando disponível, costuma ser bem mais
+// rápida e confiável do que a biblioteca — é o que outros apps que
+// funcionam bem no iPhone usam como primeira opção.
+async function iniciarCameraNativa() {
+  const formatos = await BarcodeDetector.getSupportedFormats().catch(() => [
+    "qr_code", "ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "codabar", "itf",
+  ]);
+  const detector = new BarcodeDetector({ formats: formatos });
+
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+    audio: false,
+  });
+
+  $nativeVideo.srcObject = stream;
+  await $nativeVideo.play();
+  $nativeVideoWrap.classList.remove("hidden");
+
+  const track = stream.getVideoTracks()[0];
+  if (track) {
+    track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }).catch(() => {});
+    try {
+      if (track.getCapabilities && track.getCapabilities().torch) {
+        $btnTorch.classList.remove("hidden");
+        $btnTorch.onclick = async () => {
+          torchLigada = !torchLigada;
+          await track.applyConstraints({ advanced: [{ torch: torchLigada }] }).catch(() => {});
+          $btnTorch.classList.toggle("ativo", torchLigada);
+        };
+      }
+    } catch (e) {}
+  }
+
+  let tentativasNativo = 0;
+  let ultimoErroNativo = "";
+  const intervaloDebugNativo = setInterval(() => {
+    $camDebug.textContent = `(nativo) quadros: ${tentativasNativo} | vídeo: ${$nativeVideo.videoWidth}x${$nativeVideo.videoHeight} | último: ${ultimoErroNativo}`;
+  }, 500);
+
+  let ativo = true;
+  pararScanNativo = () => {
+    ativo = false;
+    clearInterval(intervaloDebugNativo);
+    stream.getTracks().forEach(t => t.stop());
+    $nativeVideoWrap.classList.add("hidden");
+    $nativeVideo.srcObject = null;
+  };
+
+  (async function loop() {
+    while (ativo) {
+      try {
+        const codes = await detector.detect($nativeVideo);
+        tentativasNativo++;
+        if (codes.length > 0) {
+          $codigo.value = codes[0].rawValue;
+          fecharCamera();
+          buscar();
+          return;
+        }
+      } catch (e) {
+        ultimoErroNativo = String(e).slice(0, 80);
+      }
+      await new Promise(r => setTimeout(r, 80));
+    }
+  })();
+}
 
 $btnCamera.addEventListener("click", async () => {
   $camModal.classList.remove("hidden");
+
+  if ("BarcodeDetector" in window) {
+    try {
+      await iniciarCameraNativa();
+      return;
+    } catch (e) {
+      console.error("Scanner nativo falhou, usando biblioteca de leitura:", e);
+    }
+  }
 
   // Monta uma lista de tentativas, da melhor pra mais simples, e usa a
   // primeira que funcionar. O ponto principal é o "focusMode: continuous":
@@ -1513,6 +1597,11 @@ function fecharCamera() {
     fecharCameraDebugCleanup();
     fecharCameraDebugCleanup = null;
   }
+  if (pararScanNativo) {
+    pararScanNativo();
+    pararScanNativo = null;
+  }
+  $btnTorch.onclick = null;
   torchLigada = false;
   $btnTorch.classList.remove("ativo");
   $camModal.classList.add("hidden");
