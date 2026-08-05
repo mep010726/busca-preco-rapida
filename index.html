@@ -223,8 +223,11 @@
 <div class="wrap">
   <h1>Busca Preço Rápida</h1>
 
+  <!-- Evita o "pisca" da tela de login antes de confirmar se já tem sessão salva -->
+  <div id="telaCarregando" class="msg">Carregando...</div>
+
   <!-- TELA DE LOGIN -->
-  <div id="authCard" class="card">
+  <div id="authCard" class="card hidden">
     <label for="authEmail">E-mail</label>
     <input id="authEmail" type="email" placeholder="seu@email.com">
     <label for="authSenha">Senha</label>
@@ -530,6 +533,7 @@ const ICONE_CHECK = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none"
 const ICONE_X = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+const $telaCarregando = document.getElementById("telaCarregando");
 const $authCard = document.getElementById("authCard");
 const $authEmail = document.getElementById("authEmail");
 const $authSenha = document.getElementById("authSenha");
@@ -865,6 +869,7 @@ $btnSalvarNovaSenha.addEventListener("click", async () => {
 
 function mostrarAppLogado(user) {
   currentUser = user;
+  $telaCarregando.classList.add("hidden");
   $authCard.classList.add("hidden");
   $recuperarCard.classList.add("hidden");
   $novaSenhaCard.classList.add("hidden");
@@ -882,6 +887,7 @@ function mostrarAppLogado(user) {
 
 function mostrarTelaLogin() {
   currentUser = null;
+  $telaCarregando.classList.add("hidden");
   $authCard.classList.remove("hidden");
   $recuperarCard.classList.add("hidden");
   $novaSenhaCard.classList.add("hidden");
@@ -899,6 +905,7 @@ sb.auth.onAuthStateChange((event, session) => {
   // em vez de deixar entrar direto no app.
   if (event === "PASSWORD_RECOVERY") {
     emRecuperacaoDeSenha = true;
+    $telaCarregando.classList.add("hidden");
     $authCard.classList.add("hidden");
     $recuperarCard.classList.add("hidden");
     $app.classList.add("hidden");
@@ -914,6 +921,12 @@ sb.auth.onAuthStateChange((event, session) => {
     mostrarTelaLogin();
   }
 });
+
+// Segurança: se por algum motivo o Supabase nunca responder (ex: rede
+// bloqueada), não deixa a tela de "Carregando..." presa pra sempre.
+setTimeout(() => {
+  if (!$telaCarregando.classList.contains("hidden")) mostrarTelaLogin();
+}, 5000);
 
 // ---------- ABAS ----------
 
