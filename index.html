@@ -1382,13 +1382,6 @@ async function iniciarCamera(cameraIdOuConfig) {
   torchLigada = false;
   $btnTorch.classList.add("hidden");
 
-  // Pede resolução alta explicitamente. Sem isso, o iPhone às vezes entrega
-  // um vídeo em resolução baixa, fina demais pra decodificar os traços de um
-  // código de barras (mesmo com a câmera "abrindo" normalmente).
-  const videoConstraints = typeof cameraIdOuConfig === "string"
-    ? { deviceId: { exact: cameraIdOuConfig }, width: { ideal: 1920 }, height: { ideal: 1080 } }
-    : { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } };
-
   const configuracao = {
     fps: 10,
     // Sem qrbox: escaneia o quadro inteiro em vez de exigir que o código
@@ -1419,14 +1412,7 @@ async function iniciarCamera(cameraIdOuConfig) {
   const intervaloDebug = setInterval(atualizarDebug, 500);
   fecharCameraDebugCleanup = () => clearInterval(intervaloDebug);
 
-  try {
-    await html5Qrcode.start(videoConstraints, configuracao, aoLer, aoFalharFrame);
-  } catch (e) {
-    // Se o pedido de resolução alta falhar em algum aparelho, tenta de novo
-    // sem essa exigência, do jeito mais simples possível.
-    console.error(e);
-    await html5Qrcode.start(cameraIdOuConfig, configuracao, aoLer, aoFalharFrame);
-  }
+  await html5Qrcode.start(cameraIdOuConfig, configuracao, aoLer, aoFalharFrame);
 
   // Mostra o botão de lanterna só se o dispositivo/lente atual suportar.
   try {
