@@ -1429,28 +1429,45 @@ let fecharCameraDebugCleanup = null;
 $btnCamera.addEventListener("click", async () => {
   $camModal.classList.remove("hidden");
 
-  // Deixa o navegador escolher a câmera traseira sozinho (facingMode). Já
-  // tentamos escolher uma lente específica por ID, mas isso quebrou a
-  // leitura no iPhone — esse jeito simples é o que funciona nos dois.
-  //
-  // Pede resolução alta primeiro (sem isso, o vídeo às vezes vem baixo
-  // demais pra ler os traços finos de um código de barras), mas com um
-  // fallback pro modo mais simples caso algum aparelho rejeite esse pedido.
+  // Monta uma lista de tentativas, da melhor pra mais simples, e usa a
+  // primeira que funcionar. Isso cobre tanto o caso de precisar escolher a
+  // lente certa (iPhones com várias câmeras traseiras) quanto aparelhos que
+  // rejeitam pedido de resolução alta.
+  const resolucaoAlta = { width: { ideal: 1920 }, height: { ideal: 1080 } };
+  const tentativas = [];
+
   try {
-    await iniciarCamera({
-      facingMode: "environment",
-      width: { ideal: 1920 },
-      height: { ideal: 1080 },
-    });
-  } catch (e1) {
-    console.error("Falhou com resolução alta, tentando modo simples:", e1);
-    try {
-      await iniciarCamera({ facingMode: "environment" });
-    } catch (e2) {
-      console.error(e2);
-      $camModal.classList.add("hidden");
-      setStatus("Não foi possível acessar a câmera.", true);
+    const cameras = await Html5Qrcode.getCameras();
+    if (cameras && cameras.length > 0) {
+      // No iPhone, a lente principal normalmente aparece PRIMEIRO na lista
+      // de câmeras traseiras — as seguintes costumam ser ultra-wide/telefoto,
+      // que focam mal de perto e atrapalham a leitura do código de barras.
+      const traseiras = cameras.filter(c => /back|tras|rear/i.test(c.label || ""));
+      const principal = (traseiras[0] || cameras[0]).id;
+      tentativas.push({ deviceId: { exact: principal }, ...resolucaoAlta });
+      tentativas.push({ deviceId: { exact: principal } });
     }
+  } catch (e) {
+    console.error("Não consegui listar câmeras, seguindo com facingMode:", e);
+  }
+
+  tentativas.push({ facingMode: "environment", ...resolucaoAlta });
+  tentativas.push({ facingMode: "environment" });
+
+  let sucesso = false;
+  for (const config of tentativas) {
+    try {
+      await iniciarCamera(config);
+      sucesso = true;
+      break;
+    } catch (e) {
+      console.error("Tentativa de câmera falhou:", config, e);
+    }
+  }
+
+  if (!sucesso) {
+    $camModal.classList.add("hidden");
+    setStatus("Não foi possível acessar a câmera.", true);
   }
 });
 
