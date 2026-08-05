@@ -1434,7 +1434,15 @@ $btnCamera.addEventListener("click", async () => {
     // Já tentamos escolher uma lente específica por ID pra priorizar a
     // "principal", mas isso quebrou a leitura no iPhone — esse jeito simples
     // é o que realmente funciona em Android e iOS.
-    await iniciarCamera({ facingMode: "environment" });
+    // Pede resolução alta (o navegador ajusta pro que a câmera aguentar —
+    // "ideal" nunca trava a câmera, só pede o melhor possível). Sem isso, o
+    // vídeo às vezes vem numa resolução baixa demais pra ler os traços finos
+    // de um código de barras.
+    await iniciarCamera({
+      facingMode: "environment",
+      width: { ideal: 1920 },
+      height: { ideal: 1080 },
+    });
   } catch (e) {
     console.error(e);
     $camModal.classList.add("hidden");
