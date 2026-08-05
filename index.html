@@ -1355,14 +1355,40 @@ async function carregarSugestoes() {
 
 let torchLigada = false;
 
+// Formatos de código de barras que o app precisa reconhecer, além de QR.
+// Sem isso, alguns navegadores (principalmente iOS) ficam menos confiáveis
+// pra pegar código de barras 1D (EAN/UPC/Code128), só QR.
+const FORMATOS_CODIGO = (typeof Html5QrcodeSupportedFormats !== "undefined")
+  ? [
+      Html5QrcodeSupportedFormats.QR_CODE,
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.UPC_A,
+      Html5QrcodeSupportedFormats.UPC_E,
+      Html5QrcodeSupportedFormats.CODE_128,
+      Html5QrcodeSupportedFormats.CODE_39,
+      Html5QrcodeSupportedFormats.CODABAR,
+      Html5QrcodeSupportedFormats.ITF,
+    ]
+  : undefined;
+
 async function iniciarCamera(cameraIdOuConfig) {
-  html5Qrcode = new Html5Qrcode("camReader");
+  html5Qrcode = new Html5Qrcode("camReader", {
+    formatsToSupport: FORMATOS_CODIGO,
+    verbose: false,
+  });
   torchLigada = false;
   $btnTorch.classList.add("hidden");
 
   await html5Qrcode.start(
     cameraIdOuConfig,
-    { fps: 10, qrbox: { width: 250, height: 150 } },
+    {
+      fps: 10,
+      // Sem qrbox: escaneia o quadro inteiro em vez de exigir que o código
+      // fique alinhado numa caixinha pequena — mais tolerante, principalmente
+      // no iPhone onde a pré-visualização da câmera pode vir com outro corte.
+      qrbox: undefined,
+    },
     (decodedText) => {
       $codigo.value = decodedText;
       fecharCamera();
