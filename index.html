@@ -1430,18 +1430,11 @@ $btnCamera.addEventListener("click", async () => {
   $camModal.classList.remove("hidden");
 
   try {
-    const cameras = await Html5Qrcode.getCameras();
-
-    if (cameras && cameras.length > 0) {
-      // Sem escolha manual: prioriza a última câmera traseira da lista —
-      // costuma ser a lente principal em aparelhos com múltiplas lentes.
-      const traseiras = cameras.filter(c => /back|tras|rear/i.test(c.label || ""));
-      const listaEscolha = traseiras.length > 0 ? traseiras : cameras;
-      const escolhida = listaEscolha[listaEscolha.length - 1].id;
-      await iniciarCamera(escolhida);
-    } else {
-      await iniciarCamera({ facingMode: "environment" });
-    }
+    // Deixa o navegador escolher a câmera traseira sozinho (facingMode).
+    // Já tentamos escolher uma lente específica por ID pra priorizar a
+    // "principal", mas isso quebrou a leitura no iPhone — esse jeito simples
+    // é o que realmente funciona em Android e iOS.
+    await iniciarCamera({ facingMode: "environment" });
   } catch (e) {
     console.error(e);
     $camModal.classList.add("hidden");
