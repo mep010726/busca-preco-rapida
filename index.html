@@ -1391,7 +1391,8 @@ $btnCamera.addEventListener("click", async () => {
       // Sem escolha manual: prioriza a última câmera traseira da lista —
       // costuma ser a lente principal em aparelhos com múltiplas lentes.
       const traseiras = cameras.filter(c => /back|tras|rear/i.test(c.label || ""));
-      const escolhida = (traseiras.at(-1) || cameras.at(-1)).id;
+      const listaEscolha = traseiras.length > 0 ? traseiras : cameras;
+      const escolhida = listaEscolha[listaEscolha.length - 1].id;
       await iniciarCamera(escolhida);
     } else {
       await iniciarCamera({ facingMode: "environment" });
