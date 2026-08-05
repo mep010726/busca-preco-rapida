@@ -964,6 +964,7 @@ $tabMaisProcurados.addEventListener("click", () => {
 });
 $tabAjuda.addEventListener("click", () => {
   mostrarAba($tabAjuda);
+  checarMutePropio();
   if (ehAdmin()) {
     $sugestoesAdminCard.classList.remove("hidden");
     carregarSugestoes();
@@ -1207,6 +1208,37 @@ async function apagarMaisProcurado(id) {
 
 // ---------- SUGESTÕES ----------
 
+const DURACOES_MUTE = [
+  { label: "1 hora", horas: 1 },
+  { label: "6 horas", horas: 6 },
+  { label: "1 dia", horas: 24 },
+  { label: "3 dias", horas: 72 },
+  { label: "1 semana", horas: 24 * 7 },
+  { label: "1 mês", horas: 24 * 30 },
+];
+
+async function checarMutePropio() {
+  if (!currentUser) return;
+
+  const { data } = await sb
+    .from("sugestoes_mute")
+    .select("mutado_ate")
+    .eq("user_id", currentUser.id)
+    .maybeSingle();
+
+  const mutado = data && new Date(data.mutado_ate) > new Date();
+  $sugestaoTexto.disabled = !!mutado;
+  $btnEnviarSugestao.disabled = !!mutado;
+
+  if (mutado) {
+    $sugestaoMsg.textContent = `Você está impedido de enviar sugestões até ${new Date(data.mutado_ate).toLocaleString("pt-BR")}.`;
+    $sugestaoMsg.className = "msg err";
+  } else {
+    $sugestaoMsg.textContent = "";
+    $sugestaoMsg.className = "msg";
+  }
+}
+
 $btnEnviarSugestao.addEventListener("click", async () => {
   const texto = $sugestaoTexto.value.trim();
   if (!texto || !currentUser) return;
@@ -1223,7 +1255,7 @@ $btnEnviarSugestao.addEventListener("click", async () => {
 
   $btnEnviarSugestao.disabled = false;
   if (error) {
-    $sugestaoMsg.textContent = "Erro ao enviar: " + error.message;
+    $sugestaoMsg.textContent = error.message;
     $sugestaoMsg.className = "msg err";
   } else {
     $sugestaoTexto.value = "";
@@ -1231,6 +1263,21 @@ $btnEnviarSugestao.addEventListener("click", async () => {
     $sugestaoMsg.className = "msg";
   }
 });
+
+async function mutarUsuario(userId, horas) {
+  const mutadoAte = new Date(Date.now() + horas * 60 * 60 * 1000).toISOString();
+  await sb.from("sugestoes_mute").upsert({
+    user_id: userId,
+    mutado_ate: mutadoAte,
+    mutado_por: currentUser.id,
+  });
+  carregarSugestoes();
+}
+
+async function desmutarUsuario(userId) {
+  await sb.from("sugestoes_mute").delete().eq("user_id", userId);
+  carregarSugestoes();
+}
 
 async function carregarSugestoes() {
   $sugestoesLista.innerHTML = `<div class="msg">Carregando...</div>`;
@@ -1249,24 +1296,58 @@ async function carregarSugestoes() {
     return;
   }
 
-  $sugestoesLista.innerHTML = data.map(s => `
-    <div class="historico-item" style="cursor:default; align-items:flex-start;">
+  const userIds = [...new Set(data.map(s => s.user_id))];
+  const { data: mutes } = await sb
+    .from("sugestoes_mute")
+    .select("user_id, mutado_ate")
+    .in("user_id", userIds);
+  const mutesPorUsuario = {};
+  (mutes || []).forEach(m => { mutesPorUsuario[m.user_id] = m.mutado_ate; });
+
+  const opcoesDuracao = DURACOES_MUTE.map((d, i) => `<option value="${i}">${d.label}</option>`).join("");
+
+  $sugestoesLista.innerHTML = data.map(s => {
+    const mutadoAte = mutesPorUsuario[s.user_id];
+    const mutado = mutadoAte && new Date(mutadoAte) > new Date();
+    return `
+    <div class="historico-item" style="cursor:default; align-items:flex-start; flex-wrap:wrap;">
       <div class="h-conteudo">
         <div class="h-produto">${s.email}</div>
         <div class="h-meta">${new Date(s.criado_em).toLocaleString("pt-BR")}</div>
         <div style="margin-top:6px; font-size:0.9rem;">${s.texto.replace(/</g, "&lt;")}</div>
+        ${mutado ? `<div class="h-meta" style="color:var(--danger); margin-top:6px;">Mutado até ${new Date(mutadoAte).toLocaleString("pt-BR")}</div>` : ""}
+        <div class="row" style="margin-top:8px; margin-bottom:0;">
+          ${mutado
+            ? `<button class="secondary btn-desmutar" data-user="${s.user_id}" style="width:auto; padding:6px 10px; font-size:0.8rem;">Desmutar</button>`
+            : `<select class="duracao-mute" style="width:auto; margin-bottom:0; padding:6px; font-size:0.8rem;">${opcoesDuracao}</select>
+               <button class="secondary btn-mutar" data-user="${s.user_id}" style="width:auto; padding:6px 10px; font-size:0.8rem;">Mutar sugestões</button>`
+          }
+        </div>
       </div>
       <div class="h-acoes">
         <button class="h-btn apagar-sugestao" title="Apagar">${ICONE_LIXEIRA}</button>
       </div>
     </div>
-  `).join("");
+  `;
+  }).join("");
 
   $sugestoesLista.querySelectorAll(".apagar-sugestao").forEach((btn, i) => {
     btn.addEventListener("click", async () => {
       await sb.from("sugestoes").delete().eq("id", data[i].id);
       carregarSugestoes();
     });
+  });
+
+  $sugestoesLista.querySelectorAll(".btn-mutar").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const select = btn.parentElement.querySelector(".duracao-mute");
+      const horas = DURACOES_MUTE[Number(select.value)].horas;
+      mutarUsuario(btn.dataset.user, horas);
+    });
+  });
+
+  $sugestoesLista.querySelectorAll(".btn-desmutar").forEach(btn => {
+    btn.addEventListener("click", () => desmutarUsuario(btn.dataset.user));
   });
 }
 
