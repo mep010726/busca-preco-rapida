@@ -263,7 +263,12 @@
   <div id="app" class="hidden">
     <div class="topbar">
       <span id="userEmail"></span>
-      <button id="btnSair" class="secondary" style="padding:8px 12px;">Sair</button>
+      <div style="display:flex; gap:8px;">
+        <button id="btnConfig" class="secondary icon" style="padding:8px;" title="Configurações">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+        <button id="btnSair" class="secondary" style="padding:8px 12px;">Sair</button>
+      </div>
     </div>
 
     <div class="tabs-wrap">
@@ -382,6 +387,9 @@
         <h3>12. Sem conexão no modo múltiplos itens</h3>
         <p>Se a internet cair no meio de uma busca com o modo "múltiplos itens" ligado, o bloco daquele item mostra "sem conexão" e tenta de novo sozinho assim que a internet voltar — não precisa refazer a busca manualmente.</p>
 
+        <h3>13. Configurações</h3>
+        <p>Toque no ícone de engrenagem ao lado de "Sair" pra editar seu nome, código de vendedor e a loja em que você trabalha, ou pra alterar sua senha diretamente (sem precisar de e-mail).</p>
+
         <h3>Dúvidas ou problemas</h3>
         <p>Se algo não funcionar como esperado, use o campo de sugestão abaixo pra reportar.</p>
       </div>
@@ -410,6 +418,37 @@
         </button>
         <button id="btnFecharCam" class="full secondary">Fechar câmera</button>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL CONFIGURAÇÕES -->
+  <div id="configModal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="loja-titulo" style="margin-bottom:10px;">Configurações</div>
+
+      <label for="cfgNome">Nome do vendedor</label>
+      <input id="cfgNome" type="text" placeholder="Seu nome">
+
+      <label for="cfgCodigo">Código do vendedor</label>
+      <input id="cfgCodigo" type="text" placeholder="Ex: 123">
+
+      <label for="cfgLoja">Loja que você fica</label>
+      <input id="cfgLoja" type="text" inputmode="numeric" placeholder="Ex: 32">
+
+      <div id="cfgMsg" class="msg"></div>
+      <button id="btnSalvarConfig" class="full">Salvar</button>
+
+      <hr style="border: none; border-top: 1px solid var(--border); margin: 20px 0;">
+
+      <div class="loja-titulo" style="margin-bottom:10px;">Alterar senha</div>
+      <label for="cfgSenha1">Nova senha</label>
+      <input id="cfgSenha1" type="password" placeholder="••••••••">
+      <label for="cfgSenha2">Confirme a nova senha</label>
+      <input id="cfgSenha2" type="password" placeholder="••••••••">
+      <div id="cfgSenhaMsg" class="msg"></div>
+      <button id="btnSalvarSenhaConfig" class="full secondary">Alterar senha</button>
+
+      <button id="btnFecharConfig" class="full secondary" style="margin-top:16px;">Fechar</button>
     </div>
   </div>
 </div>
@@ -506,6 +545,19 @@ const $btnSalvarNovaSenha = document.getElementById("btnSalvarNovaSenha");
 const $app = document.getElementById("app");
 const $userEmail = document.getElementById("userEmail");
 const $btnSair = document.getElementById("btnSair");
+
+const $btnConfig = document.getElementById("btnConfig");
+const $configModal = document.getElementById("configModal");
+const $btnFecharConfig = document.getElementById("btnFecharConfig");
+const $cfgNome = document.getElementById("cfgNome");
+const $cfgCodigo = document.getElementById("cfgCodigo");
+const $cfgLoja = document.getElementById("cfgLoja");
+const $cfgMsg = document.getElementById("cfgMsg");
+const $btnSalvarConfig = document.getElementById("btnSalvarConfig");
+const $cfgSenha1 = document.getElementById("cfgSenha1");
+const $cfgSenha2 = document.getElementById("cfgSenha2");
+const $cfgSenhaMsg = document.getElementById("cfgSenhaMsg");
+const $btnSalvarSenhaConfig = document.getElementById("btnSalvarSenhaConfig");
 
 const $tabBusca = document.getElementById("tabBusca");
 const $tabHistorico = document.getElementById("tabHistorico");
@@ -636,6 +688,78 @@ $btnCriarConta.addEventListener("click", async () => {
 });
 
 $btnSair.addEventListener("click", () => sb.auth.signOut());
+
+// ---------- CONFIGURAÇÕES DO VENDEDOR ----------
+
+$btnConfig.addEventListener("click", () => {
+  const meta = (currentUser && currentUser.user_metadata) || {};
+  $cfgNome.value = meta.nome_vendedor || "";
+  $cfgCodigo.value = meta.codigo_vendedor || "";
+  $cfgLoja.value = meta.loja_vendedor || "";
+  $cfgMsg.textContent = "";
+  $cfgSenha1.value = "";
+  $cfgSenha2.value = "";
+  $cfgSenhaMsg.textContent = "";
+  $configModal.classList.remove("hidden");
+});
+
+$btnFecharConfig.addEventListener("click", () => $configModal.classList.add("hidden"));
+
+$btnSalvarConfig.addEventListener("click", async () => {
+  $btnSalvarConfig.disabled = true;
+  $cfgMsg.textContent = "Salvando...";
+  $cfgMsg.className = "msg";
+
+  const { data, error } = await sb.auth.updateUser({
+    data: {
+      nome_vendedor: $cfgNome.value.trim(),
+      codigo_vendedor: $cfgCodigo.value.trim(),
+      loja_vendedor: $cfgLoja.value.trim(),
+    },
+  });
+
+  $btnSalvarConfig.disabled = false;
+  if (error) {
+    $cfgMsg.textContent = error.message;
+    $cfgMsg.className = "msg err";
+  } else {
+    currentUser = data.user;
+    $cfgMsg.textContent = "Salvo!";
+    $cfgMsg.className = "msg";
+  }
+});
+
+$btnSalvarSenhaConfig.addEventListener("click", async () => {
+  const s1 = $cfgSenha1.value;
+  const s2 = $cfgSenha2.value;
+  if (!s1 || s1.length < 6) {
+    $cfgSenhaMsg.textContent = "A senha precisa ter pelo menos 6 caracteres.";
+    $cfgSenhaMsg.className = "msg err";
+    return;
+  }
+  if (s1 !== s2) {
+    $cfgSenhaMsg.textContent = "As senhas não são iguais.";
+    $cfgSenhaMsg.className = "msg err";
+    return;
+  }
+
+  $btnSalvarSenhaConfig.disabled = true;
+  $cfgSenhaMsg.textContent = "Salvando...";
+  $cfgSenhaMsg.className = "msg";
+
+  const { error } = await sb.auth.updateUser({ password: s1 });
+
+  $btnSalvarSenhaConfig.disabled = false;
+  if (error) {
+    $cfgSenhaMsg.textContent = error.message;
+    $cfgSenhaMsg.className = "msg err";
+  } else {
+    $cfgSenha1.value = "";
+    $cfgSenha2.value = "";
+    $cfgSenhaMsg.textContent = "Senha alterada!";
+    $cfgSenhaMsg.className = "msg";
+  }
+});
 
 // ---------- RECUPERAÇÃO DE SENHA ----------
 
