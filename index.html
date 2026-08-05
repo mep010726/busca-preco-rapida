@@ -1374,7 +1374,7 @@ const FORMATOS_CODIGO = (typeof Html5QrcodeSupportedFormats !== "undefined")
     ]
   : undefined;
 
-async function iniciarCamera(cameraIdOuConfig) {
+async function iniciarCamera(cameraIdOuConfig, videoConstraints) {
   html5Qrcode = new Html5Qrcode("camReader", {
     formatsToSupport: FORMATOS_CODIGO,
     verbose: false,
@@ -1383,11 +1383,14 @@ async function iniciarCamera(cameraIdOuConfig) {
   $btnTorch.classList.add("hidden");
 
   const configuracao = {
-    fps: 10,
+    fps: 15,
+    aspectRatio: 1.7777778,
+    disableFlip: false,
     // Sem qrbox: escaneia o quadro inteiro em vez de exigir que o código
     // fique alinhado numa caixinha pequena — mais tolerante, principalmente
     // no iPhone onde a pré-visualização da câmera pode vir com outro corte.
     qrbox: undefined,
+    videoConstraints,
   };
   const aoLer = (decodedText) => {
     $codigo.value = decodedText;
@@ -1414,6 +1417,15 @@ async function iniciarCamera(cameraIdOuConfig) {
 
   await html5Qrcode.start(cameraIdOuConfig, configuracao, aoLer, aoFalharFrame);
 
+  // Reforça o foco contínuo direto na track de vídeo (além do que já foi
+  // pedido em videoConstraints) — sem isso, em alguns iPhones a câmera foca
+  // uma vez ao abrir e nunca reajusta, deixando tudo borrado de perto.
+  try {
+    await html5Qrcode.applyVideoConstraints({ advanced: [{ focusMode: "continuous" }] });
+  } catch (e) {
+    // Aparelho não suporta controlar o foco manualmente — sem problema.
+  }
+
   // Mostra o botão de lanterna só se o dispositivo/lente atual suportar.
   try {
     const capacidades = html5Qrcode.getRunningTrackCameraCapabilities();
@@ -1430,10 +1442,17 @@ $btnCamera.addEventListener("click", async () => {
   $camModal.classList.remove("hidden");
 
   // Monta uma lista de tentativas, da melhor pra mais simples, e usa a
-  // primeira que funcionar. Isso cobre tanto o caso de precisar escolher a
-  // lente certa (iPhones com várias câmeras traseiras) quanto aparelhos que
-  // rejeitam pedido de resolução alta.
-  const resolucaoAlta = { width: { ideal: 1920 }, height: { ideal: 1080 } };
+  // primeira que funcionar. O ponto principal é o "focusMode: continuous":
+  // sem isso, em vários iPhones a câmera foca uma vez ao abrir e nunca
+  // reajusta, deixando tudo borrado quando o celular chega perto do código.
+  const comFocoContinuo = (base) => ({
+    ...base,
+    width: { ideal: 1280 },
+    height: { ideal: 720 },
+    frameRate: { ideal: 15 },
+    advanced: [{ focusMode: "continuous" }],
+  });
+
   const tentativas = [];
 
   try {
@@ -1444,24 +1463,24 @@ $btnCamera.addEventListener("click", async () => {
       // que focam mal de perto e atrapalham a leitura do código de barras.
       const traseiras = cameras.filter(c => /back|tras|rear/i.test(c.label || ""));
       const principal = (traseiras[0] || cameras[0]).id;
-      tentativas.push({ deviceId: { exact: principal }, ...resolucaoAlta });
-      tentativas.push({ deviceId: { exact: principal } });
+      tentativas.push([{ deviceId: { exact: principal } }, comFocoContinuo({ deviceId: { exact: principal } })]);
+      tentativas.push([{ deviceId: { exact: principal } }, undefined]);
     }
   } catch (e) {
     console.error("Não consegui listar câmeras, seguindo com facingMode:", e);
   }
 
-  tentativas.push({ facingMode: "environment", ...resolucaoAlta });
-  tentativas.push({ facingMode: "environment" });
+  tentativas.push([{ facingMode: "environment" }, comFocoContinuo({ facingMode: { ideal: "environment" } })]);
+  tentativas.push([{ facingMode: "environment" }, undefined]);
 
   let sucesso = false;
-  for (const config of tentativas) {
+  for (const [cameraId, videoConstraints] of tentativas) {
     try {
-      await iniciarCamera(config);
+      await iniciarCamera(cameraId, videoConstraints);
       sucesso = true;
       break;
     } catch (e) {
-      console.error("Tentativa de câmera falhou:", config, e);
+      console.error("Tentativa de câmera falhou:", cameraId, videoConstraints, e);
     }
   }
 
