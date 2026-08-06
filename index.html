@@ -314,6 +314,16 @@
         <button id="buscar" class="full">Buscar</button>
       </div>
 
+      <div class="card">
+        <label for="referenciaBusca">Buscar por referência (ex: 593102-001)</label>
+        <div class="row">
+          <input id="referenciaBusca" type="text" placeholder="Referência do produto">
+          <button id="btnBuscarReferencia" class="secondary" style="white-space:nowrap;">Buscar</button>
+        </div>
+        <div id="referenciaMsg" class="msg"></div>
+        <div id="referenciaResultados"></div>
+      </div>
+
       <div id="status"></div>
 
       <div id="resumoCard" class="card result">
@@ -399,6 +409,9 @@
         <h3>13. Configurações</h3>
         <p>Toque no ícone de engrenagem ao lado de "Sair" pra editar seu nome, código de vendedor e a loja em que você trabalha, ou pra alterar sua senha diretamente (sem precisar de e-mail).</p>
         <p>Nas Configurações também tem a opção <strong>"Este aparelho tem bipador físico"</strong> — marque num tablet/PC com leitor de código de barras conectado, e o campo de código de barras fica sempre pronto pra receber a leitura, sem precisar tocar nele antes de cada bipada. Essa opção fica salva por aparelho, não por conta — em celular sem bipador é melhor deixar desmarcada.</p>
+
+        <h3>14. Buscar por referência</h3>
+        <p>Abaixo do código de barras tem o campo <strong>"Buscar por referência"</strong> (ex: 593102-001). Ele só encontra produtos que <strong>já foram escaneados antes</strong> por algum usuário do app — cada busca por código de barras alimenta esse índice sozinha. Se a referência ainda não tiver sido vista, bipe o código de barras dele uma vez primeiro.</p>
 
         <h3>Dúvidas ou problemas</h3>
         <p>Se algo não funcionar como esperado, use o campo de sugestão abaixo pra reportar.</p>
@@ -616,6 +629,10 @@ const $resumoPrecoOriginal = document.getElementById("resumoPrecoOriginal");
 const $resultados = document.getElementById("resultados");
 const $modoMultiplo = document.getElementById("modoMultiplo");
 const $buscasMultiplas = document.getElementById("buscasMultiplas");
+const $referenciaBusca = document.getElementById("referenciaBusca");
+const $btnBuscarReferencia = document.getElementById("btnBuscarReferencia");
+const $referenciaMsg = document.getElementById("referenciaMsg");
+const $referenciaResultados = document.getElementById("referenciaResultados");
 
 const $btnCamera = document.getElementById("btnCamera");
 const $camModal = document.getElementById("camModal");
@@ -1101,6 +1118,75 @@ async function salvarHistorico(item, lojasStr) {
     lojas: lojasStr,
   });
 }
+
+// ---------- BUSCA POR REFERÊNCIA ----------
+
+// Toda busca por código de barras alimenta esse índice compartilhado entre
+// todos os usuários — assim, com o tempo, produtos já vistos por qualquer
+// pessoa ficam disponíveis pra encontrar direto pela referência.
+async function salvarNoIndiceReferencias(item) {
+  if (!currentUser || !item.cdReferencia) return;
+  await sb.from("referencias_index").upsert({
+    codigo_barras: item.cdProduto,
+    cd_referencia: item.cdReferencia,
+    produto: item.dsProduto,
+    atualizado_em: new Date().toISOString(),
+  }, { onConflict: "codigo_barras" });
+}
+
+$btnBuscarReferencia.addEventListener("click", async () => {
+  const termo = $referenciaBusca.value.trim();
+  if (!termo) return;
+
+  $btnBuscarReferencia.disabled = true;
+  $referenciaMsg.textContent = "Buscando...";
+  $referenciaMsg.className = "msg";
+  $referenciaResultados.innerHTML = "";
+
+  const { data, error } = await sb
+    .from("referencias_index")
+    .select("*")
+    .or(`cd_referencia.ilike.%${termo}%,produto.ilike.%${termo}%`)
+    .order("atualizado_em", { ascending: false })
+    .limit(20);
+
+  $btnBuscarReferencia.disabled = false;
+
+  if (error) {
+    $referenciaMsg.textContent = error.message;
+    $referenciaMsg.className = "msg err";
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    $referenciaMsg.textContent = "Nenhum produto com essa referência foi escaneado ainda. Bipe o código de barras dele uma vez pra ele entrar no índice.";
+    $referenciaMsg.className = "msg";
+    return;
+  }
+
+  $referenciaMsg.textContent = "";
+  $referenciaResultados.innerHTML = data.map(r => `
+    <div class="historico-item" data-codigo="${r.codigo_barras}">
+      <div class="h-conteudo">
+        <div class="h-produto">${r.produto || r.codigo_barras}</div>
+        <div class="h-meta">Ref: ${r.cd_referencia}</div>
+      </div>
+    </div>
+  `).join("");
+
+  $referenciaResultados.querySelectorAll(".historico-item").forEach(el => {
+    el.addEventListener("click", () => {
+      $codigo.value = el.dataset.codigo;
+      $referenciaResultados.innerHTML = "";
+      $referenciaBusca.value = "";
+      buscar();
+    });
+  });
+});
+
+$referenciaBusca.addEventListener("keydown", e => {
+  if (e.key === "Enter") $btnBuscarReferencia.click();
+});
 
 // ---------- MAIS PROCURADOS ----------
 
@@ -1841,6 +1927,7 @@ async function executarBusca(codigo, lojasStrRaw, multiplo) {
     if (!multiplo) $resumoCard.classList.add("show");
 
     salvarHistorico(item, lojasStrRaw.trim());
+    salvarNoIndiceReferencias(item);
 
     setBuscaStatus("Consultando estoque...");
 
