@@ -1710,11 +1710,13 @@ async function buscarEstoqueLoja(item, loja, estoqueCache, cardEl, signal) {
   } else {
     $tabela.innerHTML = `<div class="msg">Nenhuma outra numeração com estoque nesta loja.</div>`;
   }
+
+  return qtdTotal;
 }
 
 async function tentarBuscarEstoque(item, loja, cache, cardEl, signal) {
   try {
-    await buscarEstoqueLoja(item, loja, cache, cardEl, signal);
+    return await buscarEstoqueLoja(item, loja, cache, cardEl, signal);
   } catch (e) {
     console.error(e);
     const info = infoLoja(loja);
@@ -1724,7 +1726,7 @@ async function tentarBuscarEstoque(item, loja, cache, cardEl, signal) {
         <div class="loja-titulo">Loja ${loja}</div>
         ${info ? `<div class="loja-endereco">${info}</div>` : ""}
         <div class="msg">Busca interrompida.</div>`;
-      return;
+      return -1;
     }
 
     if (!navigator.onLine || e instanceof TypeError) {
@@ -1736,7 +1738,7 @@ async function tentarBuscarEstoque(item, loja, cache, cardEl, signal) {
         cardEl.innerHTML = cardEstoqueLoadingInner(loja);
         tentarBuscarEstoque(item, loja, new Map(), cardEl);
       }, { once: true });
-      return;
+      return -1;
     }
 
     cardEl.innerHTML = `
@@ -1748,6 +1750,7 @@ async function tentarBuscarEstoque(item, loja, cache, cardEl, signal) {
       cardEl.innerHTML = cardEstoqueLoadingInner(loja);
       tentarBuscarEstoque(item, loja, new Map(), cardEl);
     });
+    return -1;
   }
 }
 
@@ -1848,7 +1851,17 @@ async function executarBusca(codigo, lojasStrRaw, multiplo) {
     });
 
     const estoqueCache = new Map();
-    await Promise.all(cardEls.map(({ loja, el }) => tentarBuscarEstoque(item, loja, estoqueCache, el, signal)));
+    const resultados = await Promise.all(
+      cardEls.map(({ loja, el }) => tentarBuscarEstoque(item, loja, estoqueCache, el, signal).then(qtd => ({ el, qtd: qtd ?? -1 })))
+    );
+
+    // Reordena os cards: lojas com estoque primeiro (mais peças no topo),
+    // depois as zeradas, depois as que deram erro.
+    resultados
+      .slice()
+      .sort((a, b) => b.qtd - a.qtd)
+      .forEach(({ el }) => gridEl.appendChild(el));
+
     setBuscaStatus("");
   } catch (e) {
     if (e.name === "AbortError") {
