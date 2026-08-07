@@ -311,7 +311,10 @@
           Carregar múltiplos itens ao mesmo tempo
         </label>
 
-        <button id="buscar" class="full">Buscar</button>
+        <div class="row">
+          <button id="buscar" class="full">Buscar</button>
+          <button id="btnLimparBusca" class="secondary" style="white-space:nowrap;">Limpar</button>
+        </div>
       </div>
 
       <div class="card">
@@ -319,6 +322,7 @@
         <div class="row">
           <input id="referenciaBusca" type="text" placeholder="Referência do produto">
           <button id="btnBuscarReferencia" class="secondary" style="white-space:nowrap;">Buscar</button>
+          <button id="btnLimparReferencia" class="secondary" style="white-space:nowrap;">Limpar</button>
         </div>
         <div id="referenciaMsg" class="msg"></div>
         <div id="referenciaResultados"></div>
@@ -621,6 +625,7 @@ const $codigo = document.getElementById("codigo");
 const $lojas = document.getElementById("lojas");
 const $btnRedeToda = document.getElementById("btnRedeToda");
 const $buscar = document.getElementById("buscar");
+const $btnLimparBusca = document.getElementById("btnLimparBusca");
 const $status = document.getElementById("status");
 const $resumoCard = document.getElementById("resumoCard");
 const $resumoProduto = document.getElementById("resumoProduto");
@@ -633,6 +638,7 @@ const $referenciaBusca = document.getElementById("referenciaBusca");
 const $btnBuscarReferencia = document.getElementById("btnBuscarReferencia");
 const $referenciaMsg = document.getElementById("referenciaMsg");
 const $referenciaResultados = document.getElementById("referenciaResultados");
+const $btnLimparReferencia = document.getElementById("btnLimparReferencia");
 
 const $btnCamera = document.getElementById("btnCamera");
 const $camModal = document.getElementById("camModal");
@@ -1996,6 +2002,28 @@ function buscar() {
 
 $buscar.addEventListener("click", buscar);
 $codigo.addEventListener("keydown", e => { if (e.key === "Enter") buscar(); });
+
+// Limpa tudo da busca por código de barras, sem precisar recarregar a
+// página: código digitado, resumo de preço, cards de estoque e status.
+$btnLimparBusca.addEventListener("click", () => {
+  if (controladorBuscaAtual) controladorBuscaAtual.abort();
+  $codigo.value = "";
+  $resumoCard.classList.remove("show");
+  $resumoProduto.textContent = "";
+  $resumoPreco.textContent = "";
+  $resumoPrecoOriginal.textContent = "";
+  $resultados.innerHTML = "";
+  $buscasMultiplas.innerHTML = "";
+  setStatus("");
+  talvezFocarCodigo();
+});
+
+$btnLimparReferencia.addEventListener("click", () => {
+  $referenciaBusca.value = "";
+  $referenciaResultados.innerHTML = "";
+  $referenciaMsg.textContent = "";
+  $referenciaMsg.className = "msg";
+});
 
 // As lojas escolhidas ficam salvas no perfil do usuário (sincroniza entre
 // dispositivos); enquanto não há login, usa um rascunho local.
