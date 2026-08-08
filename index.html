@@ -1027,34 +1027,28 @@ $tabAjuda.addEventListener("click", () => {
 
 const PAGINA_TAMANHO = 30;
 
-function renderListaItens(container, data, { vazio, mostrarSugerir, anexar }) {
-  if (!anexar) {
-    if (!data || data.length === 0) {
-      container.innerHTML = `<div class="msg">${vazio}</div>`;
-      return;
-    }
-    container.innerHTML = "";
+function renderListaItens(container, data, { vazio, mostrarSugerir }) {
+  if (!data || data.length === 0) {
+    container.innerHTML = `<div class="msg">${vazio}</div>`;
+    return;
   }
 
-  if (data && data.length > 0) {
-    container.insertAdjacentHTML("beforeend", data.map(h => `
-      <div class="historico-item" data-id="${h.id}" data-codigo="${h.codigo_barras}" data-lojas="${h.lojas || ""}" data-produto="${(h.produto || "").replace(/"/g, "&quot;")}" data-preco="${h.preco != null ? h.preco : ""}">
-        <div class="h-conteudo">
-          <div class="h-produto">${h.produto || h.codigo_barras}</div>
-          <div class="h-meta">Lojas ${h.lojas || "-"} · ${new Date(h.criado_em).toLocaleString("pt-BR")}</div>
-        </div>
-        <div class="h-acoes">
-          <span>${h.preco != null ? fmtMoeda(h.preco) : ""}</span>
-          <button class="h-btn favorito ${h.favorito ? "ativo" : ""}" title="Favoritar">${h.favorito ? ICONE_ESTRELA_CHEIA : ICONE_ESTRELA_VAZIA}</button>
-          ${mostrarSugerir ? `<button class="h-btn sugerir" title="Sugerir para Mais Procurados">${ICONE_PIN}</button>` : ""}
-          <button class="h-btn apagar" title="Apagar">${ICONE_LIXEIRA}</button>
-        </div>
+  container.innerHTML = data.map(h => `
+    <div class="historico-item" data-id="${h.id}" data-codigo="${h.codigo_barras}" data-lojas="${h.lojas || ""}" data-produto="${(h.produto || "").replace(/"/g, "&quot;")}" data-preco="${h.preco != null ? h.preco : ""}">
+      <div class="h-conteudo">
+        <div class="h-produto">${h.produto || h.codigo_barras}</div>
+        <div class="h-meta">Lojas ${h.lojas || "-"} · ${new Date(h.criado_em).toLocaleString("pt-BR")}</div>
       </div>
-    `).join(""));
-  }
+      <div class="h-acoes">
+        <span>${h.preco != null ? fmtMoeda(h.preco) : ""}</span>
+        <button class="h-btn favorito ${h.favorito ? "ativo" : ""}" title="Favoritar">${h.favorito ? ICONE_ESTRELA_CHEIA : ICONE_ESTRELA_VAZIA}</button>
+        ${mostrarSugerir ? `<button class="h-btn sugerir" title="Sugerir para Mais Procurados">${ICONE_PIN}</button>` : ""}
+        <button class="h-btn apagar" title="Apagar">${ICONE_LIXEIRA}</button>
+      </div>
+    </div>
+  `).join("");
 
-  container.querySelectorAll(".historico-item:not([data-bind])").forEach(el => {
-    el.dataset.bind = "1";
+  container.querySelectorAll(".historico-item").forEach(el => {
     const id = el.dataset.id;
 
     el.querySelector(".h-conteudo").addEventListener("click", () => {
@@ -1089,84 +1083,73 @@ function renderListaItens(container, data, { vazio, mostrarSugerir, anexar }) {
   });
 }
 
-function adicionarBotaoCarregarMais(container, aoClicar) {
-  const antigo = container.querySelector(".h-carregar-mais");
-  if (antigo) antigo.remove();
-  const btn = document.createElement("button");
-  btn.className = "secondary h-carregar-mais";
-  btn.style.cssText = "width:100%;margin-top:10px;";
-  btn.textContent = "Carregar mais";
-  btn.addEventListener("click", async () => {
-    btn.disabled = true;
-    btn.textContent = "Carregando...";
-    await aoClicar();
-  });
-  container.appendChild(btn);
+function renderPaginacao(container, paginaAtual, totalPaginas, aoMudar) {
+  const antiga = container.parentElement.querySelector(".h-paginacao");
+  if (antiga) antiga.remove();
+  if (totalPaginas <= 1) return;
+
+  const div = document.createElement("div");
+  div.className = "h-paginacao";
+  div.style.cssText = "display:flex;align-items:center;justify-content:center;gap:14px;margin-top:12px;";
+  div.innerHTML = `
+    <button class="secondary h-pg-ant" ${paginaAtual === 0 ? "disabled" : ""}>‹ Anterior</button>
+    <span style="white-space:nowrap;">Página ${paginaAtual + 1} de ${totalPaginas}</span>
+    <button class="secondary h-pg-prox" ${paginaAtual >= totalPaginas - 1 ? "disabled" : ""}>Próxima ›</button>
+  `;
+  container.insertAdjacentElement("afterend", div);
+  div.querySelector(".h-pg-ant").addEventListener("click", () => aoMudar(paginaAtual - 1));
+  div.querySelector(".h-pg-prox").addEventListener("click", () => aoMudar(paginaAtual + 1));
 }
 
-let historicoOffset = 0;
-
-async function carregarHistorico() {
+async function carregarHistorico(pagina = 0) {
   if (!currentUser) return;
-  historicoOffset = 0;
   $historicoLista.innerHTML = `<div class="msg">Carregando histórico...</div>`;
-  await carregarPaginaHistorico(false);
-}
+  const antiga = $historicoLista.parentElement.querySelector(".h-paginacao");
+  if (antiga) antiga.remove();
 
-async function carregarPaginaHistorico(anexar) {
-  const { data, error } = await sb
+  const from = pagina * PAGINA_TAMANHO;
+  const to = from + PAGINA_TAMANHO - 1;
+
+  const { data, error, count } = await sb
     .from("historico")
-    .select("*")
+    .select("*", { count: "exact" })
     .order("criado_em", { ascending: false })
-    .range(historicoOffset, historicoOffset + PAGINA_TAMANHO - 1);
+    .range(from, to);
 
   if (error) {
     $historicoLista.innerHTML = `<div class="msg err">Erro ao carregar histórico: ${error.message}</div>`;
     return;
   }
 
-  const antigo = $historicoLista.querySelector(".h-carregar-mais");
-  if (antigo) antigo.remove();
-
-  renderListaItens($historicoLista, data, { vazio: "Nenhuma busca ainda.", mostrarSugerir: true, anexar });
-
-  historicoOffset += data.length;
-  if (data.length === PAGINA_TAMANHO) {
-    adicionarBotaoCarregarMais($historicoLista, () => carregarPaginaHistorico(true));
-  }
+  renderListaItens($historicoLista, data, { vazio: "Nenhuma busca ainda.", mostrarSugerir: true });
+  const totalPaginas = Math.max(1, Math.ceil((count || 0) / PAGINA_TAMANHO));
+  renderPaginacao($historicoLista, pagina, totalPaginas, (novaPagina) => carregarHistorico(novaPagina));
 }
 
-let favoritosOffset = 0;
-
-async function carregarFavoritos() {
+async function carregarFavoritos(pagina = 0) {
   if (!currentUser) return;
-  favoritosOffset = 0;
   $favoritosLista.innerHTML = `<div class="msg">Carregando favoritos...</div>`;
-  await carregarPaginaFavoritos(false);
-}
+  const antiga = $favoritosLista.parentElement.querySelector(".h-paginacao");
+  if (antiga) antiga.remove();
 
-async function carregarPaginaFavoritos(anexar) {
-  const { data, error } = await sb
+  const from = pagina * PAGINA_TAMANHO;
+  const to = from + PAGINA_TAMANHO - 1;
+
+  const { data, error, count } = await sb
     .from("historico")
-    .select("*")
+    .select("*", { count: "exact" })
     .eq("favorito", true)
     .order("criado_em", { ascending: false })
-    .range(favoritosOffset, favoritosOffset + PAGINA_TAMANHO - 1);
+    .range(from, to);
 
   if (error) {
     $favoritosLista.innerHTML = `<div class="msg err">Erro ao carregar favoritos: ${error.message}</div>`;
     return;
   }
 
-  const antigoFav = $favoritosLista.querySelector(".h-carregar-mais");
-  if (antigoFav) antigoFav.remove();
-
-  renderListaItens($favoritosLista, data, { vazio: "Nenhum favorito ainda. Toque na estrela no histórico pra favoritar.", anexar });
-
-  favoritosOffset += data.length;
-  if (data.length === PAGINA_TAMANHO) {
-    adicionarBotaoCarregarMais($favoritosLista, () => carregarPaginaFavoritos(true));
-  }
+  renderListaItens($favoritosLista, data, { vazio: "Nenhum favorito ainda. Toque na estrela no histórico pra favoritar." });
+  const totalPaginas = Math.max(1, Math.ceil((count || 0) / PAGINA_TAMANHO));
+  renderPaginacao($favoritosLista, pagina, totalPaginas, (novaPagina) => carregarFavoritos(novaPagina));
 }
 
 async function alternarFavorito(id, novoValor) {
