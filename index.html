@@ -134,16 +134,12 @@
   .row > input { margin-bottom: 0; flex: 1; min-width: 0; }
   .row > button.full { flex: 1; width: auto; }
   #btnTorch.ativo { background: var(--accent); color: #04220f; border-color: var(--accent); }
-  .row-lojas { flex-wrap: wrap; }
-  .row-lojas > input { flex: 1 1 200px; }
-  .row-lojas > button { flex: 0 0 auto; }
 
   .lojas-chips-wrap {
     position: relative;
-    flex: 1 1 200px; min-width: 0;
     display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
     padding: 8px; border-radius: 8px; border: 1px solid var(--border);
-    background: var(--bg);
+    background: var(--bg); margin-bottom: 12px;
   }
   .lojas-chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .chip {
@@ -366,15 +362,13 @@
     <div id="painelBusca">
       <div class="card">
         <label for="lojaInput">Lojas</label>
-        <div class="row row-lojas">
-          <div class="lojas-chips-wrap" id="lojasChipsWrap">
-            <div id="lojasChips" class="lojas-chips"></div>
-            <input id="lojaInput" type="text" inputmode="numeric" placeholder="Nº da loja">
-            <div id="lojaSugestoes" class="lojas-sugestoes hidden"></div>
-          </div>
-          <input id="lojas" type="hidden" value="1">
-          <button id="btnRedeToda" class="secondary" style="white-space:nowrap;">Toda a rede</button>
+        <div class="lojas-chips-wrap" id="lojasChipsWrap">
+          <div id="lojasChips" class="lojas-chips"></div>
+          <input id="lojaInput" type="text" inputmode="numeric" placeholder="Nº da loja">
+          <div id="lojaSugestoes" class="lojas-sugestoes hidden"></div>
         </div>
+        <input id="lojas" type="hidden" value="1">
+        <button id="btnRedeToda" class="secondary full" style="margin-bottom:12px;">Toda a rede</button>
 
         <label for="codigo">Código de barras</label>
         <div class="row">
