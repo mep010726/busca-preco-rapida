@@ -140,6 +140,7 @@
     display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
     padding: 8px; border-radius: 8px; border: 1px solid var(--border);
     background: var(--bg); margin-bottom: 12px;
+    max-height: 130px; overflow-y: auto;
   }
   .lojas-chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .chip {
@@ -2260,6 +2261,20 @@ $btnLimparReferencia.addEventListener("click", () => {
 
 function renderChipsLojas() {
   const nums = ($lojas.value || "").split(",").map(s => s.trim()).filter(Boolean);
+
+  // Com "Toda a rede", mostrar uma etiqueta por loja (30+) lota a tela.
+  // Nesse caso, mostra uma etiqueta única resumindo tudo.
+  const todaARede = TODAS_AS_LOJAS.length > 0 && TODAS_AS_LOJAS.every(n => nums.includes(String(n)));
+  if (todaARede) {
+    $lojasChips.innerHTML = `<span class="chip">Toda a rede (${nums.length} lojas)<button type="button" class="chip-remove" data-limpar-tudo="1">&times;</button></span>`;
+    $lojasChips.querySelector(".chip-remove").addEventListener("click", (e) => {
+      e.stopPropagation();
+      $lojas.value = "";
+      $lojas.dispatchEvent(new Event("change"));
+    });
+    return;
+  }
+
   $lojasChips.innerHTML = nums.map(n => {
     const info = LOJAS_INFO[Number(n)];
     const label = info ? `${n} · ${info.nome}` : n;
