@@ -96,6 +96,14 @@
   button.ghost-icon:hover, button.ghost-icon:active {
     background: var(--card); color: var(--danger); border-color: var(--border);
   }
+  .badge {
+    position: absolute; top: 3px; right: 3px;
+    min-width: 16px; height: 16px; padding: 0 4px;
+    background: var(--danger); color: #fff;
+    border-radius: 999px; font-size: 0.65rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    line-height: 1;
+  }
   button:active { background: var(--accent-dim); }
   button:disabled { opacity: 0.5; cursor: default; }
   #buscar.btn-parar { background: var(--danger); color: #fff; }
@@ -293,7 +301,7 @@
         <button id="tabHistorico">Histórico</button>
         <button id="tabFavoritos">Favoritos</button>
         <button id="tabMaisProcurados">Mais Procurados</button>
-        <button id="tabAjuda">Ajuda</button>
+        <button id="tabAjuda" style="position:relative;">Ajuda<span id="ajudaBadge" class="badge hidden"></span></button>
       </div>
     </div>
 
@@ -439,6 +447,11 @@
         <textarea id="sugestaoTexto" rows="4" placeholder="Escreva aqui sua sugestão, dúvida ou problema encontrado..." style="width:100%; resize:vertical; font-family:inherit;"></textarea>
         <div id="sugestaoMsg" class="msg"></div>
         <button id="btnEnviarSugestao" class="full" style="margin-top:8px;">Enviar</button>
+      </div>
+
+      <div id="statsAdminCard" class="card hidden">
+        <div class="loja-titulo" style="margin-bottom:10px;">Estatísticas</div>
+        <div id="statsAdminLista"></div>
       </div>
 
       <div id="sugestoesAdminCard" class="card hidden">
@@ -618,6 +631,7 @@ const $tabHistorico = document.getElementById("tabHistorico");
 const $tabFavoritos = document.getElementById("tabFavoritos");
 const $tabMaisProcurados = document.getElementById("tabMaisProcurados");
 const $tabAjuda = document.getElementById("tabAjuda");
+const $ajudaBadge = document.getElementById("ajudaBadge");
 const $painelBusca = document.getElementById("painelBusca");
 const $painelHistorico = document.getElementById("painelHistorico");
 const $painelFavoritos = document.getElementById("painelFavoritos");
@@ -632,6 +646,8 @@ const $sugestaoTexto = document.getElementById("sugestaoTexto");
 const $sugestaoMsg = document.getElementById("sugestaoMsg");
 const $btnEnviarSugestao = document.getElementById("btnEnviarSugestao");
 const $sugestoesAdminCard = document.getElementById("sugestoesAdminCard");
+const $statsAdminCard = document.getElementById("statsAdminCard");
+const $statsAdminLista = document.getElementById("statsAdminLista");
 const $sugestoesLista = document.getElementById("sugestoesLista");
 
 const $codigo = document.getElementById("codigo");
@@ -932,6 +948,7 @@ function mostrarAppLogado(user) {
   if (lojasSalvas) $lojas.value = lojasSalvas;
 
   carregarHistorico();
+  atualizarBadgeAdmin();
   talvezFocarCodigo();
 }
 
@@ -1017,9 +1034,12 @@ $tabAjuda.addEventListener("click", () => {
   checarMutePropio();
   if (ehAdmin()) {
     $sugestoesAdminCard.classList.remove("hidden");
+    $statsAdminCard.classList.remove("hidden");
     carregarSugestoes();
+    carregarStatsAdmin();
   } else {
     $sugestoesAdminCard.classList.add("hidden");
+    $statsAdminCard.classList.add("hidden");
   }
 });
 
@@ -1355,11 +1375,86 @@ async function carregarMaisProcurados() {
 async function revisarMaisProcurado(id, status) {
   await sb.from("mais_procurados").update({ status, revisado_em: new Date().toISOString() }).eq("id", id);
   carregarMaisProcurados();
+  atualizarBadgeAdmin();
 }
 
 async function apagarMaisProcurado(id) {
   await sb.from("mais_procurados").delete().eq("id", id);
   carregarMaisProcurados();
+}
+
+// ---------- ESTATÍSTICAS E NOTIFICAÇÃO DO ADMIN ----------
+
+async function atualizarBadgeAdmin() {
+  if (!ehAdmin()) {
+    $ajudaBadge.classList.add("hidden");
+    return;
+  }
+
+  const [{ count: pendMP }, { count: sugCount }] = await Promise.all([
+    sb.from("mais_procurados").select("*", { count: "exact", head: true }).eq("status", "pendente"),
+    sb.from("sugestoes").select("*", { count: "exact", head: true }),
+  ]);
+
+  const total = (pendMP || 0) + (sugCount || 0);
+  if (total > 0) {
+    $ajudaBadge.textContent = total > 99 ? "99+" : String(total);
+    $ajudaBadge.classList.remove("hidden");
+  } else {
+    $ajudaBadge.classList.add("hidden");
+  }
+}
+
+async function carregarStatsAdmin() {
+  if (!ehAdmin()) return;
+  $statsAdminLista.innerHTML = `<div class="msg">Carregando estatísticas...</div>`;
+
+  const contar = (tabela, filtros) => {
+    let q = sb.from(tabela).select("*", { count: "exact", head: true });
+    if (filtros) q = filtros(q);
+    return q;
+  };
+
+  const [
+    totalBuscas,
+    totalFavoritos,
+    totalReferencias,
+    mpPendentes,
+    mpAprovados,
+    mpRejeitados,
+    totalSugestoes,
+  ] = await Promise.all([
+    contar("historico"),
+    contar("historico", q => q.eq("favorito", true)),
+    contar("referencias_index"),
+    contar("mais_procurados", q => q.eq("status", "pendente")),
+    contar("mais_procurados", q => q.eq("status", "aprovado")),
+    contar("mais_procurados", q => q.eq("status", "rejeitado")),
+    contar("sugestoes"),
+  ]);
+
+  const linhas = [
+    ["Buscas registradas (todos os usuários)", totalBuscas.count],
+    ["Itens favoritados", totalFavoritos.count],
+    ["Produtos no catálogo de referências", totalReferencias.count],
+    ["Mais Procurados pendentes", mpPendentes.count],
+    ["Mais Procurados aprovados", mpAprovados.count],
+    ["Mais Procurados rejeitados", mpRejeitados.count],
+    ["Sugestões recebidas", totalSugestoes.count],
+  ];
+
+  $statsAdminLista.innerHTML = `
+    <table style="width:100%;">
+      <tbody>
+        ${linhas.map(([nome, valor]) => `
+          <tr>
+            <td style="padding:6px 0; color:var(--muted);">${nome}</td>
+            <td style="padding:6px 0; text-align:right; font-weight:700;">${valor != null ? valor : "-"}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
 }
 
 // ---------- SUGESTÕES ----------
@@ -1491,6 +1586,7 @@ async function carregarSugestoes() {
     btn.addEventListener("click", async () => {
       await sb.from("sugestoes").delete().eq("id", data[i].id);
       carregarSugestoes();
+      atualizarBadgeAdmin();
     });
   });
 
