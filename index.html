@@ -262,10 +262,7 @@
 </head>
 <body>
 <div class="wrap">
-  <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-    <h1 style="margin:0;">Busca Preço Rápida</h1>
-    <button id="btnTema" class="secondary icon" style="padding:8px;" title="Alternar tema claro/escuro"></button>
-  </div>
+  <h1>Busca Preço Rápida</h1>
 
   <!-- Evita o "pisca" da tela de login antes de confirmar se já tem sessão salva -->
   <div id="telaCarregando" class="msg">Carregando...</div>
@@ -526,6 +523,11 @@
         Este aparelho tem bipador físico (mantém o campo de código sempre pronto pra ler, sem abrir teclado na tela)
       </label>
 
+      <label class="checkbox-row">
+        <input type="checkbox" id="cfgTemaClaro">
+        Usar tema claro (em vez do escuro)
+      </label>
+
       <hr style="border: none; border-top: 1px solid var(--border); margin: 20px 0;">
 
       <div class="loja-titulo" style="margin-bottom:10px;">Alterar senha</div>
@@ -608,26 +610,14 @@ const ICONE_PIN = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" s
 const ICONE_LIXEIRA = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
 const ICONE_CHECK = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
 const ICONE_X = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
-const ICONE_SOL = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>`;
-const ICONE_LUA = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-const $btnTema = document.getElementById("btnTema");
 
 function aplicarTema(tema) {
   document.documentElement.setAttribute("data-theme", tema);
   localStorage.setItem("tema", tema);
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute("content", tema === "light" ? "#f1f5f9" : "#0f172a");
-  $btnTema.innerHTML = tema === "light" ? ICONE_LUA : ICONE_SOL;
 }
-
-aplicarTema(document.documentElement.getAttribute("data-theme") || "dark");
-
-$btnTema.addEventListener("click", () => {
-  const atual = document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light";
-  aplicarTema(atual);
-});
 
 const $telaCarregando = document.getElementById("telaCarregando");
 const $authCard = document.getElementById("authCard");
@@ -667,6 +657,7 @@ const $cfgSenha2 = document.getElementById("cfgSenha2");
 const $cfgSenhaMsg = document.getElementById("cfgSenhaMsg");
 const $btnSalvarSenhaConfig = document.getElementById("btnSalvarSenhaConfig");
 const $cfgBipador = document.getElementById("cfgBipador");
+const $cfgTemaClaro = document.getElementById("cfgTemaClaro");
 
 const $tabBusca = document.getElementById("tabBusca");
 const $tabHistorico = document.getElementById("tabHistorico");
@@ -834,12 +825,17 @@ $btnConfig.addEventListener("click", () => {
   $cfgSenha2.value = "";
   $cfgSenhaMsg.textContent = "";
   $cfgBipador.checked = bipadorAtivo();
+  $cfgTemaClaro.checked = document.documentElement.getAttribute("data-theme") === "light";
   $configModal.classList.remove("hidden");
 });
 
 $cfgBipador.addEventListener("change", () => {
   localStorage.setItem("bp_bipador", $cfgBipador.checked ? "1" : "0");
   talvezFocarCodigo();
+});
+
+$cfgTemaClaro.addEventListener("change", () => {
+  aplicarTema($cfgTemaClaro.checked ? "light" : "dark");
 });
 
 $btnFecharConfig.addEventListener("click", () => $configModal.classList.add("hidden"));
