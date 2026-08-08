@@ -137,6 +137,44 @@
   .row-lojas { flex-wrap: wrap; }
   .row-lojas > input { flex: 1 1 200px; }
   .row-lojas > button { flex: 0 0 auto; }
+
+  .lojas-chips-wrap {
+    position: relative;
+    flex: 1 1 200px; min-width: 0;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+    padding: 8px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .lojas-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    display: flex; align-items: center; gap: 4px;
+    background: var(--accent-dim); color: #fff;
+    border-radius: 999px; padding: 4px 6px 4px 10px;
+    font-size: 0.82rem; font-weight: 600; white-space: nowrap;
+  }
+  .chip-remove {
+    background: none; border: none; color: #fff; opacity: 0.8;
+    padding: 0 4px; font-size: 1rem; line-height: 1; cursor: pointer;
+  }
+  .chip-remove:active { background: none; opacity: 1; }
+  #lojaInput {
+    flex: 1 1 90px; min-width: 70px; border: none; background: none;
+    padding: 4px 2px; margin-bottom: 0; font-size: 1rem; color: var(--text);
+  }
+  #lojaInput:focus { outline: none; }
+  .lojas-sugestoes {
+    position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 20;
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    max-height: 220px; overflow-y: auto;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+  }
+  .loja-sugestao {
+    padding: 10px 12px; cursor: pointer; font-size: 0.88rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .loja-sugestao:last-child { border-bottom: none; }
+  .loja-sugestao:hover, .loja-sugestao:active { background: var(--bg); }
+  .loja-sugestao .ls-nome { color: var(--muted); font-size: 0.78rem; }
   .hidden { display: none !important; }
   .result { display: none; }
   .result.show { display: block; }
@@ -327,9 +365,14 @@
 
     <div id="painelBusca">
       <div class="card">
-        <label for="lojas">Lojas (separe por vírgula)</label>
+        <label for="lojaInput">Lojas</label>
         <div class="row row-lojas">
-          <input id="lojas" type="text" inputmode="text" placeholder="Ex: 32,171" value="1">
+          <div class="lojas-chips-wrap" id="lojasChipsWrap">
+            <div id="lojasChips" class="lojas-chips"></div>
+            <input id="lojaInput" type="text" inputmode="numeric" placeholder="Nº da loja">
+            <div id="lojaSugestoes" class="lojas-sugestoes hidden"></div>
+          </div>
+          <input id="lojas" type="hidden" value="1">
           <button id="btnRedeToda" class="secondary" style="white-space:nowrap;">Toda a rede</button>
         </div>
 
@@ -411,7 +454,7 @@
         <h2>Como usar</h2>
 
         <h3>1. Buscar preço e estoque</h3>
-        <p>No campo <strong>Lojas</strong>, digite o número de uma ou mais lojas separadas por vírgula (ex: <code>32,171</code>). No campo <strong>Código de barras</strong>, digite ou escaneie o código do produto e toque em <strong>Buscar</strong>.</p>
+        <p>No campo <strong>Lojas</strong>, digite o número da loja e aperte espaço/Enter (ou toque numa sugestão da lista) pra adicionar como etiqueta — pode adicionar quantas quiser, e tocar no "×" de uma etiqueta remove só aquela loja. No campo <strong>Código de barras</strong>, digite ou escaneie o código do produto e toque em <strong>Buscar</strong>.</p>
         <p>O preço aparece na hora. O estoque de cada loja carrega logo em seguida — mostra o total de peças da referência naquela loja, a lista de cores/numerações disponíveis (a numeração exata que você bipou fica destacada em verde na tabela), e embaixo do nome da loja aparece o endereço/cidade dela. As lojas com estoque aparecem automaticamente no topo, antes das zeradas.</p>
         <p>O botão <strong>lixeira</strong> ao lado de "Buscar" limpa tudo (código, preço, resultados) sem precisar recarregar a página.</p>
 
@@ -685,6 +728,10 @@ const $sugestoesLista = document.getElementById("sugestoesLista");
 
 const $codigo = document.getElementById("codigo");
 const $lojas = document.getElementById("lojas");
+const $lojasChipsWrap = document.getElementById("lojasChipsWrap");
+const $lojasChips = document.getElementById("lojasChips");
+const $lojaInput = document.getElementById("lojaInput");
+const $lojaSugestoes = document.getElementById("lojaSugestoes");
 const $btnRedeToda = document.getElementById("btnRedeToda");
 const $buscar = document.getElementById("buscar");
 const $btnLimparBusca = document.getElementById("btnLimparBusca");
@@ -984,6 +1031,7 @@ function mostrarAppLogado(user) {
   // então acompanham o funcionário em qualquer dispositivo/login.
   const lojasSalvas = currentUser.user_metadata && currentUser.user_metadata.lojas_favoritas;
   if (lojasSalvas) $lojas.value = lojasSalvas;
+  renderChipsLojas();
 
   carregarHistorico();
   atualizarBadgeAdmin();
@@ -1112,6 +1160,7 @@ function renderListaItens(container, data, { vazio, mostrarSugerir }) {
     el.querySelector(".h-conteudo").addEventListener("click", () => {
       $codigo.value = el.dataset.codigo;
       $lojas.value = el.dataset.lojas;
+      renderChipsLojas();
       $tabBusca.click();
       buscar();
     });
@@ -1357,6 +1406,7 @@ function renderListaMaisProcurados(container, data, { vazio, comRevisao }) {
       el.querySelector(".h-conteudo").addEventListener("click", () => {
         $codigo.value = el.dataset.codigo;
         $lojas.value = el.dataset.lojas;
+        renderChipsLojas();
         $tabBusca.click();
         buscar();
       });
@@ -2209,15 +2259,119 @@ $btnLimparReferencia.addEventListener("click", () => {
   $referenciaMsg.className = "msg";
 });
 
+// ---------- CHIPS DE LOJAS ----------
+// O input real de lojas (#lojas) virou um campo escondido que guarda a
+// string separada por vírgula, igual antes. A UI agora é uma lista de
+// "etiquetas" removíveis por cima dele, pra não precisar digitar vírgula.
+
+function renderChipsLojas() {
+  const nums = ($lojas.value || "").split(",").map(s => s.trim()).filter(Boolean);
+  $lojasChips.innerHTML = nums.map(n => {
+    const info = LOJAS_INFO[Number(n)];
+    const label = info ? `${n} · ${info.nome}` : n;
+    return `<span class="chip" data-num="${n}">${label}<button type="button" class="chip-remove" data-num="${n}">&times;</button></span>`;
+  }).join("");
+  $lojasChips.querySelectorAll(".chip-remove").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      removerLojaChip(btn.dataset.num);
+    });
+  });
+}
+
+function adicionarLojaChip(numStr) {
+  const num = (numStr || "").trim();
+  if (!/^\d+$/.test(num)) return false;
+  const atuais = ($lojas.value || "").split(",").map(s => s.trim()).filter(Boolean);
+  if (!atuais.includes(num)) {
+    atuais.push(num);
+    $lojas.value = atuais.join(",");
+    $lojas.dispatchEvent(new Event("change"));
+  }
+  return true;
+}
+
+function removerLojaChip(num) {
+  const atuais = ($lojas.value || "").split(",").map(s => s.trim()).filter(Boolean);
+  $lojas.value = atuais.filter(n => n !== num).join(",");
+  $lojas.dispatchEvent(new Event("change"));
+}
+
+function renderSugestoesLoja(termo) {
+  termo = (termo || "").trim().toLowerCase();
+  if (!termo) {
+    $lojaSugestoes.classList.add("hidden");
+    $lojaSugestoes.innerHTML = "";
+    return;
+  }
+  const atuais = ($lojas.value || "").split(",").map(s => s.trim()).filter(Boolean);
+  const resultados = Object.entries(LOJAS_INFO)
+    .filter(([num, info]) => !atuais.includes(num) && (num.startsWith(termo) || (info.nome || "").toLowerCase().includes(termo)))
+    .slice(0, 8);
+
+  if (resultados.length === 0) {
+    $lojaSugestoes.classList.add("hidden");
+    $lojaSugestoes.innerHTML = "";
+    return;
+  }
+
+  $lojaSugestoes.innerHTML = resultados.map(([num, info]) => `
+    <div class="loja-sugestao" data-num="${num}">
+      <div>${num}</div>
+      <div class="ls-nome">${info.nome}${info.cidade ? " · " + info.cidade : ""}</div>
+    </div>
+  `).join("");
+  $lojaSugestoes.classList.remove("hidden");
+
+  $lojaSugestoes.querySelectorAll(".loja-sugestao").forEach(el => {
+    el.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      adicionarLojaChip(el.dataset.num);
+      $lojaInput.value = "";
+      $lojaSugestoes.classList.add("hidden");
+      $lojaInput.focus();
+    });
+  });
+}
+
+$lojaInput.addEventListener("input", () => renderSugestoesLoja($lojaInput.value));
+
+$lojaInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === "," || e.key === " ") {
+    if ($lojaInput.value.trim()) {
+      e.preventDefault();
+      if (adicionarLojaChip($lojaInput.value)) {
+        $lojaInput.value = "";
+        $lojaSugestoes.classList.add("hidden");
+      }
+    }
+  } else if (e.key === "Backspace" && !$lojaInput.value) {
+    const atuais = ($lojas.value || "").split(",").map(s => s.trim()).filter(Boolean);
+    if (atuais.length > 0) removerLojaChip(atuais[atuais.length - 1]);
+  }
+});
+
+$lojaInput.addEventListener("blur", () => {
+  if ($lojaInput.value.trim()) adicionarLojaChip($lojaInput.value);
+  $lojaInput.value = "";
+  $lojaSugestoes.classList.add("hidden");
+});
+
+$lojasChipsWrap.addEventListener("click", (e) => {
+  if (e.target === $lojasChipsWrap || e.target === $lojasChips) $lojaInput.focus();
+});
+
 // As lojas escolhidas ficam salvas no perfil do usuário (sincroniza entre
 // dispositivos); enquanto não há login, usa um rascunho local.
 $lojas.addEventListener("change", () => {
+  renderChipsLojas();
   localStorage.setItem("bp_lojas", $lojas.value);
   if (currentUser) {
     sb.auth.updateUser({ data: { lojas_favoritas: $lojas.value } });
   }
 });
 $lojas.value = localStorage.getItem("bp_lojas") || "1";
+renderChipsLojas();
 
 $btnRedeToda.addEventListener("click", () => {
   $lojas.value = TODAS_AS_LOJAS.join(",");
