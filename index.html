@@ -3537,7 +3537,7 @@ async function carregarComissao() {
 
   const [{ data: config, error: errConfig }, { data: vendasMes, error: errVendas }, { data: metaData }] = await Promise.all([
     sb.from("config_comissao").select("*").eq("id", 1).maybeSingle(),
-    sb.from("vendas").select("total").gte("criado_em", inicioMes.toISOString()).lt("criado_em", fimMesExclusivo.toISOString()),
+    sb.from("vendas").select("total, criado_em").gte("criado_em", inicioMes.toISOString()).lt("criado_em", fimMesExclusivo.toISOString()),
     sb.from("metas").select("*").eq("ano_mes", anoMesAtual()).maybeSingle(),
   ]);
 
