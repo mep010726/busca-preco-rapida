@@ -3743,6 +3743,36 @@ function popularLojasPromo() {
   if (salva && TODAS_AS_LOJAS.includes(Number(salva))) $promoLoja.value = salva;
 }
 
+// Selos usados na arte: logo do app, logo da Mersan, e o banner de campanha
+// "Liquida Mais" (só entra quando o item tem preço promocional).
+function carregarImagemPromo(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+let imgLogoMep = null, imgLogoMersan = null, imgLiquidaMais = null;
+const logosPromoProntos = Promise.all([
+  carregarImagemPromo("icon-192.png").then(img => { imgLogoMep = img; }),
+  carregarImagemPromo("promo-mersan-logo.jpg").then(img => { imgLogoMersan = img; }),
+  carregarImagemPromo("promo-liquida-mais.jpg").then(img => { imgLiquidaMais = img; }),
+]).catch(() => {
+  // Se algum selo não carregar, a arte ainda é gerada sem ele.
+});
+
+function desenharImagemArredondada(ctx, img, x, y, largura, altura, raio) {
+  ctx.save();
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x, y, largura, altura, raio);
+  else ctx.rect(x, y, largura, altura);
+  ctx.clip();
+  ctx.drawImage(img, x, y, largura, altura);
+  ctx.restore();
+}
+
 let promoItemAtual = null; // { produto, precoOriginal, precoFinal, temPromo, tamanhos }
 
 async function buscarProdutoPromo(codigo) {
@@ -3831,33 +3861,39 @@ $promoFotoInput.addEventListener("change", () => {
 
   const img = new Image();
   const url = URL.createObjectURL(file);
-  img.onload = () => {
+  img.onload = async () => {
+    await logosPromoProntos;
     desenharArtePromo(img);
     URL.revokeObjectURL(url);
   };
   img.src = url;
 });
 
-function quebrarTextoCanvas(ctx, texto, x, y, larguraMax, alturaLinha, maxLinhas) {
+// Quebra o texto em linhas que cabem em larguraMax (sem desenhar), limitado
+// a maxLinhas — usada pra medir quantas linhas o nome do produto vai ocupar
+// antes de desenhar qualquer coisa.
+function quebrarTextoLinhas(ctx, texto, larguraMax, maxLinhas) {
   const palavras = texto.split(" ");
+  const linhas = [];
   let linha = "";
-  let linhaY = y;
-  let linhas = 0;
   for (const palavra of palavras) {
     const teste = linha ? linha + " " + palavra : palavra;
     if (ctx.measureText(teste).width > larguraMax && linha) {
-      ctx.fillText(linha, x, linhaY);
+      linhas.push(linha);
       linha = palavra;
-      linhaY += alturaLinha;
-      linhas++;
-      if (linhas >= maxLinhas) return;
+      if (linhas.length >= maxLinhas) return linhas;
     } else {
       linha = teste;
     }
   }
-  if (linha) ctx.fillText(linha, x, linhaY);
+  if (linha) linhas.push(linha);
+  return linhas;
 }
 
+// Estilo baseado nos exemplos de artes feitas à mão pra loja: nome do
+// produto em destaque, uma caixinha "DE / POR" com uma linha e uma bolinha
+// apontando pro produto, e o selo da campanha embaixo — sem faixa escura,
+// a foto fica limpa.
 function desenharArtePromo(img) {
   const larguraMax = 1080;
   const escala = Math.min(1, larguraMax / img.naturalWidth);
@@ -3869,61 +3905,121 @@ function desenharArtePromo(img) {
   const ctx = $promoCanvas.getContext("2d");
   ctx.drawImage(img, 0, 0, w, h);
 
-  // Faixa escura na base, pra legibilidade do texto por cima da foto.
-  const alturaFaixa = Math.round(h * 0.3);
-  const gradiente = ctx.createLinearGradient(0, h - alturaFaixa, 0, h);
-  gradiente.addColorStop(0, "rgba(0,0,0,0)");
-  gradiente.addColorStop(1, "rgba(0,0,0,0.85)");
-  ctx.fillStyle = gradiente;
-  ctx.fillRect(0, h - alturaFaixa, w, alturaFaixa);
+  const temPromo = promoItemAtual.temPromo;
+  const margemX = Math.round(w * 0.06);
 
-  if (promoItemAtual.temPromo) {
-    const seloW = Math.round(w * 0.36);
-    const seloH = Math.round(w * 0.075);
-    ctx.fillStyle = "#22c55e";
-    ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(w * 0.04, w * 0.04, seloW, seloH, seloH / 2);
-    else ctx.rect(w * 0.04, w * 0.04, seloW, seloH);
-    ctx.fill();
-    ctx.fillStyle = "#04220f";
-    ctx.font = `700 ${Math.round(seloH * 0.48)}px sans-serif`;
-    ctx.textBaseline = "middle";
-    ctx.textAlign = "center";
-    ctx.fillText("PROMOÇÃO", w * 0.04 + seloW / 2, w * 0.04 + seloH / 2 + 1);
+  // Logos discretos no canto superior direito.
+  if (imgLogoMersan) {
+    const lado = Math.round(w * 0.12);
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.5)";
+    ctx.shadowBlur = w * 0.012;
+    desenharImagemArredondada(ctx, imgLogoMersan, w - lado - margemX, margemX * 0.6, lado, lado, lado * 0.2);
+    ctx.restore();
+  }
+  if (imgLogoMep) {
+    const lado = Math.round(w * 0.08);
+    const y = imgLogoMersan ? margemX * 0.6 + Math.round(w * 0.12) + Math.round(w * 0.02) : margemX * 0.6;
+    ctx.save();
+    ctx.globalAlpha = 0.92;
+    ctx.shadowColor = "rgba(0,0,0,0.5)";
+    ctx.shadowBlur = w * 0.01;
+    desenharImagemArredondada(ctx, imgLogoMep, w - lado - margemX, y, lado, lado, lado * 0.22);
+    ctx.restore();
   }
 
+  // ---- Nome do produto ----
+  let cursorY = Math.round(h * 0.42);
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
+  const tamanhoFonteNome = Math.round(w * 0.058);
+  ctx.font = `800 ${tamanhoFonteNome}px sans-serif`;
   ctx.fillStyle = "#fff";
-  ctx.font = `600 ${Math.round(w * 0.032)}px sans-serif`;
-  quebrarTextoCanvas(ctx, (promoItemAtual.produto || "").toUpperCase(), w * 0.05, h - alturaFaixa + Math.round(w * 0.065), w * 0.9, Math.round(w * 0.04), 2);
+  ctx.shadowColor = "rgba(0,0,0,0.65)";
+  ctx.shadowBlur = w * 0.012;
+  ctx.shadowOffsetY = w * 0.004;
+  const linhasNome = quebrarTextoLinhas(ctx, (promoItemAtual.produto || "").toUpperCase(), w * 0.6, 2);
+  linhasNome.forEach((linha, i) => ctx.fillText(linha, margemX, cursorY + i * Math.round(tamanhoFonteNome * 1.1)));
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+  cursorY += linhasNome.length * Math.round(tamanhoFonteNome * 1.1) + Math.round(w * 0.025);
 
-  const precoY = h - Math.round(w * 0.05);
-  if (promoItemAtual.temPromo) {
-    ctx.font = `400 ${Math.round(w * 0.045)}px sans-serif`;
+  // ---- Caixinha DE / POR ----
+  const boxAlturaLinha = Math.round(w * 0.058);
+  const boxPad = Math.round(w * 0.03);
+  const boxAltura = (temPromo ? boxAlturaLinha * 2 : boxAlturaLinha) + boxPad * 1.6;
+
+  ctx.font = `800 ${Math.round(boxAlturaLinha * 0.62)}px sans-serif`;
+  const textoPor = (temPromo ? "POR: " : "") + fmtMoeda(promoItemAtual.precoFinal);
+  ctx.font = `700 ${Math.round(boxAlturaLinha * 0.5)}px sans-serif`;
+  const textoDe = temPromo ? "DE: " + fmtMoeda(promoItemAtual.precoOriginal) : "";
+  ctx.font = `800 ${Math.round(boxAlturaLinha * 0.62)}px sans-serif`;
+  const largTextoPor = ctx.measureText(textoPor).width;
+  ctx.font = `700 ${Math.round(boxAlturaLinha * 0.5)}px sans-serif`;
+  const largTextoDe = temPromo ? ctx.measureText(textoDe).width : 0;
+  const boxLargura = Math.round(Math.max(largTextoPor, largTextoDe) + boxPad * 2);
+
+  const boxX = margemX;
+  const boxY = cursorY;
+
+  ctx.fillStyle = "rgba(15,23,42,0.92)";
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(boxX, boxY, boxLargura, boxAltura, 10);
+  else ctx.rect(boxX, boxY, boxLargura, boxAltura);
+  ctx.fill();
+
+  let textoY = boxY + boxPad;
+  ctx.textBaseline = "top";
+  if (temPromo) {
+    ctx.font = `700 ${Math.round(boxAlturaLinha * 0.5)}px sans-serif`;
     ctx.fillStyle = "#cbd5e1";
-    const textoOriginal = fmtMoeda(promoItemAtual.precoOriginal);
-    const yOriginal = precoY - Math.round(w * 0.1);
-    ctx.fillText(textoOriginal, w * 0.05, yOriginal);
-    const largOriginal = ctx.measureText(textoOriginal).width;
-    ctx.strokeStyle = "#ef4444";
-    ctx.lineWidth = Math.max(2, w * 0.004);
-    ctx.beginPath();
-    ctx.moveTo(w * 0.05, yOriginal - Math.round(w * 0.015));
-    ctx.lineTo(w * 0.05 + largOriginal, yOriginal - Math.round(w * 0.015));
-    ctx.stroke();
+    ctx.fillText(textoDe, boxX + boxPad, textoY);
+    textoY += boxAlturaLinha;
   }
-  ctx.font = `800 ${Math.round(w * 0.095)}px sans-serif`;
-  ctx.fillStyle = "#22c55e";
-  ctx.fillText(fmtMoeda(promoItemAtual.precoFinal), w * 0.05, precoY);
+  ctx.font = `800 ${Math.round(boxAlturaLinha * 0.62)}px sans-serif`;
+  ctx.fillStyle = "#fff";
+  ctx.fillText(textoPor, boxX + boxPad, textoY);
 
+  // Linha com bolinha, apontando da caixinha pro produto.
+  const linhaX1 = boxX + boxPad * 1.2;
+  const linhaY1 = boxY + boxAltura;
+  const linhaX2 = linhaX1 + w * 0.035;
+  const linhaY2 = linhaY1 + w * 0.05;
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = Math.max(1.5, w * 0.0025);
+  ctx.beginPath();
+  ctx.moveTo(linhaX1, linhaY1);
+  ctx.lineTo(linhaX2, linhaY2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(linhaX2, linhaY2, Math.max(3, w * 0.0055), 0, Math.PI * 2);
+  ctx.fillStyle = "#fff";
+  ctx.fill();
+
+  // ---- Grade (numerações com estoque) ----
   if (promoItemAtual.tamanhos.length > 0) {
-    ctx.font = `600 ${Math.round(w * 0.026)}px sans-serif`;
-    ctx.fillStyle = "#e2e8f0";
+    ctx.font = `600 ${Math.round(w * 0.024)}px sans-serif`;
+    ctx.fillStyle = "#fff";
+    ctx.shadowColor = "rgba(0,0,0,0.65)";
+    ctx.shadowBlur = w * 0.008;
     const rotuloGrade = promoItemAtual.corBipada
       ? `Numerações (${promoItemAtual.corBipada}): `
       : "Numerações: ";
-    ctx.fillText(rotuloGrade + promoItemAtual.tamanhos.join(" · "), w * 0.05, h - Math.round(w * 0.02));
+    ctx.fillText(rotuloGrade + promoItemAtual.tamanhos.join(" · "), boxX, boxY + boxAltura + Math.round(w * 0.06));
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+  }
+
+  // ---- Selo da campanha, embaixo ----
+  if (temPromo && imgLiquidaMais) {
+    const bannerW = Math.round(w * 0.3);
+    const bannerH = Math.round(bannerW * (imgLiquidaMais.naturalHeight / imgLiquidaMais.naturalWidth));
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.5)";
+    ctx.shadowBlur = w * 0.015;
+    ctx.drawImage(imgLiquidaMais, w / 2 - bannerW / 2, h - bannerH - Math.round(w * 0.035), bannerW, bannerH);
+    ctx.restore();
   }
 
   $promoResultadoWrap.classList.remove("hidden");
