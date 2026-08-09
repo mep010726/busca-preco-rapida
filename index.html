@@ -3890,6 +3890,50 @@ function quebrarTextoLinhas(ctx, texto, larguraMax, maxLinhas) {
   return linhas;
 }
 
+// Acha a cor predominante "de verdade" do produto na foto: reduz a imagem,
+// ignora pixels sem saturação (parede, chão, sombra — geralmente cinza ou
+// muito claro/escuro) e conta qual cor colorida aparece mais.
+function corPredominante(img) {
+  const tam = 60;
+  const c = document.createElement("canvas");
+  c.width = tam;
+  c.height = tam;
+  const cctx = c.getContext("2d");
+  cctx.drawImage(img, 0, 0, tam, tam);
+
+  let dados;
+  try {
+    dados = cctx.getImageData(0, 0, tam, tam).data;
+  } catch (e) {
+    return { r: 15, g: 23, b: 42 }; // fallback: escuro padrão do app
+  }
+
+  const contagem = {};
+  for (let i = 0; i < dados.length; i += 4) {
+    const r = dados[i], g = dados[i + 1], b = dados[i + 2];
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    const sat = max === 0 ? 0 : (max - min) / max;
+    const luz = (max + min) / 2;
+    if (sat < 0.18 || luz > 235 || luz < 20) continue; // ignora fundo/sombra
+    const chave = `${Math.round(r / 24) * 24},${Math.round(g / 24) * 24},${Math.round(b / 24) * 24}`;
+    contagem[chave] = (contagem[chave] || 0) + 1;
+  }
+
+  let melhorChave = null, melhorCont = 0;
+  for (const chave in contagem) {
+    if (contagem[chave] > melhorCont) { melhorCont = contagem[chave]; melhorChave = chave; }
+  }
+  if (!melhorChave) return { r: 15, g: 23, b: 42 };
+  const [r, g, b] = melhorChave.split(",").map(Number);
+  return { r, g, b };
+}
+
+// Escolhe texto branco ou escuro dependendo do quão clara é a cor de fundo.
+function corTextoContraste({ r, g, b }) {
+  const luminancia = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminancia > 0.6 ? "15,23,42" : "255,255,255";
+}
+
 // Estilo baseado nos exemplos de artes feitas à mão pra loja: nome do
 // produto em destaque, uma caixinha "DE / POR" com uma linha e uma bolinha
 // apontando pro produto, e o selo da campanha embaixo — sem faixa escura,
@@ -3963,7 +4007,14 @@ function desenharArtePromo(img) {
   const boxX = margemX;
   const boxY = cursorY;
 
-  ctx.fillStyle = "rgba(15,23,42,0.92)";
+  // Vermelho pra promoção (combina com o selo Liquida Mais); pra preço
+  // normal, usa a cor predominante do próprio produto na foto.
+  const corBox = temPromo ? { r: 200, g: 25, b: 30 } : corPredominante(img);
+  const corTextoRGB = corTextoContraste(corBox);
+  const corTextoPrincipal = `rgb(${corTextoRGB})`;
+  const corTextoSecundario = `rgba(${corTextoRGB},0.78)`;
+
+  ctx.fillStyle = `rgba(${corBox.r},${corBox.g},${corBox.b},0.93)`;
   ctx.beginPath();
   if (ctx.roundRect) ctx.roundRect(boxX, boxY, boxLargura, boxAltura, 10);
   else ctx.rect(boxX, boxY, boxLargura, boxAltura);
@@ -3973,12 +4024,12 @@ function desenharArtePromo(img) {
   ctx.textBaseline = "top";
   if (temPromo) {
     ctx.font = `700 ${Math.round(boxAlturaLinha * 0.5)}px sans-serif`;
-    ctx.fillStyle = "#cbd5e1";
+    ctx.fillStyle = corTextoSecundario;
     ctx.fillText(textoDe, boxX + boxPad, textoY);
     textoY += boxAlturaLinha;
   }
   ctx.font = `800 ${Math.round(boxAlturaLinha * 0.62)}px sans-serif`;
-  ctx.fillStyle = "#fff";
+  ctx.fillStyle = corTextoPrincipal;
   ctx.fillText(textoPor, boxX + boxPad, textoY);
 
   // Linha com bolinha, apontando da caixinha pro produto.
