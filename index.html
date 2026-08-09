@@ -435,7 +435,8 @@
 
     <div id="painelVendas" class="hidden">
       <div class="card">
-        <div class="loja-titulo" style="margin-bottom:10px;">Meta diária</div>
+        <div class="loja-titulo" style="margin-bottom:2px;">Meta diária</div>
+        <div id="mensagemMotivacional" style="font-style:italic; color:var(--muted); font-size:0.85rem; margin-bottom:10px;"></div>
         <div style="background:var(--bg); border-radius:999px; height:10px; overflow:hidden; margin-bottom:10px;">
           <div id="metaBarra" style="background:var(--accent); height:100%; width:0%; transition:width .3s;"></div>
         </div>
@@ -826,6 +827,7 @@ const $vendasLista = document.getElementById("vendasLista");
 const $vendaHistoricoModal = document.getElementById("vendaHistoricoModal");
 const $vendaHistoricoLista = document.getElementById("vendaHistoricoLista");
 const $btnFecharVendaHistorico = document.getElementById("btnFecharVendaHistorico");
+const $mensagemMotivacional = document.getElementById("mensagemMotivacional");
 const $metaBarra = document.getElementById("metaBarra");
 const $metaResumo = document.getElementById("metaResumo");
 const $btnConfigMetas = document.getElementById("btnConfigMetas");
@@ -2867,6 +2869,46 @@ async function carregarMetaEFolgas() {
   await atualizarResumoVendas();
 }
 
+// Mensagem "zoeira" que muda todo dia (mesma mensagem o dia inteiro, troca
+// sozinha à meia-noite) — pura brincadeira pra dar uma cutucada.
+const MENSAGENS_ZERO_VENDAS = [
+  "Bora trabalhar, vagabundo! Ainda não vendeu nada hoje 👀",
+  "Cadê as vendas? O caixa não vai se encher sozinho...",
+  "Já tomou café, já viu o celular... e as vendas, hein?",
+  "Hoje o placar tá 0 a 0. Bora sair na frente!",
+  "Levanta dessa cadeira e vai atrás de cliente!",
+  "O dia começou e você ainda não vendeu nada. Bora resolver isso.",
+  "Suspeito que você esteja mais em pé de loja que vendendo.",
+];
+const MENSAGENS_VENDA_PARCIAL = [
+  "Boa, já quebrou o gelo! Agora não para.",
+  "Isso aí, continua nesse ritmo que a meta cai.",
+  "Já vendeu, mas ainda falta um pouquinho — não afrouxa!",
+  "Show! Só falta o resto da meta agora.",
+  "Tá esquentando... bora fechar mais uma.",
+  "Metade do caminho andado, vagabundo (com carinho).",
+];
+const MENSAGENS_META_BATIDA = [
+  "Meta batida! Pode ir tomar um café, você mereceu 🎉",
+  "Aí sim! Hoje você é o rei/rainha das vendas.",
+  "Bateu a meta! Bora bater recorde agora?",
+  "Show de bola! Meta do dia: concluída.",
+  "Meta na conta! Agora é só sobreviver tranquilo o resto do plantão.",
+  "Confirmado: hoje você não é vagabundo nenhum.",
+];
+
+function indiceDoDia(tamanho) {
+  const hoje = new Date();
+  const inicioAno = new Date(hoje.getFullYear(), 0, 0);
+  const diaDoAno = Math.floor((hoje - inicioAno) / 86400000);
+  return diaDoAno % tamanho;
+}
+
+function atualizarMensagemMotivacional(totalHoje, metaBatida) {
+  const pool = metaBatida ? MENSAGENS_META_BATIDA : (totalHoje > 0 ? MENSAGENS_VENDA_PARCIAL : MENSAGENS_ZERO_VENDAS);
+  $mensagemMotivacional.textContent = pool[indiceDoDia(pool.length)];
+}
+
 async function atualizarResumoVendas() {
   if (!currentUser) return;
 
@@ -2912,6 +2954,7 @@ async function atualizarResumoVendas() {
     $metaBarra.style.width = "0%";
     $metaResumo.innerHTML = `Nenhuma meta definida pra ${quinzena.numero}ª quinzena ainda. Toque em "Configurar meta e folgas" pra definir.`;
     $metaResumo.className = "msg";
+    atualizarMensagemMotivacional(totalHoje, false);
     return;
   }
 
@@ -2922,8 +2965,11 @@ async function atualizarResumoVendas() {
   if (restante <= 0) {
     $metaResumo.innerHTML = `<strong style="color:var(--accent);">Meta da ${quinzena.numero}ª quinzena batida! 🎉</strong> ${fmtMoeda(totalQuinzena)} de ${fmtMoeda(metaQuinzena)}.`;
     $metaResumo.className = "msg";
+    atualizarMensagemMotivacional(totalHoje, true);
     return;
   }
+
+  atualizarMensagemMotivacional(totalHoje, false);
 
   // Dias restantes da quinzena a partir de hoje (inclusive), sem contar folga.
   let diasRestantes = 0;
