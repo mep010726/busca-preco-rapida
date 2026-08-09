@@ -571,8 +571,13 @@
           <div class="h-meta" id="promoGradeTitulo" style="margin-top:4px;">Numerações com estoque nessa loja:</div>
           <div id="promoGradeLista" style="margin-top:4px;"></div>
 
+          <label class="checkbox-row" style="margin-top:10px;">
+            <input type="checkbox" id="promoMostrarGrade" checked>
+            Mostrar numerações na arte
+          </label>
+
           <input id="promoFotoInput" type="file" accept="image/*" capture="environment" class="hidden">
-          <button id="btnPromoTirarFoto" class="full" style="margin-top:12px;">Tirar foto do produto</button>
+          <button id="btnPromoTirarFoto" class="full" style="margin-top:4px;">Tirar foto do produto</button>
         </div>
 
         <div id="promoResultadoWrap" class="hidden" style="margin-top:12px;">
@@ -966,6 +971,7 @@ const $promoPrecoOriginal = document.getElementById("promoPrecoOriginal");
 const $promoPrecoFinal = document.getElementById("promoPrecoFinal");
 const $promoGradeTitulo = document.getElementById("promoGradeTitulo");
 const $promoGradeLista = document.getElementById("promoGradeLista");
+const $promoMostrarGrade = document.getElementById("promoMostrarGrade");
 const $promoFotoInput = document.getElementById("promoFotoInput");
 const $btnPromoTirarFoto = document.getElementById("btnPromoTirarFoto");
 const $promoResultadoWrap = document.getElementById("promoResultadoWrap");
@@ -4049,7 +4055,7 @@ function desenharArtePromo(img) {
   ctx.fill();
 
   // ---- Grade (numerações com estoque) ----
-  if (promoItemAtual.tamanhos.length > 0) {
+  if ($promoMostrarGrade.checked && promoItemAtual.tamanhos.length > 0) {
     ctx.font = `600 ${Math.round(w * 0.024)}px sans-serif`;
     ctx.fillStyle = "#fff";
     ctx.shadowColor = "rgba(0,0,0,0.65)";
