@@ -350,6 +350,7 @@
       <div class="tabs">
         <button id="tabBusca" class="active">Buscar</button>
         <button id="tabVendas">Vendas</button>
+        <button id="tabPromocao">Promoção</button>
         <button id="tabHistorico">Histórico</button>
         <button id="tabFavoritos">Favoritos</button>
         <button id="tabMaisProcurados">Mais Procurados</button>
@@ -543,6 +544,48 @@
       </div>
     </div>
 
+    <div id="painelPromocao" class="hidden">
+      <div class="card">
+        <div class="loja-titulo" style="margin-bottom:10px;">Arte de promoção</div>
+
+        <label for="promoLoja">Loja</label>
+        <select id="promoLoja"></select>
+
+        <label for="promoCodigoInput">Produto</label>
+        <div class="row">
+          <input id="promoCodigoInput" type="text" inputmode="numeric" placeholder="Bipe ou digite o código de barras">
+          <button id="btnPromoCamera" class="icon" title="Escanear com a câmera">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </button>
+        </div>
+        <div id="promoMsg" class="msg"></div>
+
+        <div id="promoInfo" class="hidden" style="margin-top:8px;">
+          <div class="resumo">
+            <div class="resumo-produto" id="promoProdutoNome"></div>
+            <div style="text-align:right;">
+              <div class="resumo-preco-original" id="promoPrecoOriginal"></div>
+              <div class="resumo-preco" id="promoPrecoFinal"></div>
+            </div>
+          </div>
+          <div class="h-meta" style="margin-top:4px;">Numerações com estoque nessa loja:</div>
+          <div id="promoGradeLista" style="margin-top:4px;"></div>
+
+          <input id="promoFotoInput" type="file" accept="image/*" capture="environment" class="hidden">
+          <button id="btnPromoTirarFoto" class="full" style="margin-top:12px;">Tirar foto do produto</button>
+        </div>
+
+        <div id="promoResultadoWrap" class="hidden" style="margin-top:12px;">
+          <canvas id="promoCanvas" style="width:100%; border-radius:8px; display:block;"></canvas>
+          <div class="row" style="margin-top:10px;">
+            <button id="btnPromoBaixar" class="full secondary">Baixar imagem</button>
+            <button id="btnPromoCompartilhar" class="full hidden">Compartilhar</button>
+          </div>
+          <button id="btnPromoNovaFoto" class="link-btn">Tirar outra foto</button>
+        </div>
+      </div>
+    </div>
+
     <div id="painelComissao" class="hidden">
       <div class="card">
         <div class="loja-titulo" style="margin-bottom:10px;">Sua comissão este mês</div>
@@ -649,6 +692,9 @@
         <h3>18. Comissão</h3>
         <p>A aba <strong>Comissão</strong> calcula separado pra cada quinzena: se você bateu a meta daquela quinzena, aplica o percentual maior sobre o que foi vendido nela; se não bateu, aplica o menor. A comissão total do mês é a soma das duas quinzenas. Só o admin configura esses dois percentuais.</p>
         <p>Tem também um <strong>simulador de colocação</strong>: toque em "1º", "2º" ou "3º lugar" pra ver quanto seria sua comissão se você ficasse naquela posição no ranking, usando as porcentagens de simulação configuradas pelo admin. É só uma prévia — não muda sua comissão real.</p>
+
+        <h3>19. Promoção</h3>
+        <p>Na aba <strong>Promoção</strong>, escolha a loja e bipe (ou digite) o produto — o app já traz o preço (com o valor promocional, se tiver) e as numerações com estoque naquela loja. Toque em <strong>"Tirar foto do produto"</strong>: a câmera do celular abre, e depois de tirar a foto o app monta sozinho uma arte com a foto, o preço em destaque e as numerações disponíveis, pronta pra baixar ou compartilhar direto no WhatsApp/Instagram.</p>
 
         <h3>Dúvidas ou problemas</h3>
         <p>Se algo não funcionar como esperado, use o campo de sugestão abaixo pra reportar.</p>
@@ -908,6 +954,24 @@ const $painelHistorico = document.getElementById("painelHistorico");
 const $painelFavoritos = document.getElementById("painelFavoritos");
 const $painelMaisProcurados = document.getElementById("painelMaisProcurados");
 const $painelVendas = document.getElementById("painelVendas");
+const $tabPromocao = document.getElementById("tabPromocao");
+const $painelPromocao = document.getElementById("painelPromocao");
+const $promoLoja = document.getElementById("promoLoja");
+const $promoCodigoInput = document.getElementById("promoCodigoInput");
+const $btnPromoCamera = document.getElementById("btnPromoCamera");
+const $promoMsg = document.getElementById("promoMsg");
+const $promoInfo = document.getElementById("promoInfo");
+const $promoProdutoNome = document.getElementById("promoProdutoNome");
+const $promoPrecoOriginal = document.getElementById("promoPrecoOriginal");
+const $promoPrecoFinal = document.getElementById("promoPrecoFinal");
+const $promoGradeLista = document.getElementById("promoGradeLista");
+const $promoFotoInput = document.getElementById("promoFotoInput");
+const $btnPromoTirarFoto = document.getElementById("btnPromoTirarFoto");
+const $promoResultadoWrap = document.getElementById("promoResultadoWrap");
+const $promoCanvas = document.getElementById("promoCanvas");
+const $btnPromoBaixar = document.getElementById("btnPromoBaixar");
+const $btnPromoCompartilhar = document.getElementById("btnPromoCompartilhar");
+const $btnPromoNovaFoto = document.getElementById("btnPromoNovaFoto");
 const $painelComissao = document.getElementById("painelComissao");
 const $painelAdmin = document.getElementById("painelAdmin");
 const $tabComissao = document.getElementById("tabComissao");
@@ -1353,6 +1417,7 @@ const ABAS = [
   { tab: $tabFavoritos, painel: $painelFavoritos },
   { tab: $tabMaisProcurados, painel: $painelMaisProcurados },
   { tab: $tabVendas, painel: $painelVendas },
+  { tab: $tabPromocao, painel: $painelPromocao },
   { tab: $tabComissao, painel: $painelComissao },
   { tab: $tabAdmin, painel: $painelAdmin },
   { tab: $tabAjuda, painel: $painelAjuda },
@@ -1388,6 +1453,10 @@ $tabVendas.addEventListener("click", () => {
   if (modoVenda === "troca") renderTrocaListas(); else renderItensVenda();
   carregarVendas();
   carregarMetaEFolgas();
+});
+$tabPromocao.addEventListener("click", () => {
+  mostrarAba($tabPromocao);
+  popularLojasPromo();
 });
 $tabComissao.addEventListener("click", () => {
   mostrarAba($tabComissao);
@@ -2170,6 +2239,9 @@ function aoDetectarCodigo(codigo) {
   fecharCamera();
   if (alvoScanCamera === "venda") {
     adicionarProdutoNaVenda(codigo);
+  } else if (alvoScanCamera === "promo") {
+    $promoCodigoInput.value = codigo;
+    buscarProdutoPromo(codigo);
   } else {
     $codigo.value = codigo;
     buscar();
@@ -2244,6 +2316,11 @@ $btnCamera.addEventListener("click", () => {
 
 $btnVendaCamera.addEventListener("click", () => {
   alvoScanCamera = "venda";
+  abrirCameraModal();
+});
+
+$btnPromoCamera.addEventListener("click", () => {
+  alvoScanCamera = "promo";
   abrirCameraModal();
 });
 
@@ -3646,6 +3723,220 @@ $btnSalvarComissaoConfig.addEventListener("click", async () => {
   $comissaoConfigMsg.textContent = "Salvo!";
   $comissaoConfigMsg.className = "msg";
   carregarComissao();
+});
+
+// ---------- PROMOÇÃO ----------
+
+function popularLojasPromo() {
+  if ($promoLoja.options.length > 0) return;
+  $promoLoja.innerHTML = TODAS_AS_LOJAS
+    .slice()
+    .sort((a, b) => a - b)
+    .map(n => {
+      const info = LOJAS_INFO[n];
+      const label = info ? `${n} - ${info.nome}` : String(n);
+      return `<option value="${n}">${label}</option>`;
+    })
+    .join("");
+  const salva = localStorage.getItem("bp_venda_loja"); // reaproveita a loja padrão já usada na aba Vendas
+  if (salva && TODAS_AS_LOJAS.includes(Number(salva))) $promoLoja.value = salva;
+}
+
+let promoItemAtual = null; // { produto, precoOriginal, precoFinal, temPromo, tamanhos }
+
+async function buscarProdutoPromo(codigo) {
+  codigo = (codigo || "").trim();
+  if (!codigo) return;
+  const loja = $promoLoja.value;
+  if (!loja) return;
+
+  $promoMsg.textContent = "Buscando produto...";
+  $promoMsg.className = "msg";
+  $promoInfo.classList.add("hidden");
+  $promoResultadoWrap.classList.add("hidden");
+
+  try {
+    const item = await buscarPreco(codigo, loja);
+    if (!item) {
+      $promoMsg.textContent = "Produto não encontrado.";
+      $promoMsg.className = "msg err";
+      return;
+    }
+
+    const precoOriginal = item.vlPreco;
+    const precoFinal = item.vlPrecoPromocao > 0 ? item.vlPrecoPromocao : item.vlPreco;
+    const temPromo = item.vlPrecoPromocao > 0 && item.vlPrecoPromocao !== item.vlPreco;
+
+    let tamanhos = [];
+    try {
+      const estData = await fetchEstoqueComRetry(`${API_BASE}/estoque/${encodeURIComponent(item.cdReferencia)}/${encodeURIComponent(loja)}`);
+      const lojaNum = Number(loja);
+      tamanhos = [...new Set(
+        estData.filter(r => r.cd_empresa === lojaNum && r.qt_stock > 0).map(r => r.ds_tamanho)
+      )];
+    } catch (e) {
+      // segue sem grade se a consulta de estoque falhar — não impede a arte
+    }
+
+    promoItemAtual = { produto: item.dsProduto, precoOriginal, precoFinal, temPromo, tamanhos };
+
+    $promoProdutoNome.textContent = item.dsProduto;
+    if (temPromo) {
+      $promoPrecoOriginal.textContent = fmtMoeda(precoOriginal);
+      $promoPrecoFinal.textContent = fmtMoeda(precoFinal);
+    } else {
+      $promoPrecoOriginal.textContent = "";
+      $promoPrecoFinal.textContent = fmtMoeda(precoFinal);
+    }
+    $promoGradeLista.innerHTML = tamanhos.length > 0
+      ? tamanhos.map(t => `<span style="display:inline-block; background:var(--bg); border:1px solid var(--border); border-radius:999px; padding:4px 10px; margin:2px; font-size:0.82rem;">${t}</span>`).join("")
+      : `<span class="msg">Nenhuma numeração com estoque nessa loja.</span>`;
+
+    $promoInfo.classList.remove("hidden");
+    $promoMsg.textContent = "";
+  } catch (e) {
+    $promoMsg.textContent = "Erro ao buscar produto. Verifique a conexão.";
+    $promoMsg.className = "msg err";
+  }
+}
+
+$promoCodigoInput.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  const codigo = $promoCodigoInput.value.trim();
+  if (!codigo) return;
+  buscarProdutoPromo(codigo);
+});
+
+$btnPromoTirarFoto.addEventListener("click", () => $promoFotoInput.click());
+$btnPromoNovaFoto.addEventListener("click", () => {
+  $promoFotoInput.value = "";
+  $promoFotoInput.click();
+});
+
+$promoFotoInput.addEventListener("change", () => {
+  const file = $promoFotoInput.files && $promoFotoInput.files[0];
+  if (!file || !promoItemAtual) return;
+
+  const img = new Image();
+  const url = URL.createObjectURL(file);
+  img.onload = () => {
+    desenharArtePromo(img);
+    URL.revokeObjectURL(url);
+  };
+  img.src = url;
+});
+
+function quebrarTextoCanvas(ctx, texto, x, y, larguraMax, alturaLinha, maxLinhas) {
+  const palavras = texto.split(" ");
+  let linha = "";
+  let linhaY = y;
+  let linhas = 0;
+  for (const palavra of palavras) {
+    const teste = linha ? linha + " " + palavra : palavra;
+    if (ctx.measureText(teste).width > larguraMax && linha) {
+      ctx.fillText(linha, x, linhaY);
+      linha = palavra;
+      linhaY += alturaLinha;
+      linhas++;
+      if (linhas >= maxLinhas) return;
+    } else {
+      linha = teste;
+    }
+  }
+  if (linha) ctx.fillText(linha, x, linhaY);
+}
+
+function desenharArtePromo(img) {
+  const larguraMax = 1080;
+  const escala = Math.min(1, larguraMax / img.naturalWidth);
+  const w = Math.round(img.naturalWidth * escala);
+  const h = Math.round(img.naturalHeight * escala);
+  $promoCanvas.width = w;
+  $promoCanvas.height = h;
+
+  const ctx = $promoCanvas.getContext("2d");
+  ctx.drawImage(img, 0, 0, w, h);
+
+  // Faixa escura na base, pra legibilidade do texto por cima da foto.
+  const alturaFaixa = Math.round(h * 0.3);
+  const gradiente = ctx.createLinearGradient(0, h - alturaFaixa, 0, h);
+  gradiente.addColorStop(0, "rgba(0,0,0,0)");
+  gradiente.addColorStop(1, "rgba(0,0,0,0.85)");
+  ctx.fillStyle = gradiente;
+  ctx.fillRect(0, h - alturaFaixa, w, alturaFaixa);
+
+  if (promoItemAtual.temPromo) {
+    const seloW = Math.round(w * 0.36);
+    const seloH = Math.round(w * 0.075);
+    ctx.fillStyle = "#22c55e";
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(w * 0.04, w * 0.04, seloW, seloH, seloH / 2);
+    else ctx.rect(w * 0.04, w * 0.04, seloW, seloH);
+    ctx.fill();
+    ctx.fillStyle = "#04220f";
+    ctx.font = `700 ${Math.round(seloH * 0.48)}px sans-serif`;
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "center";
+    ctx.fillText("PROMOÇÃO", w * 0.04 + seloW / 2, w * 0.04 + seloH / 2 + 1);
+  }
+
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#fff";
+  ctx.font = `600 ${Math.round(w * 0.032)}px sans-serif`;
+  quebrarTextoCanvas(ctx, (promoItemAtual.produto || "").toUpperCase(), w * 0.05, h - alturaFaixa + Math.round(w * 0.065), w * 0.9, Math.round(w * 0.04), 2);
+
+  const precoY = h - Math.round(w * 0.05);
+  if (promoItemAtual.temPromo) {
+    ctx.font = `400 ${Math.round(w * 0.045)}px sans-serif`;
+    ctx.fillStyle = "#cbd5e1";
+    const textoOriginal = fmtMoeda(promoItemAtual.precoOriginal);
+    const yOriginal = precoY - Math.round(w * 0.1);
+    ctx.fillText(textoOriginal, w * 0.05, yOriginal);
+    const largOriginal = ctx.measureText(textoOriginal).width;
+    ctx.strokeStyle = "#ef4444";
+    ctx.lineWidth = Math.max(2, w * 0.004);
+    ctx.beginPath();
+    ctx.moveTo(w * 0.05, yOriginal - Math.round(w * 0.015));
+    ctx.lineTo(w * 0.05 + largOriginal, yOriginal - Math.round(w * 0.015));
+    ctx.stroke();
+  }
+  ctx.font = `800 ${Math.round(w * 0.095)}px sans-serif`;
+  ctx.fillStyle = "#22c55e";
+  ctx.fillText(fmtMoeda(promoItemAtual.precoFinal), w * 0.05, precoY);
+
+  if (promoItemAtual.tamanhos.length > 0) {
+    ctx.font = `600 ${Math.round(w * 0.026)}px sans-serif`;
+    ctx.fillStyle = "#e2e8f0";
+    ctx.fillText("Numerações: " + promoItemAtual.tamanhos.join(" · "), w * 0.05, h - Math.round(w * 0.02));
+  }
+
+  $promoResultadoWrap.classList.remove("hidden");
+  $btnPromoCompartilhar.classList.toggle("hidden", !(navigator.canShare));
+}
+
+$btnPromoBaixar.addEventListener("click", () => {
+  $promoCanvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `promocao-${($promoCodigoInput.value || "produto").trim()}.png`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, "image/png");
+});
+
+$btnPromoCompartilhar.addEventListener("click", () => {
+  $promoCanvas.toBlob(async (blob) => {
+    const file = new File([blob], "promocao.png", { type: "image/png" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: "Promoção" });
+      } catch (e) {
+        // usuário cancelou o compartilhamento — sem problema
+      }
+    }
+  }, "image/png");
 });
 
 // Registra o service worker: guarda o "shell" do app (HTML/manifest/ícones)
