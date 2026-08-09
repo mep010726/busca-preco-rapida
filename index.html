@@ -647,7 +647,7 @@
         <p>Na aba Vendas, toque em <strong>"Troca"</strong> (ao lado de "Venda") pra trocar de modo. Use os botões "Bipar devolvido"/"Bipar novo" pra escolher pra qual lado vai o próximo produto adicionado: primeiro bipe o(s) produto(s) que o cliente está devolvendo, depois o(s) que ele vai levar no lugar. O app calcula sozinho a <strong>diferença</strong> — se for positiva, é quanto o cliente paga a mais; se for negativa, é quanto ficou de crédito/troco. Essa diferença é o valor que conta pras suas estatísticas e comissão, não o valor total da troca.</p>
 
         <h3>18. Comissão</h3>
-        <p>A aba <strong>Comissão</strong> mostra sua comissão real do mês: se você bateu a meta mensal (soma das duas metas quinzenais), aplica um percentual maior; se não bateu, um menor — sempre sobre o total vendido no mês. Só o admin configura esses dois percentuais.</p>
+        <p>A aba <strong>Comissão</strong> calcula separado pra cada quinzena: se você bateu a meta daquela quinzena, aplica o percentual maior sobre o que foi vendido nela; se não bateu, aplica o menor. A comissão total do mês é a soma das duas quinzenas. Só o admin configura esses dois percentuais.</p>
         <p>Tem também um <strong>simulador de colocação</strong>: toque em "1º", "2º" ou "3º lugar" pra ver quanto seria sua comissão se você ficasse naquela posição no ranking, usando as porcentagens de simulação configuradas pelo admin. É só uma prévia — não muda sua comissão real.</p>
 
         <h3>Dúvidas ou problemas</h3>
@@ -3556,28 +3556,58 @@ async function carregarComissao() {
     $pctMetaNaoBatida.value = config.pct_meta_nao_batida;
   }
 
-  totalVendidoMesComissao = (vendasMes || []).reduce((soma, v) => soma + Number(v.total), 0);
-  const metaTotal = metaData ? Number(metaData.meta_quinzena_1 || 0) + Number(metaData.meta_quinzena_2 || 0) : 0;
-  const metaBatida = metaTotal > 0 && totalVendidoMesComissao >= metaTotal;
+  // A meta é por quinzena, então bater ou não a meta — e o percentual que
+  // isso libera — é calculado separado pra cada quinzena, não no mês inteiro.
+  const ano = hoje.getFullYear();
+  const mes = hoje.getMonth();
+  const ultimoDia = new Date(ano, mes + 1, 0).getDate();
+  const q1Inicio = new Date(ano, mes, 1);
+  const q1Fim = new Date(ano, mes, 15, 23, 59, 59);
+  const q2Inicio = new Date(ano, mes, 16);
+  const q2Fim = new Date(ano, mes, ultimoDia, 23, 59, 59);
 
-  // A comissão real depende só de bater ou não a meta — a posição no
-  // ranking é usada apenas na simulação, não entra aqui.
-  const pct = metaBatida ? Number(config.pct_meta_batida) : Number(config.pct_meta_nao_batida);
-  const valorComissao = totalVendidoMesComissao * (pct / 100);
-  const metaTexto = metaTotal > 0
-    ? `${fmtMoeda(metaTotal)}${metaBatida ? " · batida ✅" : " · não batida"}`
-    : "não definida";
+  let totalQ1 = 0, totalQ2 = 0;
+  (vendasMes || []).forEach(v => {
+    const d = new Date(v.criado_em);
+    const valor = Number(v.total);
+    if (d >= q1Inicio && d <= q1Fim) totalQ1 += valor;
+    else if (d >= q2Inicio && d <= q2Fim) totalQ2 += valor;
+  });
 
-  $comissaoResumo.innerHTML = `
-    <table style="width:100%;">
-      <tbody>
-        <tr><td style="padding:6px 0; color:var(--muted);">Total vendido no mês</td><td style="padding:6px 0; text-align:right; font-weight:700;">${fmtMoeda(totalVendidoMesComissao)}</td></tr>
-        <tr><td style="padding:6px 0; color:var(--muted);">Meta do mês</td><td style="padding:6px 0; text-align:right;">${metaTexto}</td></tr>
-        <tr><td style="padding:6px 0; color:var(--muted);">Percentual aplicado</td><td style="padding:6px 0; text-align:right; font-weight:700;">${pct}%</td></tr>
-        <tr><td style="padding:10px 0; font-weight:700;">Comissão estimada</td><td style="padding:10px 0; text-align:right; font-weight:700; color:var(--accent); font-size:1.1rem;">${fmtMoeda(valorComissao)}</td></tr>
-      </tbody>
-    </table>
-  `;
+  const metaQ1 = metaData ? Number(metaData.meta_quinzena_1 || 0) : 0;
+  const metaQ2 = metaData ? Number(metaData.meta_quinzena_2 || 0) : 0;
+  const bateuQ1 = metaQ1 > 0 && totalQ1 >= metaQ1;
+  const bateuQ2 = metaQ2 > 0 && totalQ2 >= metaQ2;
+  const pctQ1 = bateuQ1 ? Number(config.pct_meta_batida) : Number(config.pct_meta_nao_batida);
+  const pctQ2 = bateuQ2 ? Number(config.pct_meta_batida) : Number(config.pct_meta_nao_batida);
+  const comissaoQ1 = totalQ1 * (pctQ1 / 100);
+  const comissaoQ2 = totalQ2 * (pctQ2 / 100);
+  const comissaoTotal = comissaoQ1 + comissaoQ2;
+
+  // Usado pelo simulador de colocação (que continua olhando o mês inteiro).
+  totalVendidoMesComissao = totalQ1 + totalQ2;
+
+  const linhaQuinzena = (titulo, total, meta, bateu, pct, comissao) => {
+    const metaTexto = meta > 0 ? `${fmtMoeda(meta)}${bateu ? " · batida ✅" : " · não batida"}` : "não definida";
+    return `
+      <div class="loja-titulo" style="margin-top:10px; margin-bottom:4px;">${titulo}</div>
+      <table style="width:100%;">
+        <tbody>
+          <tr><td style="padding:4px 0; color:var(--muted);">Vendido</td><td style="padding:4px 0; text-align:right;">${fmtMoeda(total)}</td></tr>
+          <tr><td style="padding:4px 0; color:var(--muted);">Meta</td><td style="padding:4px 0; text-align:right;">${metaTexto}</td></tr>
+          <tr><td style="padding:4px 0; color:var(--muted);">Percentual</td><td style="padding:4px 0; text-align:right; font-weight:700;">${pct}%</td></tr>
+          <tr><td style="padding:4px 0; font-weight:700;">Comissão</td><td style="padding:4px 0; text-align:right; font-weight:700; color:var(--accent);">${fmtMoeda(comissao)}</td></tr>
+        </tbody>
+      </table>
+    `;
+  };
+
+  $comissaoResumo.innerHTML =
+    linhaQuinzena("1ª quinzena (dia 1 ao 15)", totalQ1, metaQ1, bateuQ1, pctQ1, comissaoQ1) +
+    linhaQuinzena("2ª quinzena (dia 16 ao fim do mês)", totalQ2, metaQ2, bateuQ2, pctQ2, comissaoQ2) +
+    `<div style="display:flex; justify-content:space-between; padding:10px 0; margin-top:12px; border-top:1px solid var(--border); font-weight:700; font-size:1.05rem;">
+       <span>Comissão total do mês</span><span style="color:var(--accent);">${fmtMoeda(comissaoTotal)}</span>
+     </div>`;
 }
 
 document.querySelectorAll(".sim-colocacao").forEach(btn => {
