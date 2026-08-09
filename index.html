@@ -353,6 +353,7 @@
         <button id="tabFavoritos">Favoritos</button>
         <button id="tabMaisProcurados">Mais Procurados</button>
         <button id="tabVendas">Vendas</button>
+        <button id="tabComissao">Comissão</button>
         <button id="tabAdmin" class="hidden" style="position:relative;">Admin<span id="ajudaBadge" class="badge hidden"></span></button>
         <button id="tabAjuda">Ajuda</button>
       </div>
@@ -460,10 +461,20 @@
       </div>
 
       <div class="card">
-        <div class="loja-titulo" style="margin-bottom:10px;">Nova venda</div>
+        <div class="row" style="margin-bottom:12px;">
+          <button type="button" id="btnModoVenda" class="secondary desconto-ativo">Venda</button>
+          <button type="button" id="btnModoTroca" class="secondary">Troca</button>
+        </div>
+
+        <div id="tituloNovaVenda" class="loja-titulo" style="margin-bottom:10px;">Nova venda</div>
 
         <label for="vendaLoja">Loja</label>
         <select id="vendaLoja"></select>
+
+        <div id="ladoTrocaWrap" class="row hidden">
+          <button type="button" id="btnLadoDevolvido" class="secondary desconto-ativo" style="flex:1;">Bipar devolvido</button>
+          <button type="button" id="btnLadoNovo" class="secondary" style="flex:1;">Bipar novo</button>
+        </div>
 
         <label for="vendaProdutoInput">Adicionar produto</label>
         <div class="row">
@@ -487,26 +498,35 @@
 
         <div id="vendaItensLista"></div>
 
-        <div class="row" style="margin-top:12px;">
-          <button type="button" id="btnDescontoPct" class="secondary desconto-ativo">Desconto em %</button>
-          <button type="button" id="btnDescontoValor" class="secondary">Valor final</button>
+        <div id="trocaListasWrap" class="hidden">
+          <div class="loja-titulo" style="margin-top:8px;">Devolvido pelo cliente</div>
+          <div id="trocaDevolvidosLista"></div>
+          <div class="loja-titulo" style="margin-top:12px;">Novo (leva no lugar)</div>
+          <div id="trocaNovosLista"></div>
         </div>
-        <div id="descontoPctWrap">
-          <label for="vendaDescontoPct">Desconto (%)</label>
-          <input id="vendaDescontoPct" type="number" inputmode="decimal" placeholder="0" min="0" max="100">
-        </div>
-        <div id="descontoValorWrap" class="hidden">
-          <label for="vendaValorFinal">Valor final da compra (R$)</label>
-          <input id="vendaValorFinal" type="number" inputmode="decimal" placeholder="0,00">
+
+        <div id="descontoWrap">
+          <div class="row" style="margin-top:12px;">
+            <button type="button" id="btnDescontoPct" class="secondary desconto-ativo">Desconto em %</button>
+            <button type="button" id="btnDescontoValor" class="secondary">Valor final</button>
+          </div>
+          <div id="descontoPctWrap">
+            <label for="vendaDescontoPct">Desconto (%)</label>
+            <input id="vendaDescontoPct" type="number" inputmode="decimal" placeholder="0" min="0" max="100">
+          </div>
+          <div id="descontoValorWrap" class="hidden">
+            <label for="vendaValorFinal">Valor final da compra (R$)</label>
+            <input id="vendaValorFinal" type="number" inputmode="decimal" placeholder="0,00">
+          </div>
         </div>
 
         <div class="resumo" style="margin-top:4px;">
-          <div class="resumo-produto">Subtotal</div>
+          <div class="resumo-produto" id="rotuloSubtotal">Subtotal</div>
           <div id="vendaSubtotal" style="font-size:0.95rem; color:var(--muted);">R$ 0,00</div>
         </div>
         <div id="vendaDescontoInfo" class="msg" style="margin-top:0;"></div>
         <div class="resumo" style="margin-top:4px;">
-          <div class="resumo-produto">Total da venda</div>
+          <div class="resumo-produto" id="rotuloTotal">Total da venda</div>
           <div class="resumo-preco" id="vendaTotal">R$ 0,00</div>
         </div>
 
@@ -520,6 +540,29 @@
       <div class="card">
         <div class="loja-titulo" style="margin-bottom:10px;">Histórico de vendas</div>
         <div id="vendasLista"></div>
+      </div>
+    </div>
+
+    <div id="painelComissao" class="hidden">
+      <div class="card">
+        <div class="loja-titulo" style="margin-bottom:10px;">Sua comissão este mês</div>
+        <div id="comissaoResumo" class="msg">Carregando...</div>
+      </div>
+
+      <div id="comissaoConfigCard" class="card hidden">
+        <div class="loja-titulo" style="margin-bottom:10px;">Configurar porcentagens</div>
+        <label for="pctPrimeiro">1º lugar no ranking (%)</label>
+        <input id="pctPrimeiro" type="number" inputmode="decimal" step="0.1">
+        <label for="pctSegundo">2º lugar no ranking (%)</label>
+        <input id="pctSegundo" type="number" inputmode="decimal" step="0.1">
+        <label for="pctTerceiro">3º lugar no ranking (%)</label>
+        <input id="pctTerceiro" type="number" inputmode="decimal" step="0.1">
+        <label for="pctMetaBatida">Fora do top 3, com meta batida (%)</label>
+        <input id="pctMetaBatida" type="number" inputmode="decimal" step="0.1">
+        <label for="pctMetaNaoBatida">Fora do top 3, sem bater a meta (%)</label>
+        <input id="pctMetaNaoBatida" type="number" inputmode="decimal" step="0.1">
+        <button id="btnSalvarComissaoConfig" class="full" style="margin-top:4px;">Salvar</button>
+        <div id="comissaoConfigMsg" class="msg"></div>
       </div>
     </div>
 
@@ -583,6 +626,12 @@
 
         <h3>16. Metas e folgas</h3>
         <p>Toque em <strong>"Configurar meta e folgas"</strong> (na aba Vendas) pra definir sua meta de cada quinzena (1ª: dia 1 ao 15; 2ª: dia 16 ao fim do mês) e marcar no calendário os dias que você vai folgar naquele mês. A partir disso, o app calcula sozinho: quanto falta pra bater a meta da quinzena, e a <strong>meta de hoje</strong> — dividindo o que falta pelos dias que restam até o fim da quinzena, sem contar os dias marcados como folga.</p>
+
+        <h3>17. Trocas</h3>
+        <p>Na aba Vendas, toque em <strong>"Troca"</strong> (ao lado de "Venda") pra trocar de modo. Use os botões "Bipar devolvido"/"Bipar novo" pra escolher pra qual lado vai o próximo produto adicionado: primeiro bipe o(s) produto(s) que o cliente está devolvendo, depois o(s) que ele vai levar no lugar. O app calcula sozinho a <strong>diferença</strong> — se for positiva, é quanto o cliente paga a mais; se for negativa, é quanto ficou de crédito/troco. Essa diferença é o valor que conta pras suas estatísticas e comissão, não o valor total da troca.</p>
+
+        <h3>18. Comissão</h3>
+        <p>A aba <strong>Comissão</strong> mostra sua posição no ranking de vendas do mês, se você bateu a meta, e a comissão estimada em cima do total vendido. A porcentagem aplicada depende da posição: 1º, 2º e 3º lugar têm uma porcentagem própria; quem fica fora do top 3 recebe uma porcentagem se bateu a meta do mês, e outra (menor) se não bateu. Só o admin pode configurar esses percentuais.</p>
 
         <h3>Dúvidas ou problemas</h3>
         <p>Se algo não funcionar como esperado, use o campo de sugestão abaixo pra reportar.</p>
@@ -842,9 +891,32 @@ const $painelHistorico = document.getElementById("painelHistorico");
 const $painelFavoritos = document.getElementById("painelFavoritos");
 const $painelMaisProcurados = document.getElementById("painelMaisProcurados");
 const $painelVendas = document.getElementById("painelVendas");
+const $painelComissao = document.getElementById("painelComissao");
 const $painelAdmin = document.getElementById("painelAdmin");
+const $tabComissao = document.getElementById("tabComissao");
+const $comissaoResumo = document.getElementById("comissaoResumo");
+const $comissaoConfigCard = document.getElementById("comissaoConfigCard");
+const $pctPrimeiro = document.getElementById("pctPrimeiro");
+const $pctSegundo = document.getElementById("pctSegundo");
+const $pctTerceiro = document.getElementById("pctTerceiro");
+const $pctMetaBatida = document.getElementById("pctMetaBatida");
+const $pctMetaNaoBatida = document.getElementById("pctMetaNaoBatida");
+const $btnSalvarComissaoConfig = document.getElementById("btnSalvarComissaoConfig");
+const $comissaoConfigMsg = document.getElementById("comissaoConfigMsg");
 const $painelAjuda = document.getElementById("painelAjuda");
 const $resumoVendedoresLista = document.getElementById("resumoVendedoresLista");
+const $btnModoVenda = document.getElementById("btnModoVenda");
+const $btnModoTroca = document.getElementById("btnModoTroca");
+const $tituloNovaVenda = document.getElementById("tituloNovaVenda");
+const $ladoTrocaWrap = document.getElementById("ladoTrocaWrap");
+const $btnLadoDevolvido = document.getElementById("btnLadoDevolvido");
+const $btnLadoNovo = document.getElementById("btnLadoNovo");
+const $trocaListasWrap = document.getElementById("trocaListasWrap");
+const $trocaDevolvidosLista = document.getElementById("trocaDevolvidosLista");
+const $trocaNovosLista = document.getElementById("trocaNovosLista");
+const $descontoWrap = document.getElementById("descontoWrap");
+const $rotuloSubtotal = document.getElementById("rotuloSubtotal");
+const $rotuloTotal = document.getElementById("rotuloTotal");
 const $vendaLoja = document.getElementById("vendaLoja");
 const $vendaProdutoInput = document.getElementById("vendaProdutoInput");
 const $btnVendaCamera = document.getElementById("btnVendaCamera");
@@ -1259,6 +1331,7 @@ const ABAS = [
   { tab: $tabFavoritos, painel: $painelFavoritos },
   { tab: $tabMaisProcurados, painel: $painelMaisProcurados },
   { tab: $tabVendas, painel: $painelVendas },
+  { tab: $tabComissao, painel: $painelComissao },
   { tab: $tabAdmin, painel: $painelAdmin },
   { tab: $tabAjuda, painel: $painelAjuda },
 ];
@@ -1290,9 +1363,13 @@ $tabMaisProcurados.addEventListener("click", () => {
 $tabVendas.addEventListener("click", () => {
   mostrarAba($tabVendas);
   popularLojasVenda();
-  renderItensVenda();
+  if (modoVenda === "troca") renderTrocaListas(); else renderItensVenda();
   carregarVendas();
   carregarMetaEFolgas();
+});
+$tabComissao.addEventListener("click", () => {
+  mostrarAba($tabComissao);
+  carregarComissao();
 });
 $tabAdmin.addEventListener("click", () => {
   if (!ehAdmin()) return;
@@ -2553,6 +2630,10 @@ $btnLimparReferencia.addEventListener("click", () => {
 // ---------- VENDAS ----------
 
 let itensVendaAtual = []; // { codigo_barras, produto, preco_unit, quantidade }
+let modoVenda = "venda"; // "venda" | "troca"
+let ladoTroca = "devolvido"; // "devolvido" | "novo" — pra onde vai o próximo produto adicionado, na troca
+let itensDevolvidosAtual = [];
+let itensNovosTrocaAtual = [];
 
 function popularLojasVenda() {
   if ($vendaLoja.options.length > 0) return; // já populado, não refaz toda vez
@@ -2686,8 +2767,8 @@ $vendaItensLista.addEventListener("click", (e) => {
   }
 });
 
-function adicionarItemNaListaDeVenda(novoItem) {
-  const existente = itensVendaAtual.find(it => {
+function adicionarEmLista(lista, novoItem) {
+  const existente = lista.find(it => {
     if (novoItem.codigo_barras) return it.codigo_barras === novoItem.codigo_barras;
     // Item manual (sem código): só junta se for exatamente o mesmo nome e preço.
     return !it.codigo_barras && it.produto === novoItem.produto && it.preco_unit === novoItem.preco_unit;
@@ -2695,10 +2776,119 @@ function adicionarItemNaListaDeVenda(novoItem) {
   if (existente) {
     existente.quantidade++;
   } else {
-    itensVendaAtual.push({ ...novoItem, quantidade: 1 });
+    lista.push({ ...novoItem, quantidade: 1 });
   }
-  renderItensVenda();
 }
+
+// Ponto único de entrada usado pelo bip, pela câmera, pelo histórico e pelo
+// item manual — decide sozinho pra qual lista o produto vai, dependendo do
+// modo (venda normal ou troca) e, na troca, de qual lado está ativo.
+function adicionarItemNaListaDeVenda(novoItem) {
+  if (modoVenda === "troca") {
+    adicionarEmLista(ladoTroca === "devolvido" ? itensDevolvidosAtual : itensNovosTrocaAtual, novoItem);
+    renderTrocaListas();
+  } else {
+    adicionarEmLista(itensVendaAtual, novoItem);
+    renderItensVenda();
+  }
+}
+
+function renderListaDeItens(container, lista) {
+  if (lista.length === 0) {
+    container.innerHTML = `<div class="msg">Nenhum produto ainda.</div>`;
+    return;
+  }
+  container.innerHTML = lista.map((item, i) => `
+    <div class="venda-item" data-i="${i}">
+      <div class="vi-info">
+        <div class="vi-produto">${item.produto || item.codigo_barras}</div>
+        <div class="vi-preco">${fmtMoeda(item.preco_unit)} cada</div>
+      </div>
+      <div class="vi-qtd-stepper">
+        <button type="button" class="vi-menos">−</button>
+        <span>${item.quantidade}</span>
+        <button type="button" class="vi-mais">+</button>
+      </div>
+      <div class="vi-subtotal">${fmtMoeda(item.preco_unit * item.quantidade)}</div>
+      <button type="button" class="h-btn apagar vi-remover" title="Remover">${ICONE_LIXEIRA}</button>
+    </div>
+  `).join("");
+}
+
+function bindListaDeItens(container, lista, aoMudar) {
+  container.querySelectorAll(".venda-item").forEach(el => {
+    const i = Number(el.dataset.i);
+    el.querySelector(".vi-mais").addEventListener("click", () => {
+      lista[i].quantidade++;
+      aoMudar();
+    });
+    el.querySelector(".vi-menos").addEventListener("click", () => {
+      lista[i].quantidade--;
+      if (lista[i].quantidade <= 0) lista.splice(i, 1);
+      aoMudar();
+    });
+    el.querySelector(".vi-remover").addEventListener("click", () => {
+      lista.splice(i, 1);
+      aoMudar();
+    });
+  });
+}
+
+function somaLista(lista) {
+  return lista.reduce((soma, item) => soma + item.preco_unit * item.quantidade, 0);
+}
+
+function renderTrocaListas() {
+  renderListaDeItens($trocaDevolvidosLista, itensDevolvidosAtual);
+  bindListaDeItens($trocaDevolvidosLista, itensDevolvidosAtual, renderTrocaListas);
+  renderListaDeItens($trocaNovosLista, itensNovosTrocaAtual);
+  bindListaDeItens($trocaNovosLista, itensNovosTrocaAtual, renderTrocaListas);
+
+  const totalDevolvido = somaLista(itensDevolvidosAtual);
+  const totalNovo = somaLista(itensNovosTrocaAtual);
+  const diferenca = totalNovo - totalDevolvido;
+
+  $vendaSubtotal.textContent = `Devolvido ${fmtMoeda(totalDevolvido)} · Novo ${fmtMoeda(totalNovo)}`;
+  $vendaDescontoInfo.textContent = "";
+  $vendaTotal.textContent = fmtMoeda(diferenca);
+  $vendaTotal.style.color = diferenca < 0 ? "var(--danger)" : "var(--accent)";
+
+  $btnFinalizarVenda.disabled = itensNovosTrocaAtual.length === 0 && itensDevolvidosAtual.length === 0;
+}
+
+function alternarModoVenda(novoModo) {
+  modoVenda = novoModo;
+  const ehTroca = modoVenda === "troca";
+
+  $btnModoVenda.classList.toggle("desconto-ativo", !ehTroca);
+  $btnModoTroca.classList.toggle("desconto-ativo", ehTroca);
+  $tituloNovaVenda.textContent = ehTroca ? "Nova troca" : "Nova venda";
+  $ladoTrocaWrap.classList.toggle("hidden", !ehTroca);
+  $vendaItensLista.classList.toggle("hidden", ehTroca);
+  $trocaListasWrap.classList.toggle("hidden", !ehTroca);
+  $descontoWrap.classList.toggle("hidden", ehTroca);
+  $vendaTotal.style.color = "";
+  $rotuloSubtotal.textContent = ehTroca ? "Resumo" : "Subtotal";
+  $rotuloTotal.textContent = ehTroca ? "Diferença (a favor da loja)" : "Total da venda";
+  $btnFinalizarVenda.textContent = ehTroca ? "Finalizar troca" : "Finalizar venda";
+
+  if (ehTroca) renderTrocaListas();
+  else renderItensVenda();
+}
+
+$btnModoVenda.addEventListener("click", () => alternarModoVenda("venda"));
+$btnModoTroca.addEventListener("click", () => alternarModoVenda("troca"));
+
+$btnLadoDevolvido.addEventListener("click", () => {
+  ladoTroca = "devolvido";
+  $btnLadoDevolvido.classList.add("desconto-ativo");
+  $btnLadoNovo.classList.remove("desconto-ativo");
+});
+$btnLadoNovo.addEventListener("click", () => {
+  ladoTroca = "novo";
+  $btnLadoNovo.classList.add("desconto-ativo");
+  $btnLadoDevolvido.classList.remove("desconto-ativo");
+});
 
 async function adicionarProdutoNaVenda(codigo) {
   codigo = (codigo || "").trim();
@@ -2813,59 +3003,90 @@ $btnFecharVendaHistorico.addEventListener("click", () => {
   $vendaHistoricoModal.classList.add("hidden");
 });
 
-$btnFinalizarVenda.addEventListener("click", async () => {
-  if (itensVendaAtual.length === 0 || !currentUser) return;
-
-  $btnFinalizarVenda.disabled = true;
-  $vendaMsg.textContent = "Salvando venda...";
-  $vendaMsg.className = "msg";
-
-  const { subtotal, totalFinal, descontoValor, descontoPct } = atualizarTotaisVenda();
-
-  const { data: vendaCriada, error: errVenda } = await sb
-    .from("vendas")
-    .insert({
-      loja: Number($vendaLoja.value),
-      subtotal,
-      desconto_valor: descontoValor,
-      desconto_percentual: descontoPct,
-      total: totalFinal,
-      observacao: $vendaObservacao.value.trim() || null,
-      vendedor_email: currentUser.email,
-    })
-    .select()
-    .single();
-
-  if (errVenda) {
-    $vendaMsg.textContent = "Erro ao salvar venda: " + errVenda.message;
-    $vendaMsg.className = "msg err";
-    $btnFinalizarVenda.disabled = false;
-    return;
-  }
-
-  const linhasItens = itensVendaAtual.map(item => ({
-    venda_id: vendaCriada.id,
+async function salvarLinhasItens(vendaId, itens, devolvido) {
+  if (itens.length === 0) return null;
+  const linhas = itens.map(item => ({
+    venda_id: vendaId,
     codigo_barras: item.codigo_barras,
     produto: item.produto,
     preco_unit: item.preco_unit,
     quantidade: item.quantidade,
     subtotal: item.preco_unit * item.quantidade,
+    devolvido,
   }));
+  const { error } = await sb.from("venda_itens").insert(linhas);
+  return error;
+}
 
-  const { error: errItens } = await sb.from("venda_itens").insert(linhasItens);
+$btnFinalizarVenda.addEventListener("click", async () => {
+  if (!currentUser) return;
+  const ehTroca = modoVenda === "troca";
+
+  if (ehTroca) {
+    if (itensDevolvidosAtual.length === 0 && itensNovosTrocaAtual.length === 0) return;
+  } else if (itensVendaAtual.length === 0) {
+    return;
+  }
+
+  $btnFinalizarVenda.disabled = true;
+  $vendaMsg.textContent = ehTroca ? "Salvando troca..." : "Salvando venda...";
+  $vendaMsg.className = "msg";
+
+  const payload = {
+    loja: Number($vendaLoja.value),
+    observacao: $vendaObservacao.value.trim() || null,
+    vendedor_email: currentUser.email,
+  };
+
+  if (ehTroca) {
+    const totalDevolvido = somaLista(itensDevolvidosAtual);
+    const totalNovo = somaLista(itensNovosTrocaAtual);
+    payload.tipo = "troca";
+    payload.subtotal = totalNovo;
+    payload.valor_devolvido = totalDevolvido;
+    payload.desconto_valor = 0;
+    payload.desconto_percentual = 0;
+    payload.total = totalNovo - totalDevolvido;
+  } else {
+    const { subtotal, totalFinal, descontoValor, descontoPct } = atualizarTotaisVenda();
+    payload.tipo = "venda";
+    payload.subtotal = subtotal;
+    payload.desconto_valor = descontoValor;
+    payload.desconto_percentual = descontoPct;
+    payload.total = totalFinal;
+  }
+
+  const { data: vendaCriada, error: errVenda } = await sb.from("vendas").insert(payload).select().single();
+
+  if (errVenda) {
+    $vendaMsg.textContent = "Erro ao salvar: " + errVenda.message;
+    $vendaMsg.className = "msg err";
+    $btnFinalizarVenda.disabled = false;
+    return;
+  }
+
+  let errItens;
+  if (ehTroca) {
+    errItens = (await salvarLinhasItens(vendaCriada.id, itensDevolvidosAtual, true))
+      || (await salvarLinhasItens(vendaCriada.id, itensNovosTrocaAtual, false));
+  } else {
+    errItens = await salvarLinhasItens(vendaCriada.id, itensVendaAtual, false);
+  }
 
   if (errItens) {
-    $vendaMsg.textContent = "Venda salva, mas houve erro ao salvar os itens: " + errItens.message;
+    $vendaMsg.textContent = "Registro salvo, mas houve erro ao salvar os itens: " + errItens.message;
     $vendaMsg.className = "msg err";
   } else {
-    $vendaMsg.textContent = "Venda registrada com sucesso!";
+    $vendaMsg.textContent = ehTroca ? "Troca registrada com sucesso!" : "Venda registrada com sucesso!";
     $vendaMsg.className = "msg";
   }
 
   itensVendaAtual = [];
+  itensDevolvidosAtual = [];
+  itensNovosTrocaAtual = [];
   $vendaObservacao.value = "";
   resetarDescontoVenda();
-  renderItensVenda();
+  if (ehTroca) renderTrocaListas(); else renderItensVenda();
   carregarVendas();
   atualizarResumoVendas();
 });
@@ -2909,16 +3130,18 @@ function renderVendasLista(data) {
     const info = LOJAS_INFO[v.loja];
     const lojaTexto = info ? `Loja ${v.loja} - ${info.nome}` : `Loja ${v.loja}`;
     const vendedorTexto = souAdmin && v.vendedor_email ? ` · ${v.vendedor_email}` : "";
+    const ehTroca = v.tipo === "troca";
+    const tituloLinha = ehTroca ? `🔁 Troca — ${lojaTexto}` : lojaTexto;
     return `
     <div class="historico-item venda-resumo" data-id="${v.id}" style="cursor:pointer;">
       <div class="h-conteudo">
-        <div class="h-produto">${lojaTexto}</div>
+        <div class="h-produto">${tituloLinha}</div>
         <div class="h-meta">${new Date(v.criado_em).toLocaleString("pt-BR")}${vendedorTexto}</div>
         ${v.observacao ? `<div class="h-meta">${v.observacao.replace(/</g, "&lt;")}</div>` : ""}
         <div class="venda-detalhe hidden" style="margin-top:8px;"></div>
       </div>
       <div class="h-acoes">
-        <span>${fmtMoeda(v.total)}</span>
+        <span style="${v.total < 0 ? "color:var(--danger);" : ""}">${fmtMoeda(v.total)}</span>
         <button class="h-btn apagar" title="Apagar">${ICONE_LIXEIRA}</button>
       </div>
     </div>
@@ -2950,6 +3173,28 @@ function renderVendasLista(data) {
       }
       $detalhe.dataset.carregado = "1";
       const v = data.find(x => x.id === id);
+
+      const linhaItem = it => `
+        <div style="display:flex; justify-content:space-between; font-size:0.82rem; padding:3px 0;">
+          <span>${it.quantidade}x ${it.produto || it.codigo_barras}</span>
+          <span>${fmtMoeda(it.subtotal)}</span>
+        </div>`;
+
+      if (v && v.tipo === "troca") {
+        const devolvidos = (itens || []).filter(it => it.devolvido);
+        const novos = (itens || []).filter(it => !it.devolvido);
+        $detalhe.innerHTML = `
+          <div style="font-size:0.78rem; color:var(--muted); margin-top:4px;">Devolvido</div>
+          ${devolvidos.map(linhaItem).join("") || `<div class="msg">Nenhum</div>`}
+          <div style="font-size:0.78rem; color:var(--muted); margin-top:8px;">Novo</div>
+          ${novos.map(linhaItem).join("") || `<div class="msg">Nenhum</div>`}
+          <div style="display:flex; justify-content:space-between; font-size:0.82rem; padding:6px 0; margin-top:4px; border-top:1px solid var(--border); font-weight:700;">
+            <span>Diferença</span><span>${fmtMoeda(v.total)}</span>
+          </div>
+        `;
+        return;
+      }
+
       const linhaDesconto = v && v.desconto_valor > 0
         ? `<div style="display:flex; justify-content:space-between; font-size:0.82rem; padding:3px 0; color:var(--muted);">
              <span>Subtotal</span><span>${fmtMoeda(v.subtotal)}</span>
@@ -2958,12 +3203,7 @@ function renderVendasLista(data) {
              <span>Desconto (${Number(v.desconto_percentual).toFixed(1)}%)</span><span>-${fmtMoeda(v.desconto_valor)}</span>
            </div>`
         : "";
-      $detalhe.innerHTML = (itens || []).map(it => `
-        <div style="display:flex; justify-content:space-between; font-size:0.82rem; padding:3px 0;">
-          <span>${it.quantidade}x ${it.produto || it.codigo_barras}</span>
-          <span>${fmtMoeda(it.subtotal)}</span>
-        </div>
-      `).join("") + linhaDesconto;
+      $detalhe.innerHTML = (itens || []).map(linhaItem).join("") + linhaDesconto;
     });
 
     el.querySelector(".apagar").addEventListener("click", async (e) => {
@@ -3229,6 +3469,84 @@ $lojas.value = localStorage.getItem("bp_lojas") || "1";
 $btnRedeToda.addEventListener("click", () => {
   $lojas.value = TODAS_AS_LOJAS.join(",");
   $lojas.dispatchEvent(new Event("change"));
+});
+
+// ---------- COMISSÃO ----------
+
+async function carregarComissao() {
+  if (!currentUser) return;
+  $comissaoResumo.innerHTML = `<div class="msg">Carregando...</div>`;
+  $comissaoConfigCard.classList.toggle("hidden", !ehAdmin());
+
+  const [{ data: config, error: errConfig }, { data: ranking, error: errRanking }] = await Promise.all([
+    sb.from("config_comissao").select("*").eq("id", 1).maybeSingle(),
+    sb.rpc("ranking_vendedor_mes"),
+  ]);
+
+  if (errConfig || errRanking) {
+    $comissaoResumo.innerHTML = `<div class="msg err">Erro ao carregar comissão: ${(errConfig || errRanking).message}</div>`;
+    return;
+  }
+
+  if (ehAdmin() && config) {
+    $pctPrimeiro.value = config.pct_1_lugar;
+    $pctSegundo.value = config.pct_2_lugar;
+    $pctTerceiro.value = config.pct_3_lugar;
+    $pctMetaBatida.value = config.pct_meta_batida;
+    $pctMetaNaoBatida.value = config.pct_meta_nao_batida;
+  }
+
+  const minhaLinha = ranking && ranking[0];
+  if (!minhaLinha) {
+    $comissaoResumo.innerHTML = `Você ainda não tem vendas registradas este mês.`;
+    return;
+  }
+
+  let pct;
+  if (minhaLinha.posicao === 1) pct = Number(config.pct_1_lugar);
+  else if (minhaLinha.posicao === 2) pct = Number(config.pct_2_lugar);
+  else if (minhaLinha.posicao === 3) pct = Number(config.pct_3_lugar);
+  else pct = minhaLinha.meta_batida ? Number(config.pct_meta_batida) : Number(config.pct_meta_nao_batida);
+
+  const valorComissao = Number(minhaLinha.total_vendido) * (pct / 100);
+  const metaTexto = Number(minhaLinha.meta_total) > 0
+    ? `${fmtMoeda(minhaLinha.meta_total)}${minhaLinha.meta_batida ? " · batida ✅" : " · não batida"}`
+    : "não definida";
+
+  $comissaoResumo.innerHTML = `
+    <table style="width:100%;">
+      <tbody>
+        <tr><td style="padding:6px 0; color:var(--muted);">Sua posição no mês</td><td style="padding:6px 0; text-align:right; font-weight:700;">${minhaLinha.posicao}º de ${minhaLinha.total_vendedores}</td></tr>
+        <tr><td style="padding:6px 0; color:var(--muted);">Total vendido no mês</td><td style="padding:6px 0; text-align:right; font-weight:700;">${fmtMoeda(minhaLinha.total_vendido)}</td></tr>
+        <tr><td style="padding:6px 0; color:var(--muted);">Meta do mês</td><td style="padding:6px 0; text-align:right;">${metaTexto}</td></tr>
+        <tr><td style="padding:6px 0; color:var(--muted);">Percentual aplicado</td><td style="padding:6px 0; text-align:right; font-weight:700;">${pct}%</td></tr>
+        <tr><td style="padding:10px 0; font-weight:700;">Comissão estimada</td><td style="padding:10px 0; text-align:right; font-weight:700; color:var(--accent); font-size:1.1rem;">${fmtMoeda(valorComissao)}</td></tr>
+      </tbody>
+    </table>
+  `;
+}
+
+$btnSalvarComissaoConfig.addEventListener("click", async () => {
+  $comissaoConfigMsg.textContent = "Salvando...";
+  $comissaoConfigMsg.className = "msg";
+
+  const { error } = await sb.from("config_comissao").update({
+    pct_1_lugar: Number($pctPrimeiro.value) || 0,
+    pct_2_lugar: Number($pctSegundo.value) || 0,
+    pct_3_lugar: Number($pctTerceiro.value) || 0,
+    pct_meta_batida: Number($pctMetaBatida.value) || 0,
+    pct_meta_nao_batida: Number($pctMetaNaoBatida.value) || 0,
+    atualizado_em: new Date().toISOString(),
+  }).eq("id", 1);
+
+  if (error) {
+    $comissaoConfigMsg.textContent = "Erro: " + error.message;
+    $comissaoConfigMsg.className = "msg err";
+    return;
+  }
+  $comissaoConfigMsg.textContent = "Salvo!";
+  $comissaoConfigMsg.className = "msg";
+  carregarComissao();
 });
 
 // Registra o service worker: guarda o "shell" do app (HTML/manifest/ícones)
