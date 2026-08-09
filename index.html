@@ -447,8 +447,9 @@
         <h3>11. Esqueci minha senha</h3>
         <p>Na tela de login, toque em <strong>"Esqueci minha senha"</strong>, informe seu e-mail e você recebe um link pra criar uma nova senha.</p>
 
-        <h3>12. Sem conexão no modo múltiplos itens</h3>
+        <h3>12. Sem conexão</h3>
         <p>Se a internet cair no meio de uma busca com o modo "múltiplos itens" ligado, o bloco daquele item mostra "sem conexão" e tenta de novo sozinho assim que a internet voltar — não precisa refazer a busca manualmente.</p>
+        <p>Se você já buscou aquele código antes (mesmo em outro momento), o app guarda o último preço visto no aparelho e mostra ele mesmo sem internet, com um aviso de quando foi a última consulta — só o preço, sem estoque (que sempre precisa de conexão pra ser confiável).</p>
 
         <h3>13. Configurações</h3>
         <p>Toque no ícone de engrenagem ao lado de "Sair" pra editar seu nome, código de vendedor e a loja em que você trabalha, ou pra alterar sua senha diretamente (sem precisar de e-mail).</p>
@@ -1924,6 +1925,36 @@ function criarLojaCardEl(loja) {
   return div;
 }
 
+// Cache local (no aparelho, não no banco) do último preço visto de cada
+// código, pra mostrar algo quando não tiver internet — nunca é usado se a
+// busca ao vivo funcionar, só entra como último recurso offline.
+function chaveCachePreco(codigo) {
+  return "bp_cache_preco_" + codigo;
+}
+
+function salvarCachePreco(codigo, item) {
+  try {
+    localStorage.setItem(chaveCachePreco(codigo), JSON.stringify({
+      cdSKU: item.cdSKU,
+      dsProduto: item.dsProduto,
+      vlPreco: item.vlPreco,
+      vlPrecoPromocao: item.vlPrecoPromocao,
+      ts: Date.now(),
+    }));
+  } catch (e) {
+    // localStorage cheio ou indisponível: não é crítico, ignora.
+  }
+}
+
+function lerCachePreco(codigo) {
+  try {
+    const raw = localStorage.getItem(chaveCachePreco(codigo));
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 async function buscarPreco(codigo, primeiraLoja, signal) {
   const resp = await fetch(`${API_BASE}/${encodeURIComponent(codigo)}/${encodeURIComponent(primeiraLoja)}`, { signal });
   const data = await resp.json();
@@ -2118,6 +2149,7 @@ async function executarBusca(codigo, lojasStrRaw, multiplo) {
 
     salvarHistorico(item, lojasStrRaw.trim());
     salvarNoIndiceReferencias(item);
+    salvarCachePreco(codigo, item);
 
     setBuscaStatus("Consultando estoque...");
 
@@ -2143,14 +2175,32 @@ async function executarBusca(codigo, lojasStrRaw, multiplo) {
   } catch (e) {
     if (e.name === "AbortError") {
       setBuscaStatus("Busca interrompida.");
-    } else if (multiplo && (!navigator.onLine || e instanceof TypeError)) {
-      // Sem internet: agenda pra tentar de novo sozinho quando a conexão
-      // voltar, em vez de só mostrar erro (só faz sentido no modo múltiplos
-      // itens — no modo padrão o usuário já vê e pode clicar Buscar de novo).
-      setBuscaStatus("Sem conexão — vai tentar de novo sozinho quando a internet voltar.", true);
-      window.addEventListener("online", () => {
-        executarBusca(codigo, lojasStrRaw, true);
-      }, { once: true });
+    } else if (!navigator.onLine || e instanceof TypeError) {
+      // Sem internet: se já vimos esse código antes, mostra o último preço
+      // salvo no aparelho (sem estoque, que é sempre dado ao vivo).
+      const cache = lerCachePreco(codigo);
+      if (cache) {
+        produtoEl.textContent = `${cache.cdSKU} - ${cache.dsProduto}`;
+        if (cache.vlPrecoPromocao && cache.vlPrecoPromocao > 0 && cache.vlPrecoPromocao !== cache.vlPreco) {
+          precoOriginalEl.textContent = fmtMoeda(cache.vlPreco);
+          precoEl.textContent = fmtMoeda(cache.vlPrecoPromocao);
+        } else {
+          precoOriginalEl.textContent = "";
+          precoEl.textContent = fmtMoeda(cache.vlPreco);
+        }
+        if (!multiplo) $resumoCard.classList.add("show");
+        setBuscaStatus(`Sem conexão — mostrando o último preço visto (${new Date(cache.ts).toLocaleString("pt-BR")}). Pode estar desatualizado, e o estoque não está disponível offline.`, true);
+      } else {
+        setBuscaStatus("Sem conexão e nenhum preço salvo desse produto ainda.", true);
+      }
+
+      // No modo múltiplos itens, tenta de novo sozinho quando a conexão
+      // voltar, pra trazer o dado ao vivo (com estoque) assim que possível.
+      if (multiplo) {
+        window.addEventListener("online", () => {
+          executarBusca(codigo, lojasStrRaw, true);
+        }, { once: true });
+      }
     } else {
       setBuscaStatus("Erro ao buscar. Verifique a conexão.", true);
       console.error(e);
