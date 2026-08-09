@@ -490,7 +490,7 @@
           <label for="vendaManualNome">Nome do produto</label>
           <input id="vendaManualNome" type="text" placeholder="Ex: Meia avulsa">
           <label for="vendaManualPreco">Preço (R$)</label>
-          <input id="vendaManualPreco" type="number" inputmode="decimal" placeholder="0,00">
+          <input id="vendaManualPreco" type="text" inputmode="numeric" placeholder="0,00">
           <button id="btnVendaManualAdicionar" type="button" class="secondary full" style="margin-bottom:12px;">Adicionar item manual</button>
         </div>
 
@@ -516,7 +516,7 @@
           </div>
           <div id="descontoValorWrap" class="hidden">
             <label for="vendaValorFinal">Valor final da compra (R$)</label>
-            <input id="vendaValorFinal" type="number" inputmode="decimal" placeholder="0,00">
+            <input id="vendaValorFinal" type="text" inputmode="numeric" placeholder="0,00">
           </div>
         </div>
 
@@ -683,10 +683,10 @@
       <div class="loja-titulo" style="margin-bottom:10px;">Metas e folgas</div>
 
       <label for="metaQuinzena1">Meta 1ª quinzena (dia 1 ao 15)</label>
-      <input id="metaQuinzena1" type="number" inputmode="decimal" placeholder="0,00">
+      <input id="metaQuinzena1" type="text" inputmode="numeric" placeholder="0,00">
 
       <label for="metaQuinzena2">Meta 2ª quinzena (dia 16 ao fim do mês)</label>
-      <input id="metaQuinzena2" type="number" inputmode="decimal" placeholder="0,00">
+      <input id="metaQuinzena2" type="text" inputmode="numeric" placeholder="0,00">
 
       <button id="btnSalvarMetas" class="full" style="margin-top:4px;">Salvar metas</button>
       <div id="metasMsg" class="msg"></div>
@@ -925,6 +925,7 @@ const $btnVendaManualToggle = document.getElementById("btnVendaManualToggle");
 const $vendaManualForm = document.getElementById("vendaManualForm");
 const $vendaManualNome = document.getElementById("vendaManualNome");
 const $vendaManualPreco = document.getElementById("vendaManualPreco");
+aplicarMascaraMoeda($vendaManualPreco);
 const $btnVendaManualAdicionar = document.getElementById("btnVendaManualAdicionar");
 const $vendaMsgAdd = document.getElementById("vendaMsgAdd");
 const $vendaItensLista = document.getElementById("vendaItensLista");
@@ -934,6 +935,7 @@ const $descontoPctWrap = document.getElementById("descontoPctWrap");
 const $descontoValorWrap = document.getElementById("descontoValorWrap");
 const $vendaDescontoPct = document.getElementById("vendaDescontoPct");
 const $vendaValorFinal = document.getElementById("vendaValorFinal");
+aplicarMascaraMoeda($vendaValorFinal);
 const $vendaSubtotal = document.getElementById("vendaSubtotal");
 const $vendaDescontoInfo = document.getElementById("vendaDescontoInfo");
 const $vendaTotal = document.getElementById("vendaTotal");
@@ -954,7 +956,9 @@ const $totalMes = document.getElementById("totalMes");
 const $vendasMesCount = document.getElementById("vendasMesCount");
 const $metasModal = document.getElementById("metasModal");
 const $metaQuinzena1 = document.getElementById("metaQuinzena1");
+aplicarMascaraMoeda($metaQuinzena1);
 const $metaQuinzena2 = document.getElementById("metaQuinzena2");
+aplicarMascaraMoeda($metaQuinzena2);
 const $btnSalvarMetas = document.getElementById("btnSalvarMetas");
 const $metasMsg = document.getElementById("metasMsg");
 const $folgasMesNome = document.getElementById("folgasMesNome");
@@ -2264,6 +2268,32 @@ function fmtMoeda(v) {
   return Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+// Máscara de valor "tipo calculadora": os dígitos digitados entram pela
+// direita e os 2 últimos sempre são os centavos — digitar "3999" mostra
+// "39,99", não "3.999,00". Usada em todo campo que representa dinheiro.
+function formatarCentavosDigitados(digitos) {
+  const num = (Number(digitos) || 0) / 100;
+  return num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function aplicarMascaraMoeda(input) {
+  input.setAttribute("inputmode", "numeric");
+  input.addEventListener("input", () => {
+    const digitos = input.value.replace(/\D/g, "");
+    input.value = digitos ? formatarCentavosDigitados(digitos) : "";
+  });
+}
+
+function valorMascarado(input) {
+  if (!input.value) return 0;
+  return Number(input.value.replace(/\./g, "").replace(",", ".")) || 0;
+}
+
+function definirValorMascarado(input, numero) {
+  const centavos = Math.round((Number(numero) || 0) * 100);
+  input.value = centavos ? formatarCentavosDigitados(String(centavos)) : "";
+}
+
 function setStatus(html, isErr) {
   $status.innerHTML = html ? `<div class="msg ${isErr ? "err" : ""}">${html}</div>` : "";
 }
@@ -2703,7 +2733,7 @@ function atualizarTotaisVenda() {
     descontoValor = subtotal * (descontoPct / 100);
     totalFinal = subtotal - descontoValor;
   } else {
-    const digitado = $vendaValorFinal.value === "" ? subtotal : Number($vendaValorFinal.value);
+    const digitado = $vendaValorFinal.value === "" ? subtotal : valorMascarado($vendaValorFinal);
     totalFinal = Math.max(0, Math.min(subtotal, digitado));
     descontoValor = subtotal - totalFinal;
     descontoPct = subtotal > 0 ? (descontoValor / subtotal) * 100 : 0;
@@ -2732,7 +2762,7 @@ $btnDescontoValor.addEventListener("click", () => {
   $btnDescontoPct.classList.remove("desconto-ativo");
   $descontoValorWrap.classList.remove("hidden");
   $descontoPctWrap.classList.add("hidden");
-  if (!$vendaValorFinal.value) $vendaValorFinal.value = calcularSubtotalVenda().toFixed(2);
+  if (!$vendaValorFinal.value) definirValorMascarado($vendaValorFinal, calcularSubtotalVenda());
   atualizarTotaisVenda();
 });
 
@@ -2933,7 +2963,7 @@ $btnVendaManualToggle.addEventListener("click", () => {
 
 $btnVendaManualAdicionar.addEventListener("click", () => {
   const nome = $vendaManualNome.value.trim();
-  const preco = Number($vendaManualPreco.value);
+  const preco = valorMascarado($vendaManualPreco);
 
   if (!nome || !preco || preco <= 0) {
     $vendaMsgAdd.textContent = "Preencha o nome e um preço válido.";
@@ -3425,8 +3455,8 @@ async function alternarFolga(chave) {
 }
 
 $btnConfigMetas.addEventListener("click", () => {
-  $metaQuinzena1.value = metaAtual.meta_quinzena_1 || "";
-  $metaQuinzena2.value = metaAtual.meta_quinzena_2 || "";
+  definirValorMascarado($metaQuinzena1, metaAtual.meta_quinzena_1);
+  definirValorMascarado($metaQuinzena2, metaAtual.meta_quinzena_2);
   $metasMsg.textContent = "";
   renderFolgasCalendario();
   $metasModal.classList.remove("hidden");
@@ -3437,8 +3467,8 @@ $btnFecharMetas.addEventListener("click", () => $metasModal.classList.add("hidde
 $btnSalvarMetas.addEventListener("click", async () => {
   const payload = {
     ano_mes: anoMesAtual(),
-    meta_quinzena_1: Number($metaQuinzena1.value) || 0,
-    meta_quinzena_2: Number($metaQuinzena2.value) || 0,
+    meta_quinzena_1: valorMascarado($metaQuinzena1),
+    meta_quinzena_2: valorMascarado($metaQuinzena2),
   };
   $metasMsg.textContent = "Salvando...";
   $metasMsg.className = "msg";
