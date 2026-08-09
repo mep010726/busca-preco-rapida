@@ -341,7 +341,8 @@
         <button id="tabFavoritos">Favoritos</button>
         <button id="tabMaisProcurados">Mais Procurados</button>
         <button id="tabVendas">Vendas</button>
-        <button id="tabAjuda" style="position:relative;">Ajuda<span id="ajudaBadge" class="badge hidden"></span></button>
+        <button id="tabAdmin" class="hidden" style="position:relative;">Admin<span id="ajudaBadge" class="badge hidden"></span></button>
+        <button id="tabAjuda">Ajuda</button>
       </div>
     </div>
 
@@ -417,10 +418,6 @@
     </div>
 
     <div id="painelMaisProcurados" class="hidden">
-      <div id="mpPendentesCard" class="card hidden">
-        <div class="loja-titulo">Pendentes de revisão</div>
-        <div id="mpPendentesLista"></div>
-      </div>
       <div class="card">
         <div id="mpAprovadosLista"></div>
       </div>
@@ -529,13 +526,25 @@
         <div id="sugestaoMsg" class="msg"></div>
         <button id="btnEnviarSugestao" class="full" style="margin-top:8px;">Enviar</button>
       </div>
+    </div>
 
-      <div id="statsAdminCard" class="card hidden">
+    <div id="painelAdmin" class="hidden">
+      <div class="card">
         <div class="loja-titulo" style="margin-bottom:10px;">Estatísticas</div>
         <div id="statsAdminLista"></div>
       </div>
 
-      <div id="sugestoesAdminCard" class="card hidden">
+      <div class="card">
+        <div class="loja-titulo" style="margin-bottom:10px;">Vendas por vendedor (mês atual)</div>
+        <div id="resumoVendedoresLista"></div>
+      </div>
+
+      <div id="mpPendentesCard" class="card hidden">
+        <div class="loja-titulo">Mais Procurados pendentes de revisão</div>
+        <div id="mpPendentesLista"></div>
+      </div>
+
+      <div class="card">
         <div class="loja-titulo" style="margin-bottom:10px;">Sugestões recebidas</div>
         <div id="sugestoesLista"></div>
       </div>
@@ -734,14 +743,17 @@ const $tabHistorico = document.getElementById("tabHistorico");
 const $tabFavoritos = document.getElementById("tabFavoritos");
 const $tabMaisProcurados = document.getElementById("tabMaisProcurados");
 const $tabVendas = document.getElementById("tabVendas");
-const $tabAjuda = document.getElementById("tabAjuda");
+const $tabAdmin = document.getElementById("tabAdmin");
 const $ajudaBadge = document.getElementById("ajudaBadge");
+const $tabAjuda = document.getElementById("tabAjuda");
 const $painelBusca = document.getElementById("painelBusca");
 const $painelHistorico = document.getElementById("painelHistorico");
 const $painelFavoritos = document.getElementById("painelFavoritos");
 const $painelMaisProcurados = document.getElementById("painelMaisProcurados");
 const $painelVendas = document.getElementById("painelVendas");
+const $painelAdmin = document.getElementById("painelAdmin");
 const $painelAjuda = document.getElementById("painelAjuda");
+const $resumoVendedoresLista = document.getElementById("resumoVendedoresLista");
 const $vendaLoja = document.getElementById("vendaLoja");
 const $vendaProdutoInput = document.getElementById("vendaProdutoInput");
 const $btnVendaCamera = document.getElementById("btnVendaCamera");
@@ -764,8 +776,6 @@ const $mpAprovadosLista = document.getElementById("mpAprovadosLista");
 const $sugestaoTexto = document.getElementById("sugestaoTexto");
 const $sugestaoMsg = document.getElementById("sugestaoMsg");
 const $btnEnviarSugestao = document.getElementById("btnEnviarSugestao");
-const $sugestoesAdminCard = document.getElementById("sugestoesAdminCard");
-const $statsAdminCard = document.getElementById("statsAdminCard");
 const $statsAdminLista = document.getElementById("statsAdminLista");
 const $sugestoesLista = document.getElementById("sugestoesLista");
 
@@ -1071,6 +1081,8 @@ function mostrarAppLogado(user) {
   const lojasSalvas = currentUser.user_metadata && currentUser.user_metadata.lojas_favoritas;
   if (lojasSalvas) $lojas.value = lojasSalvas;
 
+  $tabAdmin.classList.toggle("hidden", !ehAdmin());
+
   carregarHistorico();
   atualizarBadgeAdmin();
   talvezFocarCodigo();
@@ -1127,6 +1139,7 @@ const ABAS = [
   { tab: $tabFavoritos, painel: $painelFavoritos },
   { tab: $tabMaisProcurados, painel: $painelMaisProcurados },
   { tab: $tabVendas, painel: $painelVendas },
+  { tab: $tabAdmin, painel: $painelAdmin },
   { tab: $tabAjuda, painel: $painelAjuda },
 ];
 
@@ -1160,18 +1173,17 @@ $tabVendas.addEventListener("click", () => {
   renderItensVenda();
   carregarVendas();
 });
+$tabAdmin.addEventListener("click", () => {
+  if (!ehAdmin()) return;
+  mostrarAba($tabAdmin);
+  carregarStatsAdmin();
+  carregarResumoVendedores();
+  carregarPendentesMP();
+  carregarSugestoes();
+});
 $tabAjuda.addEventListener("click", () => {
   mostrarAba($tabAjuda);
   checarMutePropio();
-  if (ehAdmin()) {
-    $sugestoesAdminCard.classList.remove("hidden");
-    $statsAdminCard.classList.remove("hidden");
-    carregarSugestoes();
-    carregarStatsAdmin();
-  } else {
-    $sugestoesAdminCard.classList.add("hidden");
-    $statsAdminCard.classList.add("hidden");
-  }
 });
 
 // ---------- HISTÓRICO / FAVORITOS ----------
@@ -1469,25 +1481,24 @@ function renderListaMaisProcurados(container, data, { vazio, comRevisao }) {
   });
 }
 
+async function carregarPendentesMP() {
+  if (!ehAdmin()) return;
+  $mpPendentesCard.classList.remove("hidden");
+  $mpPendentesLista.innerHTML = `<div class="msg">Carregando pendentes...</div>`;
+  const { data: pendentes, error: errPend } = await sb
+    .from("mais_procurados")
+    .select("*")
+    .eq("status", "pendente")
+    .order("criado_em", { ascending: false });
+  if (errPend) {
+    $mpPendentesLista.innerHTML = `<div class="msg err">Erro: ${errPend.message}</div>`;
+  } else {
+    renderListaMaisProcurados($mpPendentesLista, pendentes, { vazio: "Nenhuma sugestão pendente.", comRevisao: true });
+  }
+}
+
 async function carregarMaisProcurados() {
   if (!currentUser) return;
-
-  if (ehAdmin()) {
-    $mpPendentesCard.classList.remove("hidden");
-    $mpPendentesLista.innerHTML = `<div class="msg">Carregando pendentes...</div>`;
-    const { data: pendentes, error: errPend } = await sb
-      .from("mais_procurados")
-      .select("*")
-      .eq("status", "pendente")
-      .order("criado_em", { ascending: false });
-    if (errPend) {
-      $mpPendentesLista.innerHTML = `<div class="msg err">Erro: ${errPend.message}</div>`;
-    } else {
-      renderListaMaisProcurados($mpPendentesLista, pendentes, { vazio: "Nenhuma sugestão pendente.", comRevisao: true });
-    }
-  } else {
-    $mpPendentesCard.classList.add("hidden");
-  }
 
   $mpAprovadosLista.innerHTML = `<div class="msg">Carregando...</div>`;
   const { data: aprovados, error } = await sb
@@ -1505,7 +1516,7 @@ async function carregarMaisProcurados() {
 
 async function revisarMaisProcurado(id, status) {
   await sb.from("mais_procurados").update({ status, revisado_em: new Date().toISOString() }).eq("id", id);
-  carregarMaisProcurados();
+  carregarPendentesMP();
   atualizarBadgeAdmin();
 }
 
@@ -1581,6 +1592,55 @@ async function carregarStatsAdmin() {
           <tr>
             <td style="padding:6px 0; color:var(--muted);">${nome}</td>
             <td style="padding:6px 0; text-align:right; font-weight:700;">${valor != null ? valor : "-"}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+async function carregarResumoVendedores() {
+  if (!ehAdmin()) return;
+  $resumoVendedoresLista.innerHTML = `<div class="msg">Carregando...</div>`;
+
+  const inicioMes = new Date();
+  inicioMes.setDate(1);
+  inicioMes.setHours(0, 0, 0, 0);
+
+  const { data, error } = await sb
+    .from("vendas")
+    .select("vendedor_email, total")
+    .gte("criado_em", inicioMes.toISOString());
+
+  if (error) {
+    $resumoVendedoresLista.innerHTML = `<div class="msg err">Erro ao carregar: ${error.message}</div>`;
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    $resumoVendedoresLista.innerHTML = `<div class="msg">Nenhuma venda registrada este mês ainda.</div>`;
+    return;
+  }
+
+  const porVendedor = {};
+  data.forEach(v => {
+    const chave = v.vendedor_email || "desconhecido";
+    if (!porVendedor[chave]) porVendedor[chave] = { total: 0, vendas: 0 };
+    porVendedor[chave].total += Number(v.total);
+    porVendedor[chave].vendas += 1;
+  });
+
+  const ranking = Object.entries(porVendedor).sort((a, b) => b[1].total - a[1].total);
+
+  $resumoVendedoresLista.innerHTML = `
+    <table style="width:100%;">
+      <thead><tr><th>Vendedor</th><th style="text-align:right;">Vendas</th><th style="text-align:right;">Total</th></tr></thead>
+      <tbody>
+        ${ranking.map(([email, r]) => `
+          <tr>
+            <td style="padding:6px 0;">${email}</td>
+            <td style="padding:6px 0; text-align:right;">${r.vendas}</td>
+            <td style="padding:6px 0; text-align:right; font-weight:700; color:var(--accent);">${fmtMoeda(r.total)}</td>
           </tr>
         `).join("")}
       </tbody>
