@@ -232,6 +232,25 @@
   .h-btn.sugerir.ativo { color: var(--accent); }
   .h-btn.apagar:hover { color: var(--danger); }
   .h-btn.sugerir:hover { color: var(--accent); }
+
+  .venda-item {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .venda-item .vi-info { flex: 1; min-width: 0; }
+  .venda-item .vi-produto { font-size: 0.88rem; }
+  .venda-item .vi-preco { font-size: 0.75rem; color: var(--muted); }
+  .vi-qtd-stepper {
+    display: flex; align-items: center; gap: 6px; flex: 0 0 auto;
+  }
+  .vi-qtd-stepper button {
+    width: 30px; height: 30px; padding: 0; border-radius: 6px;
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    font-size: 1.1rem; line-height: 1;
+  }
+  .vi-qtd-stepper span { min-width: 18px; text-align: center; font-weight: 600; }
+  .vi-subtotal { font-size: 0.9rem; font-weight: 700; min-width: 72px; text-align: right; }
+  .venda-item .h-btn.apagar { flex: 0 0 auto; }
   .h-btn.aprovar:hover { color: var(--accent); }
   .h-btn.rejeitar:hover { color: var(--danger); }
 
@@ -321,6 +340,7 @@
         <button id="tabHistorico">Histórico</button>
         <button id="tabFavoritos">Favoritos</button>
         <button id="tabMaisProcurados">Mais Procurados</button>
+        <button id="tabVendas">Vendas</button>
         <button id="tabAjuda" style="position:relative;">Ajuda<span id="ajudaBadge" class="badge hidden"></span></button>
       </div>
     </div>
@@ -406,6 +426,43 @@
       </div>
     </div>
 
+    <div id="painelVendas" class="hidden">
+      <div class="card">
+        <div class="loja-titulo" style="margin-bottom:10px;">Nova venda</div>
+
+        <label for="vendaLoja">Loja</label>
+        <select id="vendaLoja"></select>
+
+        <label for="vendaProdutoInput">Adicionar produto</label>
+        <div class="row">
+          <input id="vendaProdutoInput" type="text" inputmode="numeric" placeholder="Bipe ou digite o código de barras">
+          <button id="btnVendaCamera" class="icon" title="Escanear com a câmera">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </button>
+        </div>
+        <button id="btnVendaHistorico" class="secondary full" style="margin-bottom:12px;">Adicionar do histórico</button>
+        <div id="vendaMsgAdd" class="msg"></div>
+
+        <div id="vendaItensLista"></div>
+
+        <div class="resumo" style="margin-top:4px;">
+          <div class="resumo-produto">Total da venda</div>
+          <div class="resumo-preco" id="vendaTotal">R$ 0,00</div>
+        </div>
+
+        <label for="vendaObservacao">Observação (opcional)</label>
+        <textarea id="vendaObservacao" rows="2" placeholder="Ex: desconto, troca, brinde..." style="width:100%; resize:vertical; font-family:inherit;"></textarea>
+
+        <button id="btnFinalizarVenda" class="full" style="margin-top:8px;" disabled>Finalizar venda</button>
+        <div id="vendaMsg" class="msg"></div>
+      </div>
+
+      <div class="card">
+        <div class="loja-titulo" style="margin-bottom:10px;">Vendas recentes</div>
+        <div id="vendasLista"></div>
+      </div>
+    </div>
+
     <div id="painelAjuda" class="hidden">
       <div class="card ajuda">
         <h2>Como usar</h2>
@@ -459,6 +516,9 @@
         <p>Abaixo do código de barras tem o campo <strong>"Buscar por referência"</strong> (ex: 593102-001). Ele busca num catálogo com dezenas de milhares de produtos já cadastrados, e também se alimenta sozinho toda vez que alguém busca algo pelo código de barras. Uma varredura automática roda toda semana pra ir pegando produtos novos que a Mersan for cadastrando, então o catálogo se mantém atualizado sozinho, sem precisar de planilha nem de ninguém bipar item por item. O botão de lixeira ao lado limpa o campo e os resultados.</p>
         <p>Se um produto específico ainda não aparecer na busca por referência, o código de barras normal sempre funciona (busca ao vivo direto na Mersan) e já cadastra aquele produto no catálogo pra próxima vez.</p>
 
+        <h3>15. Vendas</h3>
+        <p>Na aba <strong>Vendas</strong>, escolha a loja, adicione produtos bipando (ou digitando o código) ou tocando em "Adicionar do histórico". Cada produto adicionado vira uma linha com quantidade — toque no "+"/"−" pra ajustar quantas peças, ou na lixeira pra remover. Quando terminar, toque em <strong>Finalizar venda</strong> pra registrar. Suas vendas ficam salvas em "Vendas recentes", com o total de cada uma — toque numa venda pra ver os itens.</p>
+
         <h3>Dúvidas ou problemas</h3>
         <p>Se algo não funcionar como esperado, use o campo de sugestão abaixo pra reportar.</p>
       </div>
@@ -479,6 +539,15 @@
         <div class="loja-titulo" style="margin-bottom:10px;">Sugestões recebidas</div>
         <div id="sugestoesLista"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL ADICIONAR À VENDA A PARTIR DO HISTÓRICO -->
+  <div id="vendaHistoricoModal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="loja-titulo" style="margin-bottom:10px;">Adicionar do histórico</div>
+      <div id="vendaHistoricoLista" style="max-height:60vh; overflow-y:auto;"></div>
+      <button id="btnFecharVendaHistorico" class="full secondary" style="margin-top:12px;">Fechar</button>
     </div>
   </div>
 
@@ -664,13 +733,29 @@ const $tabBusca = document.getElementById("tabBusca");
 const $tabHistorico = document.getElementById("tabHistorico");
 const $tabFavoritos = document.getElementById("tabFavoritos");
 const $tabMaisProcurados = document.getElementById("tabMaisProcurados");
+const $tabVendas = document.getElementById("tabVendas");
 const $tabAjuda = document.getElementById("tabAjuda");
 const $ajudaBadge = document.getElementById("ajudaBadge");
 const $painelBusca = document.getElementById("painelBusca");
 const $painelHistorico = document.getElementById("painelHistorico");
 const $painelFavoritos = document.getElementById("painelFavoritos");
 const $painelMaisProcurados = document.getElementById("painelMaisProcurados");
+const $painelVendas = document.getElementById("painelVendas");
 const $painelAjuda = document.getElementById("painelAjuda");
+const $vendaLoja = document.getElementById("vendaLoja");
+const $vendaProdutoInput = document.getElementById("vendaProdutoInput");
+const $btnVendaCamera = document.getElementById("btnVendaCamera");
+const $btnVendaHistorico = document.getElementById("btnVendaHistorico");
+const $vendaMsgAdd = document.getElementById("vendaMsgAdd");
+const $vendaItensLista = document.getElementById("vendaItensLista");
+const $vendaTotal = document.getElementById("vendaTotal");
+const $vendaObservacao = document.getElementById("vendaObservacao");
+const $btnFinalizarVenda = document.getElementById("btnFinalizarVenda");
+const $vendaMsg = document.getElementById("vendaMsg");
+const $vendasLista = document.getElementById("vendasLista");
+const $vendaHistoricoModal = document.getElementById("vendaHistoricoModal");
+const $vendaHistoricoLista = document.getElementById("vendaHistoricoLista");
+const $btnFecharVendaHistorico = document.getElementById("btnFecharVendaHistorico");
 const $historicoLista = document.getElementById("historicoLista");
 const $favoritosLista = document.getElementById("favoritosLista");
 const $mpPendentesCard = document.getElementById("mpPendentesCard");
@@ -1041,6 +1126,7 @@ const ABAS = [
   { tab: $tabHistorico, painel: $painelHistorico },
   { tab: $tabFavoritos, painel: $painelFavoritos },
   { tab: $tabMaisProcurados, painel: $painelMaisProcurados },
+  { tab: $tabVendas, painel: $painelVendas },
   { tab: $tabAjuda, painel: $painelAjuda },
 ];
 
@@ -1067,6 +1153,12 @@ $tabFavoritos.addEventListener("click", () => {
 $tabMaisProcurados.addEventListener("click", () => {
   mostrarAba($tabMaisProcurados);
   carregarMaisProcurados();
+});
+$tabVendas.addEventListener("click", () => {
+  mostrarAba($tabVendas);
+  popularLojasVenda();
+  renderItensVenda();
+  carregarVendas();
 });
 $tabAjuda.addEventListener("click", () => {
   mostrarAba($tabAjuda);
@@ -1681,11 +1773,7 @@ async function iniciarCamera(cameraIdOuConfig, videoConstraints) {
     qrbox: undefined,
     videoConstraints,
   };
-  const aoLer = (decodedText) => {
-    $codigo.value = decodedText;
-    fecharCamera();
-    buscar();
-  };
+  const aoLer = (decodedText) => aoDetectarCodigo(decodedText);
 
   // Diagnóstico visível na tela: mostra quantos quadros já foram processados
   // e o último erro de leitura, pra sabermos se o problema é a câmera não
@@ -1783,9 +1871,7 @@ async function iniciarCameraNativa() {
         const codes = await detector.detect($nativeVideo);
         tentativasNativo++;
         if (codes.length > 0) {
-          $codigo.value = codes[0].rawValue;
-          fecharCamera();
-          buscar();
+          aoDetectarCodigo(codes[0].rawValue);
           return;
         }
       } catch (e) {
@@ -1796,7 +1882,21 @@ async function iniciarCameraNativa() {
   })();
 }
 
-$btnCamera.addEventListener("click", async () => {
+// Pra onde vai o código lido pela câmera: "busca" (padrão, campo de código
+// da aba Buscar) ou "venda" (campo de adicionar produto na aba Vendas).
+let alvoScanCamera = "busca";
+
+function aoDetectarCodigo(codigo) {
+  fecharCamera();
+  if (alvoScanCamera === "venda") {
+    adicionarProdutoNaVenda(codigo);
+  } else {
+    $codigo.value = codigo;
+    buscar();
+  }
+}
+
+async function abrirCameraModal() {
   $camModal.classList.remove("hidden");
 
   if ("BarcodeDetector" in window) {
@@ -1855,6 +1955,16 @@ $btnCamera.addEventListener("click", async () => {
     $camModal.classList.add("hidden");
     setStatus("Não foi possível acessar a câmera.", true);
   }
+}
+
+$btnCamera.addEventListener("click", () => {
+  alvoScanCamera = "busca";
+  abrirCameraModal();
+});
+
+$btnVendaCamera.addEventListener("click", () => {
+  alvoScanCamera = "venda";
+  abrirCameraModal();
 });
 
 $btnTorch.addEventListener("click", async () => {
@@ -2258,6 +2368,320 @@ $btnLimparReferencia.addEventListener("click", () => {
   $referenciaMsg.textContent = "";
   $referenciaMsg.className = "msg";
 });
+
+// ---------- VENDAS ----------
+
+let itensVendaAtual = []; // { codigo_barras, produto, preco_unit, quantidade }
+
+function popularLojasVenda() {
+  if ($vendaLoja.options.length > 0) return; // já populado, não refaz toda vez
+  const salva = localStorage.getItem("bp_venda_loja");
+  $vendaLoja.innerHTML = TODAS_AS_LOJAS
+    .slice()
+    .sort((a, b) => a - b)
+    .map(n => {
+      const info = LOJAS_INFO[n];
+      const label = info ? `${n} - ${info.nome}` : String(n);
+      return `<option value="${n}">${label}</option>`;
+    })
+    .join("");
+  if (salva && TODAS_AS_LOJAS.includes(Number(salva))) {
+    $vendaLoja.value = salva;
+  }
+}
+
+$vendaLoja.addEventListener("change", () => {
+  localStorage.setItem("bp_venda_loja", $vendaLoja.value);
+});
+
+function renderItensVenda() {
+  if (itensVendaAtual.length === 0) {
+    $vendaItensLista.innerHTML = `<div class="msg">Nenhum produto adicionado ainda.</div>`;
+  } else {
+    $vendaItensLista.innerHTML = itensVendaAtual.map((item, i) => `
+      <div class="venda-item" data-i="${i}">
+        <div class="vi-info">
+          <div class="vi-produto">${item.produto || item.codigo_barras}</div>
+          <div class="vi-preco">${fmtMoeda(item.preco_unit)} cada</div>
+        </div>
+        <div class="vi-qtd-stepper">
+          <button type="button" class="vi-menos">−</button>
+          <span>${item.quantidade}</span>
+          <button type="button" class="vi-mais">+</button>
+        </div>
+        <div class="vi-subtotal">${fmtMoeda(item.preco_unit * item.quantidade)}</div>
+        <button type="button" class="h-btn apagar vi-remover" title="Remover">${ICONE_LIXEIRA}</button>
+      </div>
+    `).join("");
+  }
+
+  const total = itensVendaAtual.reduce((soma, item) => soma + item.preco_unit * item.quantidade, 0);
+  $vendaTotal.textContent = fmtMoeda(total);
+  $btnFinalizarVenda.disabled = itensVendaAtual.length === 0;
+}
+
+$vendaItensLista.addEventListener("click", (e) => {
+  const el = e.target.closest(".venda-item");
+  if (!el) return;
+  const i = Number(el.dataset.i);
+
+  if (e.target.closest(".vi-mais")) {
+    itensVendaAtual[i].quantidade++;
+    renderItensVenda();
+  } else if (e.target.closest(".vi-menos")) {
+    itensVendaAtual[i].quantidade--;
+    if (itensVendaAtual[i].quantidade <= 0) itensVendaAtual.splice(i, 1);
+    renderItensVenda();
+  } else if (e.target.closest(".vi-remover")) {
+    itensVendaAtual.splice(i, 1);
+    renderItensVenda();
+  }
+});
+
+function adicionarItemNaListaDeVenda(novoItem) {
+  const existente = itensVendaAtual.find(it => it.codigo_barras === novoItem.codigo_barras);
+  if (existente) {
+    existente.quantidade++;
+  } else {
+    itensVendaAtual.push({ ...novoItem, quantidade: 1 });
+  }
+  renderItensVenda();
+}
+
+async function adicionarProdutoNaVenda(codigo) {
+  codigo = (codigo || "").trim();
+  if (!codigo) return;
+  const loja = $vendaLoja.value;
+  if (!loja) return;
+
+  $vendaMsgAdd.textContent = "Buscando produto...";
+  $vendaMsgAdd.className = "msg";
+
+  try {
+    const item = await buscarPreco(codigo, loja);
+    if (!item) {
+      $vendaMsgAdd.textContent = "Produto não encontrado.";
+      $vendaMsgAdd.className = "msg err";
+      return;
+    }
+    adicionarItemNaListaDeVenda({
+      codigo_barras: item.cdProduto,
+      produto: item.dsProduto,
+      preco_unit: item.vlPrecoPromocao > 0 ? item.vlPrecoPromocao : item.vlPreco,
+    });
+    salvarCachePreco(codigo, item);
+    $vendaMsgAdd.textContent = "";
+  } catch (e) {
+    $vendaMsgAdd.textContent = "Erro ao buscar produto. Verifique a conexão.";
+    $vendaMsgAdd.className = "msg err";
+  }
+}
+
+$vendaProdutoInput.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  const codigo = $vendaProdutoInput.value.trim();
+  if (!codigo) return;
+  $vendaProdutoInput.value = "";
+  adicionarProdutoNaVenda(codigo);
+});
+
+$btnVendaHistorico.addEventListener("click", async () => {
+  $vendaHistoricoModal.classList.remove("hidden");
+  $vendaHistoricoLista.innerHTML = `<div class="msg">Carregando histórico...</div>`;
+
+  const { data, error } = await sb
+    .from("historico")
+    .select("*")
+    .order("criado_em", { ascending: false })
+    .limit(30);
+
+  if (error) {
+    $vendaHistoricoLista.innerHTML = `<div class="msg err">Erro ao carregar: ${error.message}</div>`;
+    return;
+  }
+  if (!data || data.length === 0) {
+    $vendaHistoricoLista.innerHTML = `<div class="msg">Nenhuma busca no histórico ainda.</div>`;
+    return;
+  }
+
+  $vendaHistoricoLista.innerHTML = data.map((h, i) => `
+    <div class="historico-item" data-i="${i}">
+      <div class="h-conteudo">
+        <div class="h-produto">${h.produto || h.codigo_barras}</div>
+        <div class="h-meta">${h.preco != null ? fmtMoeda(h.preco) : "sem preço salvo"} · ${new Date(h.criado_em).toLocaleString("pt-BR")}</div>
+      </div>
+    </div>
+  `).join("");
+
+  $vendaHistoricoLista.querySelectorAll(".historico-item").forEach((el, i) => {
+    el.addEventListener("click", () => {
+      const h = data[i];
+      if (h.preco == null) {
+        $vendaMsgAdd.textContent = "Esse item não tem preço salvo — bipe ele direto pra adicionar.";
+        $vendaMsgAdd.className = "msg err";
+      } else {
+        adicionarItemNaListaDeVenda({
+          codigo_barras: h.codigo_barras,
+          produto: h.produto,
+          preco_unit: h.preco,
+        });
+        $vendaMsgAdd.textContent = "";
+      }
+      $vendaHistoricoModal.classList.add("hidden");
+    });
+  });
+});
+
+$btnFecharVendaHistorico.addEventListener("click", () => {
+  $vendaHistoricoModal.classList.add("hidden");
+});
+
+$btnFinalizarVenda.addEventListener("click", async () => {
+  if (itensVendaAtual.length === 0 || !currentUser) return;
+
+  $btnFinalizarVenda.disabled = true;
+  $vendaMsg.textContent = "Salvando venda...";
+  $vendaMsg.className = "msg";
+
+  const total = itensVendaAtual.reduce((soma, item) => soma + item.preco_unit * item.quantidade, 0);
+
+  const { data: vendaCriada, error: errVenda } = await sb
+    .from("vendas")
+    .insert({
+      loja: Number($vendaLoja.value),
+      total,
+      observacao: $vendaObservacao.value.trim() || null,
+      vendedor_email: currentUser.email,
+    })
+    .select()
+    .single();
+
+  if (errVenda) {
+    $vendaMsg.textContent = "Erro ao salvar venda: " + errVenda.message;
+    $vendaMsg.className = "msg err";
+    $btnFinalizarVenda.disabled = false;
+    return;
+  }
+
+  const linhasItens = itensVendaAtual.map(item => ({
+    venda_id: vendaCriada.id,
+    codigo_barras: item.codigo_barras,
+    produto: item.produto,
+    preco_unit: item.preco_unit,
+    quantidade: item.quantidade,
+    subtotal: item.preco_unit * item.quantidade,
+  }));
+
+  const { error: errItens } = await sb.from("venda_itens").insert(linhasItens);
+
+  if (errItens) {
+    $vendaMsg.textContent = "Venda salva, mas houve erro ao salvar os itens: " + errItens.message;
+    $vendaMsg.className = "msg err";
+  } else {
+    $vendaMsg.textContent = "Venda registrada com sucesso!";
+    $vendaMsg.className = "msg";
+  }
+
+  itensVendaAtual = [];
+  $vendaObservacao.value = "";
+  renderItensVenda();
+  carregarVendas();
+});
+
+let vendasPagina = 0;
+
+async function carregarVendas(pagina = 0) {
+  if (!currentUser) return;
+  $vendasLista.innerHTML = `<div class="msg">Carregando vendas...</div>`;
+  const antiga = $vendasLista.parentElement.querySelector(".h-paginacao");
+  if (antiga) antiga.remove();
+
+  const from = pagina * PAGINA_TAMANHO;
+  const to = from + PAGINA_TAMANHO - 1;
+
+  const { data, error, count } = await sb
+    .from("vendas")
+    .select("*", { count: "exact" })
+    .order("criado_em", { ascending: false })
+    .range(from, to);
+
+  if (error) {
+    $vendasLista.innerHTML = `<div class="msg err">Erro ao carregar vendas: ${error.message}</div>`;
+    return;
+  }
+
+  renderVendasLista(data);
+  const totalPaginas = Math.max(1, Math.ceil((count || 0) / PAGINA_TAMANHO));
+  renderPaginacao($vendasLista, pagina, totalPaginas, (novaPagina) => carregarVendas(novaPagina));
+}
+
+function renderVendasLista(data) {
+  if (!data || data.length === 0) {
+    $vendasLista.innerHTML = `<div class="msg">Nenhuma venda registrada ainda.</div>`;
+    return;
+  }
+
+  const souAdmin = ehAdmin();
+
+  $vendasLista.innerHTML = data.map(v => {
+    const info = LOJAS_INFO[v.loja];
+    const lojaTexto = info ? `Loja ${v.loja} - ${info.nome}` : `Loja ${v.loja}`;
+    const vendedorTexto = souAdmin && v.vendedor_email ? ` · ${v.vendedor_email}` : "";
+    return `
+    <div class="historico-item venda-resumo" data-id="${v.id}" style="cursor:pointer;">
+      <div class="h-conteudo">
+        <div class="h-produto">${lojaTexto}</div>
+        <div class="h-meta">${new Date(v.criado_em).toLocaleString("pt-BR")}${vendedorTexto}</div>
+        ${v.observacao ? `<div class="h-meta">${v.observacao.replace(/</g, "&lt;")}</div>` : ""}
+        <div class="venda-detalhe hidden" style="margin-top:8px;"></div>
+      </div>
+      <div class="h-acoes">
+        <span>${fmtMoeda(v.total)}</span>
+        <button class="h-btn apagar" title="Apagar">${ICONE_LIXEIRA}</button>
+      </div>
+    </div>
+  `;
+  }).join("");
+
+  $vendasLista.querySelectorAll(".venda-resumo").forEach(el => {
+    const id = el.dataset.id;
+
+    el.querySelector(".h-conteudo").addEventListener("click", async () => {
+      const $detalhe = el.querySelector(".venda-detalhe");
+      const abrindo = $detalhe.classList.contains("hidden");
+      if (!abrindo) {
+        $detalhe.classList.add("hidden");
+        return;
+      }
+      $detalhe.classList.remove("hidden");
+      if ($detalhe.dataset.carregado) return;
+      $detalhe.innerHTML = `<div class="msg">Carregando itens...</div>`;
+
+      const { data: itens, error } = await sb
+        .from("venda_itens")
+        .select("*")
+        .eq("venda_id", id);
+
+      if (error) {
+        $detalhe.innerHTML = `<div class="msg err">Erro ao carregar itens.</div>`;
+        return;
+      }
+      $detalhe.dataset.carregado = "1";
+      $detalhe.innerHTML = (itens || []).map(it => `
+        <div style="display:flex; justify-content:space-between; font-size:0.82rem; padding:3px 0;">
+          <span>${it.quantidade}x ${it.produto || it.codigo_barras}</span>
+          <span>${fmtMoeda(it.subtotal)}</span>
+        </div>
+      `).join("");
+    });
+
+    el.querySelector(".apagar").addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await sb.from("vendas").delete().eq("id", id);
+      carregarVendas();
+    });
+  });
+}
 
 // As lojas escolhidas ficam salvas no perfil do usuário (sincroniza entre
 // dispositivos); enquanto não há login, usa um rascunho local.
