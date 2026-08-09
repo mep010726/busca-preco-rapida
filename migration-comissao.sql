@@ -39,6 +39,7 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+#variable_conflict use_column
 declare
   inicio_mes timestamptz := date_trunc('month', now());
   fim_mes timestamptz := date_trunc('month', now()) + interval '1 month';
