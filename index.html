@@ -549,18 +549,34 @@
         <div id="comissaoResumo" class="msg">Carregando...</div>
       </div>
 
+      <div class="card">
+        <div class="loja-titulo" style="margin-bottom:10px;">Simular colocação no ranking</div>
+        <p style="font-size:0.82rem; color:var(--muted); margin-top:0;">Isso é só uma simulação — não muda sua comissão real, que depende apenas de bater ou não a meta.</p>
+        <div class="row">
+          <button type="button" class="secondary sim-colocacao" data-pos="1" style="flex:1;">1º lugar</button>
+          <button type="button" class="secondary sim-colocacao" data-pos="2" style="flex:1;">2º lugar</button>
+          <button type="button" class="secondary sim-colocacao" data-pos="3" style="flex:1;">3º lugar</button>
+        </div>
+        <div id="comissaoSimulacao" class="msg" style="margin-top:8px;"></div>
+      </div>
+
       <div id="comissaoConfigCard" class="card hidden">
         <div class="loja-titulo" style="margin-bottom:10px;">Configurar porcentagens</div>
-        <label for="pctPrimeiro">1º lugar no ranking (%)</label>
-        <input id="pctPrimeiro" type="number" inputmode="decimal" step="0.1">
-        <label for="pctSegundo">2º lugar no ranking (%)</label>
-        <input id="pctSegundo" type="number" inputmode="decimal" step="0.1">
-        <label for="pctTerceiro">3º lugar no ranking (%)</label>
-        <input id="pctTerceiro" type="number" inputmode="decimal" step="0.1">
-        <label for="pctMetaBatida">Fora do top 3, com meta batida (%)</label>
+        <label for="pctMetaBatida">Comissão real — meta batida (%)</label>
         <input id="pctMetaBatida" type="number" inputmode="decimal" step="0.1">
-        <label for="pctMetaNaoBatida">Fora do top 3, sem bater a meta (%)</label>
+        <label for="pctMetaNaoBatida">Comissão real — meta não batida (%)</label>
         <input id="pctMetaNaoBatida" type="number" inputmode="decimal" step="0.1">
+
+        <hr style="border: none; border-top: 1px solid var(--border); margin: 20px 0;">
+
+        <div class="loja-titulo" style="margin-bottom:10px;">Porcentagens usadas só na simulação de colocação</div>
+        <label for="pctPrimeiro">1º lugar (%)</label>
+        <input id="pctPrimeiro" type="number" inputmode="decimal" step="0.1">
+        <label for="pctSegundo">2º lugar (%)</label>
+        <input id="pctSegundo" type="number" inputmode="decimal" step="0.1">
+        <label for="pctTerceiro">3º lugar (%)</label>
+        <input id="pctTerceiro" type="number" inputmode="decimal" step="0.1">
+
         <button id="btnSalvarComissaoConfig" class="full" style="margin-top:4px;">Salvar</button>
         <div id="comissaoConfigMsg" class="msg"></div>
       </div>
@@ -631,7 +647,8 @@
         <p>Na aba Vendas, toque em <strong>"Troca"</strong> (ao lado de "Venda") pra trocar de modo. Use os botões "Bipar devolvido"/"Bipar novo" pra escolher pra qual lado vai o próximo produto adicionado: primeiro bipe o(s) produto(s) que o cliente está devolvendo, depois o(s) que ele vai levar no lugar. O app calcula sozinho a <strong>diferença</strong> — se for positiva, é quanto o cliente paga a mais; se for negativa, é quanto ficou de crédito/troco. Essa diferença é o valor que conta pras suas estatísticas e comissão, não o valor total da troca.</p>
 
         <h3>18. Comissão</h3>
-        <p>A aba <strong>Comissão</strong> mostra sua posição no ranking de vendas do mês, se você bateu a meta, e a comissão estimada em cima do total vendido. A porcentagem aplicada depende da posição: 1º, 2º e 3º lugar têm uma porcentagem própria; quem fica fora do top 3 recebe uma porcentagem se bateu a meta do mês, e outra (menor) se não bateu. Só o admin pode configurar esses percentuais.</p>
+        <p>A aba <strong>Comissão</strong> mostra sua comissão real do mês: se você bateu a meta mensal (soma das duas metas quinzenais), aplica um percentual maior; se não bateu, um menor — sempre sobre o total vendido no mês. Só o admin configura esses dois percentuais.</p>
+        <p>Tem também um <strong>simulador de colocação</strong>: toque em "1º", "2º" ou "3º lugar" pra ver quanto seria sua comissão se você ficasse naquela posição no ranking, usando as porcentagens de simulação configuradas pelo admin. É só uma prévia — não muda sua comissão real.</p>
 
         <h3>Dúvidas ou problemas</h3>
         <p>Se algo não funcionar como esperado, use o campo de sugestão abaixo pra reportar.</p>
@@ -896,6 +913,7 @@ const $painelAdmin = document.getElementById("painelAdmin");
 const $tabComissao = document.getElementById("tabComissao");
 const $comissaoResumo = document.getElementById("comissaoResumo");
 const $comissaoConfigCard = document.getElementById("comissaoConfigCard");
+const $comissaoSimulacao = document.getElementById("comissaoSimulacao");
 const $pctPrimeiro = document.getElementById("pctPrimeiro");
 const $pctSegundo = document.getElementById("pctSegundo");
 const $pctTerceiro = document.getElementById("pctTerceiro");
@@ -3503,20 +3521,32 @@ $btnRedeToda.addEventListener("click", () => {
 
 // ---------- COMISSÃO ----------
 
+let configComissaoAtual = null;
+let totalVendidoMesComissao = 0;
+
 async function carregarComissao() {
   if (!currentUser) return;
   $comissaoResumo.innerHTML = `<div class="msg">Carregando...</div>`;
+  $comissaoSimulacao.textContent = "";
+  document.querySelectorAll(".sim-colocacao").forEach(b => b.classList.remove("desconto-ativo"));
   $comissaoConfigCard.classList.toggle("hidden", !ehAdmin());
 
-  const [{ data: config, error: errConfig }, { data: ranking, error: errRanking }] = await Promise.all([
+  const hoje = new Date();
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const fimMesExclusivo = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1);
+
+  const [{ data: config, error: errConfig }, { data: vendasMes, error: errVendas }, { data: metaData }] = await Promise.all([
     sb.from("config_comissao").select("*").eq("id", 1).maybeSingle(),
-    sb.rpc("ranking_vendedor_mes"),
+    sb.from("vendas").select("total").gte("criado_em", inicioMes.toISOString()).lt("criado_em", fimMesExclusivo.toISOString()),
+    sb.from("metas").select("*").eq("ano_mes", anoMesAtual()).maybeSingle(),
   ]);
 
-  if (errConfig || errRanking) {
-    $comissaoResumo.innerHTML = `<div class="msg err">Erro ao carregar comissão: ${(errConfig || errRanking).message}</div>`;
+  if (errConfig || errVendas) {
+    $comissaoResumo.innerHTML = `<div class="msg err">Erro ao carregar comissão: ${(errConfig || errVendas).message}</div>`;
     return;
   }
+
+  configComissaoAtual = config;
 
   if (ehAdmin() && config) {
     $pctPrimeiro.value = config.pct_1_lugar;
@@ -3526,28 +3556,22 @@ async function carregarComissao() {
     $pctMetaNaoBatida.value = config.pct_meta_nao_batida;
   }
 
-  const minhaLinha = ranking && ranking[0];
-  if (!minhaLinha) {
-    $comissaoResumo.innerHTML = `Você ainda não tem vendas registradas este mês.`;
-    return;
-  }
+  totalVendidoMesComissao = (vendasMes || []).reduce((soma, v) => soma + Number(v.total), 0);
+  const metaTotal = metaData ? Number(metaData.meta_quinzena_1 || 0) + Number(metaData.meta_quinzena_2 || 0) : 0;
+  const metaBatida = metaTotal > 0 && totalVendidoMesComissao >= metaTotal;
 
-  let pct;
-  if (minhaLinha.posicao === 1) pct = Number(config.pct_1_lugar);
-  else if (minhaLinha.posicao === 2) pct = Number(config.pct_2_lugar);
-  else if (minhaLinha.posicao === 3) pct = Number(config.pct_3_lugar);
-  else pct = minhaLinha.meta_batida ? Number(config.pct_meta_batida) : Number(config.pct_meta_nao_batida);
-
-  const valorComissao = Number(minhaLinha.total_vendido) * (pct / 100);
-  const metaTexto = Number(minhaLinha.meta_total) > 0
-    ? `${fmtMoeda(minhaLinha.meta_total)}${minhaLinha.meta_batida ? " · batida ✅" : " · não batida"}`
+  // A comissão real depende só de bater ou não a meta — a posição no
+  // ranking é usada apenas na simulação, não entra aqui.
+  const pct = metaBatida ? Number(config.pct_meta_batida) : Number(config.pct_meta_nao_batida);
+  const valorComissao = totalVendidoMesComissao * (pct / 100);
+  const metaTexto = metaTotal > 0
+    ? `${fmtMoeda(metaTotal)}${metaBatida ? " · batida ✅" : " · não batida"}`
     : "não definida";
 
   $comissaoResumo.innerHTML = `
     <table style="width:100%;">
       <tbody>
-        <tr><td style="padding:6px 0; color:var(--muted);">Sua posição no mês</td><td style="padding:6px 0; text-align:right; font-weight:700;">${minhaLinha.posicao}º de ${minhaLinha.total_vendedores}</td></tr>
-        <tr><td style="padding:6px 0; color:var(--muted);">Total vendido no mês</td><td style="padding:6px 0; text-align:right; font-weight:700;">${fmtMoeda(minhaLinha.total_vendido)}</td></tr>
+        <tr><td style="padding:6px 0; color:var(--muted);">Total vendido no mês</td><td style="padding:6px 0; text-align:right; font-weight:700;">${fmtMoeda(totalVendidoMesComissao)}</td></tr>
         <tr><td style="padding:6px 0; color:var(--muted);">Meta do mês</td><td style="padding:6px 0; text-align:right;">${metaTexto}</td></tr>
         <tr><td style="padding:6px 0; color:var(--muted);">Percentual aplicado</td><td style="padding:6px 0; text-align:right; font-weight:700;">${pct}%</td></tr>
         <tr><td style="padding:10px 0; font-weight:700;">Comissão estimada</td><td style="padding:10px 0; text-align:right; font-weight:700; color:var(--accent); font-size:1.1rem;">${fmtMoeda(valorComissao)}</td></tr>
@@ -3555,6 +3579,21 @@ async function carregarComissao() {
     </table>
   `;
 }
+
+document.querySelectorAll(".sim-colocacao").forEach(btn => {
+  btn.addEventListener("click", () => {
+    if (!configComissaoAtual) return;
+    document.querySelectorAll(".sim-colocacao").forEach(b => b.classList.remove("desconto-ativo"));
+    btn.classList.add("desconto-ativo");
+
+    const pos = btn.dataset.pos;
+    const pctPorPosicao = { "1": configComissaoAtual.pct_1_lugar, "2": configComissaoAtual.pct_2_lugar, "3": configComissaoAtual.pct_3_lugar };
+    const pct = Number(pctPorPosicao[pos]);
+    const valor = totalVendidoMesComissao * (pct / 100);
+
+    $comissaoSimulacao.innerHTML = `Se você ficasse em <strong>${pos}º lugar</strong>: ${pct}% sobre ${fmtMoeda(totalVendidoMesComissao)} = <strong style="color:var(--accent);">${fmtMoeda(valor)}</strong>`;
+  });
+});
 
 $btnSalvarComissaoConfig.addEventListener("click", async () => {
   $comissaoConfigMsg.textContent = "Salvando...";
