@@ -568,7 +568,7 @@
               <div class="resumo-preco" id="promoPrecoFinal"></div>
             </div>
           </div>
-          <div class="h-meta" style="margin-top:4px;">Numerações com estoque nessa loja:</div>
+          <div class="h-meta" id="promoGradeTitulo" style="margin-top:4px;">Numerações com estoque nessa loja:</div>
           <div id="promoGradeLista" style="margin-top:4px;"></div>
 
           <input id="promoFotoInput" type="file" accept="image/*" capture="environment" class="hidden">
@@ -964,6 +964,7 @@ const $promoInfo = document.getElementById("promoInfo");
 const $promoProdutoNome = document.getElementById("promoProdutoNome");
 const $promoPrecoOriginal = document.getElementById("promoPrecoOriginal");
 const $promoPrecoFinal = document.getElementById("promoPrecoFinal");
+const $promoGradeTitulo = document.getElementById("promoGradeTitulo");
 const $promoGradeLista = document.getElementById("promoGradeLista");
 const $promoFotoInput = document.getElementById("promoFotoInput");
 const $btnPromoTirarFoto = document.getElementById("btnPromoTirarFoto");
@@ -3768,17 +3769,25 @@ async function buscarProdutoPromo(codigo) {
     const temPromo = item.vlPrecoPromocao > 0 && item.vlPrecoPromocao !== item.vlPreco;
 
     let tamanhos = [];
+    let corBipada = null;
     try {
       const estData = await fetchEstoqueComRetry(`${API_BASE}/estoque/${encodeURIComponent(item.cdReferencia)}/${encodeURIComponent(loja)}`);
       const lojaNum = Number(loja);
+      // Muitos produtos têm a grade de todas as cores junta na mesma
+      // referência — filtra só a cor do item que foi bipado, achando a
+      // linha de estoque que bate com o SKU exato lido.
+      const linhaBipada = estData.find(r => r.cd_produto === item.cdSKU);
+      corBipada = linhaBipada ? linhaBipada.ds_cor : null;
       tamanhos = [...new Set(
-        estData.filter(r => r.cd_empresa === lojaNum && r.qt_stock > 0).map(r => r.ds_tamanho)
+        estData
+          .filter(r => r.cd_empresa === lojaNum && r.qt_stock > 0 && (!corBipada || r.ds_cor === corBipada))
+          .map(r => r.ds_tamanho)
       )];
     } catch (e) {
       // segue sem grade se a consulta de estoque falhar — não impede a arte
     }
 
-    promoItemAtual = { produto: item.dsProduto, precoOriginal, precoFinal, temPromo, tamanhos };
+    promoItemAtual = { produto: item.dsProduto, precoOriginal, precoFinal, temPromo, tamanhos, corBipada };
 
     $promoProdutoNome.textContent = item.dsProduto;
     if (temPromo) {
@@ -3788,6 +3797,9 @@ async function buscarProdutoPromo(codigo) {
       $promoPrecoOriginal.textContent = "";
       $promoPrecoFinal.textContent = fmtMoeda(precoFinal);
     }
+    $promoGradeTitulo.textContent = corBipada
+      ? `Numerações com estoque nessa loja (cor ${corBipada}):`
+      : "Numerações com estoque nessa loja:";
     $promoGradeLista.innerHTML = tamanhos.length > 0
       ? tamanhos.map(t => `<span style="display:inline-block; background:var(--bg); border:1px solid var(--border); border-radius:999px; padding:4px 10px; margin:2px; font-size:0.82rem;">${t}</span>`).join("")
       : `<span class="msg">Nenhuma numeração com estoque nessa loja.</span>`;
@@ -3908,7 +3920,10 @@ function desenharArtePromo(img) {
   if (promoItemAtual.tamanhos.length > 0) {
     ctx.font = `600 ${Math.round(w * 0.026)}px sans-serif`;
     ctx.fillStyle = "#e2e8f0";
-    ctx.fillText("Numerações: " + promoItemAtual.tamanhos.join(" · "), w * 0.05, h - Math.round(w * 0.02));
+    const rotuloGrade = promoItemAtual.corBipada
+      ? `Numerações (${promoItemAtual.corBipada}): `
+      : "Numerações: ";
+    ctx.fillText(rotuloGrade + promoItemAtual.tamanhos.join(" · "), w * 0.05, h - Math.round(w * 0.02));
   }
 
   $promoResultadoWrap.classList.remove("hidden");
