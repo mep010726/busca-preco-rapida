@@ -1,0 +1,23 @@
+name: Atualizar produtos novos
+
+on:
+  schedule:
+    - cron: "0 18 * * *" # 15:00 (horario de Brasilia), todo dia
+  workflow_dispatch: {}
+
+jobs:
+  atualizar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Rodar varredura de produtos novos
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TAMANHO_JANELA: 8000
+        run: node scripts/atualizar-novos-produtos.js
