@@ -3164,10 +3164,41 @@ function manterApenasClaro(img, limiar = 190) {
   });
 }
 
+// Pra logos em efeito "glow" (traço branco desbotando suavemente pro fundo
+// escuro, sem um corte nítido) — vira o brilho de cada pixel em
+// transparência (preto = 100% transparente, branco = opaco), preservando o
+// brilho suave em vez de deixar um fundo preto quadrado ou um corte serrilhado.
+function converterBrilhoEmAlpha(img) {
+  return new Promise((resolve) => {
+    const c = document.createElement("canvas");
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    const cctx = c.getContext("2d");
+    cctx.drawImage(img, 0, 0);
+    try {
+      const imgData = cctx.getImageData(0, 0, c.width, c.height);
+      const dados = imgData.data;
+      for (let i = 0; i < dados.length; i += 4) {
+        const brilho = (dados[i] + dados[i + 1] + dados[i + 2]) / 3;
+        dados[i] = 255;
+        dados[i + 1] = 255;
+        dados[i + 2] = 255;
+        dados[i + 3] = brilho;
+      }
+      cctx.putImageData(imgData, 0, 0);
+    } catch (e) {
+      // se der erro, segue com a imagem original em vez de travar a arte
+    }
+    const resultado = new Image();
+    resultado.onload = () => resolve(resultado);
+    resultado.src = c.toDataURL();
+  });
+}
+
 let imgLogoMep = null;
 let imgLogoMersan = null;
 const logosPromoProntos = Promise.all([
-  carregarImagemPromo("icon-192.png").then(img => removerFundoSolido(img, 110)).then(img => { imgLogoMep = img; }),
+  carregarImagemPromo("promo-mep-logo.png").then(img => converterBrilhoEmAlpha(img)).then(img => { imgLogoMep = img; }),
   carregarImagemPromo("promo-mersan-logo-2.jpg").then(img => manterApenasClaro(img)).then(img => { imgLogoMersan = img; }),
 ]).catch(() => {
   // Se algum selo não carregar, a arte ainda é gerada sem ele.
