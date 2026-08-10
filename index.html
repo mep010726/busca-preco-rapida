@@ -263,6 +263,22 @@
   .folgas-dia.passado { opacity: 0.35; cursor: default; }
 
   button.desconto-ativo { background: var(--accent); color: #04220f; border-color: var(--accent); }
+
+  .promo-chip {
+    cursor: grab; touch-action: none; user-select: none;
+    transform-origin: top left;
+  }
+  .promo-chip:active { cursor: grabbing; }
+  .promo-chip.selecionado { outline: 2px dashed #22c55e; outline-offset: 5px; border-radius: 4px; }
+  .promo-chip-texto {
+    font-weight: 800; color: #fff; white-space: nowrap; font-size: 5vw;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.75);
+  }
+  .promo-chip-caixa {
+    background: rgba(200,25,30,0.93); color: #fff; border-radius: 8px;
+    padding: 8px 12px; font-weight: 800; font-size: 4vw; white-space: nowrap;
+  }
+  .promo-chip-mep { width: 44px; height: 44px; border-radius: 10px; display: block; }
   .h-btn.aprovar:hover { color: var(--accent); }
   .h-btn.rejeitar:hover { color: var(--danger); }
 
@@ -583,6 +599,29 @@
           <button id="btnPromoEnviarFoto" class="secondary full" style="margin-top:8px;">Enviar foto já tirada</button>
         </div>
 
+        <div id="promoEditorWrap" class="hidden" style="margin-top:12px;">
+          <div class="h-meta" style="margin-bottom:6px;">Toque numa etiqueta pra selecionar, arraste pra mover, e use os botões abaixo pra mudar o tamanho.</div>
+          <div id="promoEditorStage" style="position:relative; width:100%; overflow:hidden; border-radius:8px; touch-action:none; background:#000;">
+            <img id="promoEditorImg" style="width:100%; display:block; pointer-events:none; user-select:none;">
+            <div class="promo-chip" data-elemento="nome" style="position:absolute; left:55%; top:5%;">
+              <div class="promo-chip-texto">NOME DO PRODUTO</div>
+            </div>
+            <div class="promo-chip" data-elemento="preco" style="position:absolute; left:6%; top:70%;">
+              <div class="promo-chip-caixa" id="promoChipPrecoConteudo">POR: R$ 0,00</div>
+            </div>
+            <div class="promo-chip" data-elemento="mep" style="position:absolute; left:80%; top:85%;">
+              <img src="icon-192.png" class="promo-chip-mep">
+            </div>
+          </div>
+          <div class="row" style="margin-top:10px; align-items:center;">
+            <span class="h-meta" id="promoElementoSelecionado" style="flex:1; margin:0;">Selecionado: Nome</span>
+            <button type="button" id="btnPromoMenor" class="secondary icon" style="flex:0 0 auto;">−</button>
+            <button type="button" id="btnPromoMaior" class="secondary icon" style="flex:0 0 auto;">+</button>
+          </div>
+          <button id="btnPromoConfirmarLayout" class="full" style="margin-top:10px;">Confirmar e gerar imagem</button>
+          <button id="btnPromoCancelarEdicao" class="link-btn">Trocar foto</button>
+        </div>
+
         <div id="promoResultadoWrap" class="hidden" style="margin-top:12px;">
           <canvas id="promoCanvas" style="width:100%; border-radius:8px; display:block;"></canvas>
           <div class="row" style="margin-top:10px;">
@@ -702,7 +741,8 @@
         <p>Tem também um <strong>simulador de colocação</strong>: toque em "1º", "2º" ou "3º lugar" pra ver quanto seria sua comissão se você ficasse naquela posição no ranking, usando as porcentagens de simulação configuradas pelo admin. É só uma prévia — não muda sua comissão real.</p>
 
         <h3>19. Promoção</h3>
-        <p>Na aba <strong>Promoção</strong>, escolha a loja e bipe (ou digite) o produto — o app já traz o preço (com o valor promocional, se tiver) e as numerações com estoque naquela loja. Toque em <strong>"Tirar foto do produto"</strong>: a câmera do celular abre, e depois de tirar a foto o app monta sozinho uma arte com a foto, o preço em destaque e as numerações disponíveis, pronta pra baixar ou compartilhar direto no WhatsApp/Instagram.</p>
+        <p>Na aba <strong>Promoção</strong>, escolha a loja e bipe (ou digite) o produto — o app já traz o preço (com o valor promocional, se tiver) e as numerações com estoque naquela loja. Toque em <strong>"Tirar foto do produto"</strong> (abre a câmera) ou <strong>"Enviar foto já tirada"</strong> (escolhe da galeria).</p>
+        <p>Depois da foto, abre uma tela de edição: toque numa etiqueta (nome, preço ou selo do app) pra selecionar, arraste pra onde quiser na foto, e use os botões "−"/"+" pra ajustar o tamanho dela. Quando estiver bom, toque em <strong>"Confirmar e gerar imagem"</strong> — o app monta a arte final do jeito que você organizou, pronta pra baixar ou compartilhar direto no WhatsApp/Instagram.</p>
 
         <h3>Dúvidas ou problemas</h3>
         <p>Se algo não funcionar como esperado, use o campo de sugestão abaixo pra reportar.</p>
@@ -979,6 +1019,15 @@ const $promoFotoInput = document.getElementById("promoFotoInput");
 const $btnPromoTirarFoto = document.getElementById("btnPromoTirarFoto");
 const $promoUploadInput = document.getElementById("promoUploadInput");
 const $btnPromoEnviarFoto = document.getElementById("btnPromoEnviarFoto");
+const $promoEditorWrap = document.getElementById("promoEditorWrap");
+const $promoEditorStage = document.getElementById("promoEditorStage");
+const $promoEditorImg = document.getElementById("promoEditorImg");
+const $promoChipPrecoConteudo = document.getElementById("promoChipPrecoConteudo");
+const $promoElementoSelecionado = document.getElementById("promoElementoSelecionado");
+const $btnPromoMenor = document.getElementById("btnPromoMenor");
+const $btnPromoMaior = document.getElementById("btnPromoMaior");
+const $btnPromoConfirmarLayout = document.getElementById("btnPromoConfirmarLayout");
+const $btnPromoCancelarEdicao = document.getElementById("btnPromoCancelarEdicao");
 const $promoResultadoWrap = document.getElementById("promoResultadoWrap");
 const $promoCanvas = document.getElementById("promoCanvas");
 const $btnPromoBaixar = document.getElementById("btnPromoBaixar");
@@ -3960,11 +4009,133 @@ function processarFotoPromo(file) {
   const url = URL.createObjectURL(file);
   img.onload = async () => {
     const [orientacao] = await Promise.all([lerOrientacaoExif(file), logosPromoProntos]);
-    desenharArtePromo(img, orientacao);
+    abrirEditorPromo(img, orientacao);
     URL.revokeObjectURL(url);
   };
   img.src = url;
 }
+
+// ---------- Editor: arrastar/redimensionar nome, preço e selo antes de
+// gerar a imagem final ----------
+
+let promoImgAtual = null;
+let promoOrientacaoAtual = 1;
+let promoElementoAtivo = "nome";
+let promoLayoutEditavel = null;
+let promoArrastando = null;
+
+function layoutPromoPadrao() {
+  return {
+    nome: { xPct: 0.55, yPct: 0.05, escala: 1 },
+    preco: { xPct: 0.06, yPct: 0.70, escala: 1 },
+    mep: { xPct: 0.80, yPct: 0.85, escala: 1 },
+  };
+}
+
+function abrirEditorPromo(img, orientacao) {
+  promoImgAtual = img;
+  promoOrientacaoAtual = orientacao;
+  promoLayoutEditavel = layoutPromoPadrao();
+  promoElementoAtivo = "nome";
+
+  // Mostra a foto já corrigida (em pé) no editor, do mesmo jeito que sai
+  // na arte final.
+  const girado = orientacao >= 5 && orientacao <= 8;
+  const larguraNatural = girado ? img.naturalHeight : img.naturalWidth;
+  const alturaNatural = girado ? img.naturalWidth : img.naturalHeight;
+  const escalaPreview = Math.min(1, 700 / larguraNatural);
+  const wPrev = Math.round(larguraNatural * escalaPreview);
+  const hPrev = Math.round(alturaNatural * escalaPreview);
+  const c = document.createElement("canvas");
+  c.width = wPrev;
+  c.height = hPrev;
+  desenharFotoOrientada(c.getContext("2d"), img, orientacao, wPrev, hPrev);
+  $promoEditorImg.src = c.toDataURL();
+
+  const nomeChip = $promoEditorStage.querySelector('[data-elemento="nome"] .promo-chip-texto');
+  nomeChip.textContent = (promoItemAtual.produto || "").toUpperCase();
+
+  const temPromo = promoItemAtual.temPromo;
+  $promoChipPrecoConteudo.innerHTML = temPromo
+    ? `<div style="text-decoration:line-through; opacity:.75; font-size:0.55em;">DE: ${fmtMoeda(promoItemAtual.precoOriginal)}</div>POR: ${fmtMoeda(promoItemAtual.precoFinal)}`
+    : fmtMoeda(promoItemAtual.precoFinal);
+  if ($promoMostrarGrade.checked && promoItemAtual.tamanhos.length > 0) {
+    $promoChipPrecoConteudo.innerHTML += `<div style="font-size:0.42em; font-weight:600; margin-top:4px;">Numerações: ${promoItemAtual.tamanhos.join(" · ")}</div>`;
+  }
+
+  aplicarPosicoesChips();
+  atualizarSelecaoChip();
+
+  $promoInfo.classList.add("hidden");
+  $promoResultadoWrap.classList.add("hidden");
+  $promoEditorWrap.classList.remove("hidden");
+}
+
+function aplicarPosicoesChips() {
+  Object.entries(promoLayoutEditavel).forEach(([elemento, layout]) => {
+    const chip = $promoEditorStage.querySelector(`[data-elemento="${elemento}"]`);
+    chip.style.left = (layout.xPct * 100) + "%";
+    chip.style.top = (layout.yPct * 100) + "%";
+    chip.style.transform = `scale(${layout.escala})`;
+  });
+}
+
+function atualizarSelecaoChip() {
+  $promoEditorStage.querySelectorAll(".promo-chip").forEach(chip => {
+    chip.classList.toggle("selecionado", chip.dataset.elemento === promoElementoAtivo);
+  });
+  const nomes = { nome: "Nome", preco: "Preço", mep: "Selo do app" };
+  $promoElementoSelecionado.textContent = "Selecionado: " + nomes[promoElementoAtivo];
+}
+
+$promoEditorStage.querySelectorAll(".promo-chip").forEach(chip => {
+  const elemento = chip.dataset.elemento;
+  chip.addEventListener("pointerdown", (e) => {
+    promoElementoAtivo = elemento;
+    atualizarSelecaoChip();
+    chip.setPointerCapture(e.pointerId);
+    const rectChip = chip.getBoundingClientRect();
+    promoArrastando = {
+      elemento,
+      offsetX: e.clientX - rectChip.left,
+      offsetY: e.clientY - rectChip.top,
+    };
+  });
+});
+
+$promoEditorStage.addEventListener("pointermove", (e) => {
+  if (!promoArrastando) return;
+  const rectStage = $promoEditorStage.getBoundingClientRect();
+  const layout = promoLayoutEditavel[promoArrastando.elemento];
+  const x = e.clientX - rectStage.left - promoArrastando.offsetX;
+  const y = e.clientY - rectStage.top - promoArrastando.offsetY;
+  layout.xPct = Math.max(0, Math.min(1, x / rectStage.width));
+  layout.yPct = Math.max(0, Math.min(1, y / rectStage.height));
+  aplicarPosicoesChips();
+});
+$promoEditorStage.addEventListener("pointerup", () => { promoArrastando = null; });
+$promoEditorStage.addEventListener("pointercancel", () => { promoArrastando = null; });
+
+$btnPromoMenor.addEventListener("click", () => {
+  const layout = promoLayoutEditavel[promoElementoAtivo];
+  layout.escala = Math.max(0.5, +(layout.escala - 0.1).toFixed(2));
+  aplicarPosicoesChips();
+});
+$btnPromoMaior.addEventListener("click", () => {
+  const layout = promoLayoutEditavel[promoElementoAtivo];
+  layout.escala = Math.min(2.2, +(layout.escala + 0.1).toFixed(2));
+  aplicarPosicoesChips();
+});
+
+$btnPromoCancelarEdicao.addEventListener("click", () => {
+  $promoEditorWrap.classList.add("hidden");
+  $promoInfo.classList.remove("hidden");
+});
+
+$btnPromoConfirmarLayout.addEventListener("click", () => {
+  desenharArtePromo(promoImgAtual, promoOrientacaoAtual, promoLayoutEditavel);
+  $promoEditorWrap.classList.add("hidden");
+});
 
 $promoFotoInput.addEventListener("change", () => {
   processarFotoPromo($promoFotoInput.files && $promoFotoInput.files[0]);
@@ -4043,7 +4214,9 @@ function corTextoContraste({ r, g, b }) {
 // produto em destaque, uma caixinha "DE / POR" com uma linha e uma bolinha
 // apontando pro produto, e o selo da campanha embaixo — sem faixa escura,
 // a foto fica limpa.
-function desenharArtePromo(img, orientacao = 1) {
+function desenharArtePromo(img, orientacao = 1, layout = null) {
+  layout = layout || layoutPromoPadrao();
+
   const girado = orientacao >= 5 && orientacao <= 8;
   const larguraNatural = girado ? img.naturalHeight : img.naturalWidth;
   const alturaNatural = girado ? img.naturalWidth : img.naturalHeight;
@@ -4064,33 +4237,30 @@ function desenharArtePromo(img, orientacao = 1) {
   const base = Math.min(w, h);
 
   const temPromo = promoItemAtual.temPromo;
-  const margemX = Math.round(base * 0.06);
-  const margemTopo = Math.round(base * 0.05);
-  const margemInferior = Math.round(base * 0.05);
   const mostrarGrade = $promoMostrarGrade.checked && promoItemAtual.tamanhos.length > 0;
 
-  // ---- Nome do produto, canto superior direito ----
-  const tamanhoFonteNome = Math.round(base * 0.05);
+  // ---- Nome do produto (posição/tamanho escolhidos no editor) ----
+  const tamanhoFonteNome = Math.round(base * 0.05 * layout.nome.escala);
   const alturaLinhaNome = Math.round(tamanhoFonteNome * 1.15);
   ctx.font = `800 ${tamanhoFonteNome}px sans-serif`;
-  const linhasNome = quebrarTextoLinhas(ctx, (promoItemAtual.produto || "").toUpperCase(), w * 0.55, 3);
+  const linhasNome = quebrarTextoLinhas(ctx, (promoItemAtual.produto || "").toUpperCase(), w * 0.9, 3);
 
-  ctx.textAlign = "right";
+  ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "#fff";
   ctx.shadowColor = "rgba(0,0,0,0.65)";
   ctx.shadowBlur = base * 0.012;
   ctx.shadowOffsetY = base * 0.004;
-  linhasNome.forEach((linha, i) => ctx.fillText(linha, w - margemX, margemTopo + (i + 1) * alturaLinhaNome));
+  const nomeX = layout.nome.xPct * w;
+  const nomeYBase = layout.nome.yPct * h;
+  linhasNome.forEach((linha, i) => ctx.fillText(linha, nomeX, nomeYBase + (i + 1) * alturaLinhaNome));
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetY = 0;
-  ctx.textAlign = "left";
 
-  // ---- Mede a caixinha DE / POR antes de desenhar, pra ancorar tudo no
-  // canto inferior esquerdo. ----
-  const boxAlturaLinha = Math.round(base * 0.058);
-  const boxPad = Math.round(base * 0.03);
+  // ---- Mede a caixinha DE / POR antes de desenhar ----
+  const boxAlturaLinha = Math.round(base * 0.058 * layout.preco.escala);
+  const boxPad = Math.round(base * 0.03 * layout.preco.escala);
   const boxAltura = (temPromo ? boxAlturaLinha * 2 : boxAlturaLinha) + boxPad * 1.6;
 
   const tamanhoFontePor = Math.round(boxAlturaLinha * 0.72);
@@ -4104,10 +4274,9 @@ function desenharArtePromo(img, orientacao = 1) {
   const boxLargura = Math.round(Math.max(largTextoPor, largTextoDe) + boxPad * 2);
 
   const textoGrade = "Numerações: " + promoItemAtual.tamanhos.join(" · ");
-  const alturaAbaixoDoBox = mostrarGrade ? Math.round(base * 0.08) : Math.round(base * 0.058);
 
-  const boxX = margemX;
-  const boxY = h - margemInferior - alturaAbaixoDoBox - boxAltura;
+  const boxX = Math.round(layout.preco.xPct * w);
+  const boxY = Math.round(layout.preco.yPct * h);
 
   // Vermelho na promoção; preço normal usa a cor predominante da foto.
   const corBox = temPromo ? { r: 200, g: 25, b: 30 } : corPredominante(img);
@@ -4160,23 +4329,23 @@ function desenharArtePromo(img, orientacao = 1) {
   // ---- Grade (numerações com estoque) ----
   if (mostrarGrade) {
     ctx.textBaseline = "alphabetic";
-    ctx.font = `600 ${Math.round(base * 0.024)}px sans-serif`;
+    ctx.font = `600 ${Math.round(base * 0.024 * layout.preco.escala)}px sans-serif`;
     ctx.fillStyle = "#fff";
     ctx.shadowColor = "rgba(0,0,0,0.65)";
     ctx.shadowBlur = base * 0.008;
-    ctx.fillText(textoGrade, boxX, boxY + boxAltura + Math.round(base * 0.06));
+    ctx.fillText(textoGrade, boxX, boxY + boxAltura + Math.round(base * 0.06 * layout.preco.escala));
     ctx.shadowColor = "transparent";
     ctx.shadowBlur = 0;
   }
 
-  // ---- Selo do app (MEP), discreto no canto inferior direito ----
+  // ---- Selo do app (MEP), posição/tamanho escolhidos no editor ----
   if (imgLogoMep) {
-    const lado = Math.round(base * 0.09);
+    const lado = Math.round(base * 0.09 * layout.mep.escala);
     ctx.save();
     ctx.globalAlpha = 0.92;
     ctx.shadowColor = "rgba(0,0,0,0.55)";
     ctx.shadowBlur = base * 0.01;
-    ctx.drawImage(imgLogoMep, w - lado - margemX, h - lado - margemInferior, lado, lado);
+    ctx.drawImage(imgLogoMep, layout.mep.xPct * w, layout.mep.yPct * h, lado, lado);
     ctx.restore();
   }
 
