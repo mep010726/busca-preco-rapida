@@ -145,6 +145,13 @@ async function main() {
       if (processados % 500 === 0) {
         console.log(`Progresso: ${processados}/${TAMANHO_JANELA} | encontrados=${encontrados} erros=${erros}`);
       }
+      // Salva o ponteiro periodicamente: se o job for interrompido (ex: timeout
+      // do GitHub Actions), a proxima execucao retoma daqui em vez de repetir
+      // a janela inteira do zero.
+      if (processados % 1000 === 0) {
+        await flushBuffer();
+        await salvarEstadoReverso(atual + 1);
+      }
       await dormir(PAUSA_ENTRE_REQUISICOES_MS);
     }
   }
