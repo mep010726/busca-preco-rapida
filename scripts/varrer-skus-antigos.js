@@ -13,7 +13,7 @@ const SUPABASE_URL = "https://izjymicfgxtqafhlceyf.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const MERSAN_API = "https://credito.mersan.co/api/v1/buscapreco";
 const LOJA_PARA_CONSULTA = 1;
-const CONCORRENCIA = 2;
+const CONCORRENCIA = Number(process.env.CONCORRENCIA || 8);
 const PAUSA_ENTRE_REQUISICOES_MS = 450;
 const TAMANHO_JANELA = Number(process.env.TAMANHO_JANELA || 20000);
 // Ponto de partida na primeira execucao (o menor SKU que ja veio no CSV
