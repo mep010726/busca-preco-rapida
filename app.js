@@ -64,6 +64,7 @@ const ICONE_PIN = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" s
 const ICONE_LIXEIRA = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
 const ICONE_CHECK = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
 const ICONE_X = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+const ICONE_LAPIS = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>`;
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 function aplicarTema(tema) {
@@ -216,6 +217,18 @@ const $vendasLista = document.getElementById("vendasLista");
 const $vendaHistoricoModal = document.getElementById("vendaHistoricoModal");
 const $vendaHistoricoLista = document.getElementById("vendaHistoricoLista");
 const $btnFecharVendaHistorico = document.getElementById("btnFecharVendaHistorico");
+const $editarVendaModal = document.getElementById("editarVendaModal");
+const $editarVendaProdutoInput = document.getElementById("editarVendaProdutoInput");
+const $btnEditarVendaAdicionar = document.getElementById("btnEditarVendaAdicionar");
+const $btnEditarVendaManualToggle = document.getElementById("btnEditarVendaManualToggle");
+const $editarVendaManualForm = document.getElementById("editarVendaManualForm");
+const $editarVendaManualNome = document.getElementById("editarVendaManualNome");
+const $editarVendaManualPreco = document.getElementById("editarVendaManualPreco");
+aplicarMascaraMoeda($editarVendaManualPreco);
+const $btnEditarVendaManualAdicionar = document.getElementById("btnEditarVendaManualAdicionar");
+const $editarVendaMsg = document.getElementById("editarVendaMsg");
+const $editarVendaItensLista = document.getElementById("editarVendaItensLista");
+const $btnFecharEditarVenda = document.getElementById("btnFecharEditarVenda");
 const $mensagemMotivacional = document.getElementById("mensagemMotivacional");
 const $metaBarra = document.getElementById("metaBarra");
 const $metaResumo = document.getElementById("metaResumo");
@@ -2455,6 +2468,7 @@ function renderVendasLista(data) {
       </div>
       <div class="h-acoes">
         <span style="${v.total < 0 ? "color:var(--danger);" : ""}">${fmtMoeda(v.total)}</span>
+        ${!ehTroca ? `<button class="h-btn editar" title="Adicionar itens">${ICONE_LAPIS}</button>` : ""}
         <button class="h-btn apagar" title="Apagar">${ICONE_LIXEIRA}</button>
       </div>
     </div>
@@ -2463,6 +2477,15 @@ function renderVendasLista(data) {
 
   $vendasLista.querySelectorAll(".venda-resumo").forEach(el => {
     const id = el.dataset.id;
+
+    const $btnEditar = el.querySelector(".editar");
+    if ($btnEditar) {
+      $btnEditar.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const v = data.find(x => x.id === id);
+        if (v) abrirEditorVenda(v);
+      });
+    }
 
     el.querySelector(".h-conteudo").addEventListener("click", async () => {
       const $detalhe = el.querySelector(".venda-detalhe");
@@ -2526,6 +2549,147 @@ function renderVendasLista(data) {
     });
   });
 }
+
+// ---------- EDITAR VENDA (ADICIONAR ITENS DEPOIS DE FINALIZADA) ----------
+
+let vendaEditando = null;
+
+async function abrirEditorVenda(venda) {
+  vendaEditando = venda;
+  $editarVendaModal.classList.remove("hidden");
+  $editarVendaMsg.textContent = "";
+  $editarVendaManualForm.classList.add("hidden");
+  $editarVendaProdutoInput.value = "";
+  $editarVendaManualNome.value = "";
+  $editarVendaManualPreco.value = "";
+  await carregarItensEditorVenda();
+}
+
+async function carregarItensEditorVenda() {
+  $editarVendaItensLista.innerHTML = `<div class="msg">Carregando itens...</div>`;
+  const { data: itens, error } = await sb
+    .from("venda_itens")
+    .select("*")
+    .eq("venda_id", vendaEditando.id)
+    .eq("devolvido", false);
+
+  if (error) {
+    $editarVendaItensLista.innerHTML = `<div class="msg err">Erro ao carregar itens.</div>`;
+    return;
+  }
+
+  if (!itens || itens.length === 0) {
+    $editarVendaItensLista.innerHTML = `<div class="msg">Nenhum item ainda.</div>`;
+    return;
+  }
+
+  $editarVendaItensLista.innerHTML = itens.map(it => `
+    <div style="display:flex; justify-content:space-between; font-size:0.82rem; padding:4px 0; border-bottom:1px solid var(--border);">
+      <span>${it.quantidade}x ${(it.produto || it.codigo_barras || "").replace(/</g, "&lt;")}</span>
+      <span>${fmtMoeda(it.subtotal)}</span>
+    </div>
+  `).join("");
+}
+
+async function adicionarItemAEditorVenda({ codigo_barras, produto, preco_unit }) {
+  if (!vendaEditando) return;
+  $editarVendaMsg.textContent = "Adicionando...";
+  $editarVendaMsg.className = "msg";
+
+  const { error: errItem } = await sb.from("venda_itens").insert({
+    venda_id: vendaEditando.id,
+    codigo_barras: codigo_barras || null,
+    produto,
+    preco_unit,
+    quantidade: 1,
+    subtotal: preco_unit,
+    devolvido: false,
+  });
+
+  if (errItem) {
+    $editarVendaMsg.textContent = "Erro ao adicionar item: " + errItem.message;
+    $editarVendaMsg.className = "msg err";
+    return;
+  }
+
+  const novoSubtotal = Number(vendaEditando.subtotal || 0) + preco_unit;
+  const descontoPct = Number(vendaEditando.desconto_percentual || 0);
+  const descontoValor = descontoPct > 0 ? novoSubtotal * (descontoPct / 100) : Number(vendaEditando.desconto_valor || 0);
+  const novoTotal = novoSubtotal - descontoValor;
+
+  const { error: errVenda } = await sb.from("vendas").update({
+    subtotal: novoSubtotal,
+    desconto_valor: descontoValor,
+    total: novoTotal,
+  }).eq("id", vendaEditando.id);
+
+  if (errVenda) {
+    $editarVendaMsg.textContent = "Item adicionado, mas houve erro ao atualizar o total: " + errVenda.message;
+    $editarVendaMsg.className = "msg err";
+  } else {
+    vendaEditando.subtotal = novoSubtotal;
+    vendaEditando.desconto_valor = descontoValor;
+    vendaEditando.total = novoTotal;
+    $editarVendaMsg.textContent = "Item adicionado!";
+    $editarVendaMsg.className = "msg";
+  }
+
+  await carregarItensEditorVenda();
+}
+
+$btnEditarVendaAdicionar.addEventListener("click", async () => {
+  const codigo = $editarVendaProdutoInput.value.trim();
+  if (!codigo || !vendaEditando) return;
+  $editarVendaProdutoInput.value = "";
+  $editarVendaMsg.textContent = "Buscando produto...";
+  $editarVendaMsg.className = "msg";
+  try {
+    const item = await buscarPreco(codigo, vendaEditando.loja);
+    if (!item) {
+      $editarVendaMsg.textContent = "Produto não encontrado.";
+      $editarVendaMsg.className = "msg err";
+      return;
+    }
+    await adicionarItemAEditorVenda({
+      codigo_barras: item.cdProduto,
+      produto: item.dsProduto,
+      preco_unit: item.vlPrecoPromocao > 0 ? item.vlPrecoPromocao : item.vlPreco,
+    });
+  } catch (e) {
+    $editarVendaMsg.textContent = "Erro ao buscar produto. Verifique a conexão.";
+    $editarVendaMsg.className = "msg err";
+  }
+});
+
+$editarVendaProdutoInput.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  $btnEditarVendaAdicionar.click();
+});
+
+$btnEditarVendaManualToggle.addEventListener("click", () => {
+  $editarVendaManualForm.classList.toggle("hidden");
+});
+
+$btnEditarVendaManualAdicionar.addEventListener("click", async () => {
+  const nome = $editarVendaManualNome.value.trim();
+  const preco = valorMascarado($editarVendaManualPreco);
+  if (!nome || !preco || preco <= 0) {
+    $editarVendaMsg.textContent = "Preencha o nome e um preço válido.";
+    $editarVendaMsg.className = "msg err";
+    return;
+  }
+  await adicionarItemAEditorVenda({ codigo_barras: null, produto: nome, preco_unit: preco });
+  $editarVendaManualNome.value = "";
+  $editarVendaManualPreco.value = "";
+});
+
+$btnFecharEditarVenda.addEventListener("click", () => {
+  $editarVendaModal.classList.add("hidden");
+  vendaEditando = null;
+  carregarVendas();
+  atualizarResumoVendas();
+});
 
 // ---------- METAS E FOLGAS ----------
 

@@ -521,6 +521,34 @@
     </div>
   </div>
 
+  <!-- MODAL EDITAR VENDA (ADICIONAR MAIS ITENS A UMA VENDA JÁ FEITA) -->
+  <div id="editarVendaModal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="loja-titulo" style="margin-bottom:10px;">Adicionar itens à venda</div>
+
+      <label for="editarVendaProdutoInput">Bipar ou digitar código</label>
+      <div class="row">
+        <input id="editarVendaProdutoInput" type="text" inputmode="numeric" placeholder="Bipe ou digite o código de barras">
+        <button id="btnEditarVendaAdicionar" class="secondary">Adicionar</button>
+      </div>
+
+      <button id="btnEditarVendaManualToggle" type="button" class="link-btn">+ Adicionar produto manualmente (sem código)</button>
+      <div id="editarVendaManualForm" class="hidden">
+        <label for="editarVendaManualNome">Nome do produto</label>
+        <input id="editarVendaManualNome" type="text" placeholder="Ex: Kit meia">
+        <label for="editarVendaManualPreco">Preço (R$)</label>
+        <input id="editarVendaManualPreco" type="text" inputmode="numeric" placeholder="0,00">
+        <button id="btnEditarVendaManualAdicionar" type="button" class="secondary full" style="margin-bottom:12px;">Adicionar item manual</button>
+      </div>
+
+      <div id="editarVendaMsg" class="msg"></div>
+
+      <div id="editarVendaItensLista" style="max-height:35vh; overflow-y:auto; margin-top:8px;"></div>
+
+      <button id="btnFecharEditarVenda" class="full secondary" style="margin-top:12px;">Concluir</button>
+    </div>
+  </div>
+
   <!-- MODAL METAS E FOLGAS -->
   <div id="metasModal" class="modal-overlay hidden">
     <div class="modal-box" style="max-height:85vh; overflow-y:auto;">
