@@ -141,6 +141,7 @@ const $promoPrecoFinal = document.getElementById("promoPrecoFinal");
 const $promoGradeTitulo = document.getElementById("promoGradeTitulo");
 const $promoGradeLista = document.getElementById("promoGradeLista");
 const $promoMostrarGrade = document.getElementById("promoMostrarGrade");
+const $promoEfeitoRetrato = document.getElementById("promoEfeitoRetrato");
 const $promoFotoInput = document.getElementById("promoFotoInput");
 const $btnPromoTirarFoto = document.getElementById("btnPromoTirarFoto");
 const $promoUploadInput = document.getElementById("promoUploadInput");
@@ -3338,6 +3339,46 @@ function lerOrientacaoExif(file) {
   });
 }
 
+// Efeito retrato: desfoca o fundo, mantendo nítido um oval no centro (onde
+// o produto costuma estar nas fotos tiradas na loja). Não é uma segmentação
+// de verdade (isso exigiria IA/modelo de recorte) — é uma aproximação por
+// máscara radial, mas funciona bem quando o produto está centralizado.
+function aplicarEfeitoRetrato(ctx, w, h) {
+  if (typeof ctx.filter !== "string") return; // sem suporte a filter no canvas, pula o efeito
+
+  const nitida = document.createElement("canvas");
+  nitida.width = w;
+  nitida.height = h;
+  nitida.getContext("2d").drawImage(ctx.canvas, 0, 0);
+
+  // Fundo: a própria foto borrada.
+  const blurPx = Math.round(Math.min(w, h) * 0.025);
+  ctx.save();
+  ctx.filter = `blur(${blurPx}px)`;
+  ctx.drawImage(nitida, 0, 0, w, h);
+  ctx.filter = "none";
+  ctx.restore();
+
+  // Recorta a versão nítida num oval central com borda suave (gradiente
+  // radial controlando a transparência), e desenha por cima do fundo borrado.
+  const mascarada = document.createElement("canvas");
+  mascarada.width = w;
+  mascarada.height = h;
+  const mctx = mascarada.getContext("2d");
+  mctx.drawImage(nitida, 0, 0);
+  mctx.globalCompositeOperation = "destination-in";
+  const cx = w / 2, cy = h / 2;
+  const raioInterno = Math.min(w, h) * 0.22;
+  const raioExterno = Math.min(w, h) * 0.5;
+  const grad = mctx.createRadialGradient(cx, cy, raioInterno, cx, cy, raioExterno);
+  grad.addColorStop(0, "rgba(255,255,255,1)");
+  grad.addColorStop(1, "rgba(255,255,255,0)");
+  mctx.fillStyle = grad;
+  mctx.fillRect(0, 0, w, h);
+
+  ctx.drawImage(mascarada, 0, 0);
+}
+
 // Aplica a correção de rotação/espelho de acordo com a tag EXIF, desenhando
 // a foto já "em pé" no destino (destW x destH).
 function desenharFotoOrientada(ctx, img, orientacao, destW, destH) {
@@ -3420,7 +3461,9 @@ function abrirEditorPromo() {
   const c = document.createElement("canvas");
   c.width = wPrev;
   c.height = hPrev;
-  desenharFotoOrientada(c.getContext("2d"), promoImgAtual, promoOrientacaoAtual, wPrev, hPrev);
+  const cctx = c.getContext("2d");
+  desenharFotoOrientada(cctx, promoImgAtual, promoOrientacaoAtual, wPrev, hPrev);
+  if ($promoEfeitoRetrato.checked) aplicarEfeitoRetrato(cctx, wPrev, hPrev);
   $promoEditorImg.src = c.toDataURL();
 
   const nomeChip = $promoEditorStage.querySelector('[data-elemento="nome"] .promo-chip-texto');
@@ -3632,6 +3675,7 @@ function desenharArtePromo(img, orientacao = 1, layout = null) {
 
   const ctx = $promoCanvas.getContext("2d");
   desenharFotoOrientada(ctx, img, orientacao, w, h);
+  if ($promoEfeitoRetrato.checked) aplicarEfeitoRetrato(ctx, w, h);
 
   // Usa a MENOR dimensão da foto como referência de escala (não sempre a
   // largura) — numa foto deitada (paisagem), a largura é bem maior que a
