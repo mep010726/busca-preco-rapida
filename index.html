@@ -4058,14 +4058,19 @@ function desenharArtePromo(img, orientacao = 1) {
   const ctx = $promoCanvas.getContext("2d");
   desenharFotoOrientada(ctx, img, orientacao, w, h);
 
+  // Usa a MENOR dimensão da foto como referência de escala (não sempre a
+  // largura) — numa foto deitada (paisagem), a largura é bem maior que a
+  // altura, e usar ela deixava tudo desproporcionalmente grande/perto.
+  const base = Math.min(w, h);
+
   const temPromo = promoItemAtual.temPromo;
-  const margemX = Math.round(w * 0.06);
-  const margemTopo = Math.round(w * 0.05);
-  const margemInferior = Math.round(w * 0.05);
+  const margemX = Math.round(base * 0.06);
+  const margemTopo = Math.round(base * 0.05);
+  const margemInferior = Math.round(base * 0.05);
   const mostrarGrade = $promoMostrarGrade.checked && promoItemAtual.tamanhos.length > 0;
 
   // ---- Nome do produto, canto superior direito ----
-  const tamanhoFonteNome = Math.round(w * 0.05);
+  const tamanhoFonteNome = Math.round(base * 0.05);
   const alturaLinhaNome = Math.round(tamanhoFonteNome * 1.15);
   ctx.font = `800 ${tamanhoFonteNome}px sans-serif`;
   const linhasNome = quebrarTextoLinhas(ctx, (promoItemAtual.produto || "").toUpperCase(), w * 0.55, 3);
@@ -4074,8 +4079,8 @@ function desenharArtePromo(img, orientacao = 1) {
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "#fff";
   ctx.shadowColor = "rgba(0,0,0,0.65)";
-  ctx.shadowBlur = w * 0.012;
-  ctx.shadowOffsetY = w * 0.004;
+  ctx.shadowBlur = base * 0.012;
+  ctx.shadowOffsetY = base * 0.004;
   linhasNome.forEach((linha, i) => ctx.fillText(linha, w - margemX, margemTopo + (i + 1) * alturaLinhaNome));
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
@@ -4084,8 +4089,8 @@ function desenharArtePromo(img, orientacao = 1) {
 
   // ---- Mede a caixinha DE / POR antes de desenhar, pra ancorar tudo no
   // canto inferior esquerdo. ----
-  const boxAlturaLinha = Math.round(w * 0.058);
-  const boxPad = Math.round(w * 0.03);
+  const boxAlturaLinha = Math.round(base * 0.058);
+  const boxPad = Math.round(base * 0.03);
   const boxAltura = (temPromo ? boxAlturaLinha * 2 : boxAlturaLinha) + boxPad * 1.6;
 
   const tamanhoFontePor = Math.round(boxAlturaLinha * 0.72);
@@ -4099,7 +4104,7 @@ function desenharArtePromo(img, orientacao = 1) {
   const boxLargura = Math.round(Math.max(largTextoPor, largTextoDe) + boxPad * 2);
 
   const textoGrade = "Numerações: " + promoItemAtual.tamanhos.join(" · ");
-  const alturaAbaixoDoBox = mostrarGrade ? Math.round(w * 0.08) : Math.round(w * 0.058);
+  const alturaAbaixoDoBox = mostrarGrade ? Math.round(base * 0.08) : Math.round(base * 0.058);
 
   const boxX = margemX;
   const boxY = h - margemInferior - alturaAbaixoDoBox - boxAltura;
@@ -4125,7 +4130,7 @@ function desenharArtePromo(img, orientacao = 1) {
     // Risco no meio do preço antigo, indicando que não vale mais.
     const meioDe = textoY + tamanhoFonteDe / 2;
     ctx.strokeStyle = corTextoSecundario;
-    ctx.lineWidth = Math.max(1.5, w * 0.003);
+    ctx.lineWidth = Math.max(1.5, base * 0.003);
     ctx.beginPath();
     ctx.moveTo(boxX + boxPad, meioDe);
     ctx.lineTo(boxX + boxPad + largTextoDe, meioDe);
@@ -4139,38 +4144,38 @@ function desenharArtePromo(img, orientacao = 1) {
   // Linha com bolinha, saindo da caixinha (efeito de etiqueta de preço).
   const linhaX1 = boxX + boxPad * 1.2;
   const linhaY1 = boxY + boxAltura;
-  const linhaX2 = linhaX1 + w * 0.035;
-  const linhaY2 = linhaY1 + w * 0.03;
+  const linhaX2 = linhaX1 + base * 0.035;
+  const linhaY2 = linhaY1 + base * 0.03;
   ctx.strokeStyle = "#fff";
-  ctx.lineWidth = Math.max(1.5, w * 0.0025);
+  ctx.lineWidth = Math.max(1.5, base * 0.0025);
   ctx.beginPath();
   ctx.moveTo(linhaX1, linhaY1);
   ctx.lineTo(linhaX2, linhaY2);
   ctx.stroke();
   ctx.beginPath();
-  ctx.arc(linhaX2, linhaY2, Math.max(3, w * 0.0055), 0, Math.PI * 2);
+  ctx.arc(linhaX2, linhaY2, Math.max(3, base * 0.0055), 0, Math.PI * 2);
   ctx.fillStyle = "#fff";
   ctx.fill();
 
   // ---- Grade (numerações com estoque) ----
   if (mostrarGrade) {
     ctx.textBaseline = "alphabetic";
-    ctx.font = `600 ${Math.round(w * 0.024)}px sans-serif`;
+    ctx.font = `600 ${Math.round(base * 0.024)}px sans-serif`;
     ctx.fillStyle = "#fff";
     ctx.shadowColor = "rgba(0,0,0,0.65)";
-    ctx.shadowBlur = w * 0.008;
-    ctx.fillText(textoGrade, boxX, boxY + boxAltura + Math.round(w * 0.06));
+    ctx.shadowBlur = base * 0.008;
+    ctx.fillText(textoGrade, boxX, boxY + boxAltura + Math.round(base * 0.06));
     ctx.shadowColor = "transparent";
     ctx.shadowBlur = 0;
   }
 
   // ---- Selo do app (MEP), discreto no canto inferior direito ----
   if (imgLogoMep) {
-    const lado = Math.round(w * 0.09);
+    const lado = Math.round(base * 0.09);
     ctx.save();
     ctx.globalAlpha = 0.92;
     ctx.shadowColor = "rgba(0,0,0,0.55)";
-    ctx.shadowBlur = w * 0.01;
+    ctx.shadowBlur = base * 0.01;
     ctx.drawImage(imgLogoMep, w - lado - margemX, h - lado - margemInferior, lado, lado);
     ctx.restore();
   }
