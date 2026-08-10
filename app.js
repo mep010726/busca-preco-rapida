@@ -1,0 +1,3631 @@
+// ====== CONFIGURE AQUI (Supabase > Settings > API) ======
+const SUPABASE_URL = "https://izjymicfgxtqafhlceyf.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_mRNqGL9jboRCjHfnq1kG0Q_paalFq0C";
+// Cloudflare Turnstile > Site Key (dashboard.cloudflare.com > Turnstile)
+const TURNSTILE_SITE_KEY = "0x4AAAAAAEGYOswRL545WBG-";
+// ==========================================================
+
+// Cadastro de lojas da rede: nome, endereço e cidade de cada uma, pra
+// mostrar onde fica quando o estoque de uma loja aparece na tela.
+const LOJAS_INFO = {
+  1:   { nome: "Mersan",          endereco: "R Sales Barbosa, 130 – Centro",              cidade: "Feira de Santana - BA" },
+  3:   { nome: "Mersan",          endereco: "R Sales Barbosa, 186 – Centro",              cidade: "Feira de Santana - BA" },
+  4:   { nome: "Mersan",          endereco: "Av. Sr. dos Passos, 1236 – Centro",          cidade: "Feira de Santana - BA" },
+  11:  { nome: "Mersan",          endereco: "Rua Marechal Deodoro, 47",                   cidade: "Feira de Santana - BA" },
+  12:  { nome: "Mersan",          endereco: "Av. Sr. dos Passos, 1073",                   cidade: "Feira de Santana - BA" },
+  22:  { nome: "Mersan",          endereco: "Av Senhor dos Passos, 1164",                 cidade: "Feira de Santana - BA" },
+  31:  { nome: "Mersan",          endereco: "Av João Durval Carneiro, 3665",              cidade: "Feira de Santana - BA" },
+  32:  { nome: "Mersan",          endereco: "Av João Durval Carneiro, 3665",              cidade: "Feira de Santana - BA" },
+  41:  { nome: "Arezzo",          endereco: "Av João Durval Carneiro, 3665",              cidade: "Feira de Santana - BA" },
+  51:  { nome: "Levi's",          endereco: "Av João Durval Carneiro, 3665",              cidade: "Feira de Santana - BA" },
+  91:  { nome: "Levi's",          endereco: "Av Tancredo Neves, 148",                     cidade: "Salvador - BA" },
+  105: { nome: "Credmais",        endereco: "Av Governador João Durval Ca.",              cidade: "Feira de Santana - BA" },
+  111: { nome: "Mersan",          endereco: "Pça. da Bandeira, 27",                       cidade: "Alagoinhas - BA" },
+  121: { nome: "Mersan",          endereco: "Pç João Pedreira, 66 – Centro",              cidade: "Feira de Santana - BA" },
+  141: { nome: "Mersan",          endereco: "Av. Antonio Nogueira, 63",                   cidade: "Serrinha - BA" },
+  142: { nome: "Mersan",          endereco: "Pça Luis Nogueira, 547",                     cidade: "Serrinha - BA" },
+  151: { nome: "Mersan",          endereco: "R Juracy Magalhães, 487 – Ponto Central",    cidade: "Feira de Santana - BA" },
+  161: { nome: "Mersan",          endereco: "R Sales Barbosa, 90 – Centro",               cidade: "Feira de Santana - BA" },
+  171: { nome: "Mersan Sport",    endereco: "Av João Durval Carneiro, 3665",              cidade: "Feira de Santana - BA" },
+  181: { nome: "Mersan",          endereco: "Pça da Bandeira, 17",                        cidade: "Alagoinhas - BA" },
+  191: { nome: "Schutz",          endereco: "Av João Durval Carneiro, 3665",              cidade: "Feira de Santana - BA" },
+  211: { nome: "Mersan",          endereco: "Rua Floriano Peixoto, 88",                   cidade: "Conceição do Coité - BA" },
+  221: { nome: "Mersan",          endereco: "R Francisco Batista, 94",                    cidade: "Alagoinhas - BA" },
+  231: { nome: "Levi's",          endereco: "Av Tancredo Neves, 2915",                    cidade: "Salvador - BA" },
+  241: { nome: "Mersan Criança",  endereco: "Av João Durval Carneiro, 3665",              cidade: "Feira de Santana - BA" },
+  251: { nome: "Mersan",          endereco: "Avenida Aziz Maron, S/N",                    cidade: "Itabuna - BA" },
+  261: { nome: "Mersan",          endereco: "Rua Ramiro Pimentel, 65",                    cidade: "Itaberaba - BA" },
+  271: { nome: "M Martan",        endereco: "Av João Durval Carneiro, 3665",              cidade: "Feira de Santana - BA" },
+  281: { nome: "Arezzo",          endereco: "Pç Rui Barbosa, 152",                        cidade: "Alagoinhas - BA" },
+  291: { nome: "Usaflex",         endereco: "Av João Durval Carneiro, 3665",              cidade: "Feira de Santana - BA" },
+  311: { nome: "Mersan",          endereco: "R Sales Barbosa, 138",                       cidade: "Feira de Santana - BA" },
+  312: { nome: "Mersan",          endereco: "R Marechal Deodoro, 41",                     cidade: "Feira de Santana - BA" },
+  321: { nome: "Mersan",          endereco: "Av Tancredo Neves, 2915",                    cidade: "Salvador - BA" },
+  361: { nome: "Arezzo",          endereco: "R. Roberto Santos, 96",                      cidade: "Santo Antônio de Jesus - BA" },
+};
+
+function infoLoja(loja) {
+  const info = LOJAS_INFO[Number(loja)];
+  return info ? `${info.nome} · ${info.endereco}, ${info.cidade}` : "";
+}
+
+// Todas as lojas da rede (usadas pela opção "ver em toda rede")
+const TODAS_AS_LOJAS = Object.keys(LOJAS_INFO).map(Number);
+
+// Único e-mail com permissão de aprovar/rejeitar sugestões de Mais Procurados
+const ADMIN_EMAIL = "lucasfsa1998@hotmail.com";
+
+const API_BASE = "https://credito.mersan.co/api/v1/buscapreco";
+
+// Ícones em SVG (flat, sem emoji) usados nos botões de ação das listas
+const ICONE_ESTRELA_CHEIA = `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+const ICONE_ESTRELA_VAZIA = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+const ICONE_PIN = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 6.5-9 12-9 12s-9-5.5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`;
+const ICONE_LIXEIRA = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
+const ICONE_CHECK = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+const ICONE_X = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function aplicarTema(tema) {
+  document.documentElement.setAttribute("data-theme", tema);
+  localStorage.setItem("tema", tema);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", tema === "light" ? "#f1f5f9" : "#0f172a");
+}
+
+const $telaCarregando = document.getElementById("telaCarregando");
+const $authCard = document.getElementById("authCard");
+const $authEmail = document.getElementById("authEmail");
+const $authSenha = document.getElementById("authSenha");
+const $authMsg = document.getElementById("authMsg");
+const $btnEntrar = document.getElementById("btnEntrar");
+const $btnCriarConta = document.getElementById("btnCriarConta");
+const $linkEsqueciSenha = document.getElementById("linkEsqueciSenha");
+
+const $recuperarCard = document.getElementById("recuperarCard");
+const $recuperarEmail = document.getElementById("recuperarEmail");
+const $recuperarMsg = document.getElementById("recuperarMsg");
+const $btnEnviarRecuperacao = document.getElementById("btnEnviarRecuperacao");
+const $btnCancelarRecuperacao = document.getElementById("btnCancelarRecuperacao");
+
+const $novaSenhaCard = document.getElementById("novaSenhaCard");
+const $novaSenha1 = document.getElementById("novaSenha1");
+const $novaSenha2 = document.getElementById("novaSenha2");
+const $novaSenhaMsg = document.getElementById("novaSenhaMsg");
+const $btnSalvarNovaSenha = document.getElementById("btnSalvarNovaSenha");
+
+const $app = document.getElementById("app");
+const $userEmail = document.getElementById("userEmail");
+const $btnSair = document.getElementById("btnSair");
+
+const $btnConfig = document.getElementById("btnConfig");
+const $configModal = document.getElementById("configModal");
+const $btnFecharConfig = document.getElementById("btnFecharConfig");
+const $cfgNome = document.getElementById("cfgNome");
+const $cfgCodigo = document.getElementById("cfgCodigo");
+const $cfgLoja = document.getElementById("cfgLoja");
+const $cfgMsg = document.getElementById("cfgMsg");
+const $btnSalvarConfig = document.getElementById("btnSalvarConfig");
+const $cfgSenha1 = document.getElementById("cfgSenha1");
+const $cfgSenha2 = document.getElementById("cfgSenha2");
+const $cfgSenhaMsg = document.getElementById("cfgSenhaMsg");
+const $btnSalvarSenhaConfig = document.getElementById("btnSalvarSenhaConfig");
+const $cfgBipador = document.getElementById("cfgBipador");
+const $cfgTemaClaro = document.getElementById("cfgTemaClaro");
+
+const $tabBusca = document.getElementById("tabBusca");
+const $tabHistorico = document.getElementById("tabHistorico");
+const $tabFavoritos = document.getElementById("tabFavoritos");
+const $tabMaisProcurados = document.getElementById("tabMaisProcurados");
+const $tabVendas = document.getElementById("tabVendas");
+const $tabAdmin = document.getElementById("tabAdmin");
+const $ajudaBadge = document.getElementById("ajudaBadge");
+const $tabAjuda = document.getElementById("tabAjuda");
+const $painelBusca = document.getElementById("painelBusca");
+const $painelHistorico = document.getElementById("painelHistorico");
+const $painelFavoritos = document.getElementById("painelFavoritos");
+const $painelMaisProcurados = document.getElementById("painelMaisProcurados");
+const $painelVendas = document.getElementById("painelVendas");
+const $tabPromocao = document.getElementById("tabPromocao");
+const $painelPromocao = document.getElementById("painelPromocao");
+const $promoLoja = document.getElementById("promoLoja");
+const $promoCodigoInput = document.getElementById("promoCodigoInput");
+const $btnPromoCamera = document.getElementById("btnPromoCamera");
+const $btnPromoBuscar = document.getElementById("btnPromoBuscar");
+const $promoMsg = document.getElementById("promoMsg");
+const $promoInfo = document.getElementById("promoInfo");
+const $promoProdutoNome = document.getElementById("promoProdutoNome");
+const $promoPrecoOriginal = document.getElementById("promoPrecoOriginal");
+const $promoPrecoFinal = document.getElementById("promoPrecoFinal");
+const $promoGradeTitulo = document.getElementById("promoGradeTitulo");
+const $promoGradeLista = document.getElementById("promoGradeLista");
+const $promoMostrarGrade = document.getElementById("promoMostrarGrade");
+const $promoFotoInput = document.getElementById("promoFotoInput");
+const $btnPromoTirarFoto = document.getElementById("btnPromoTirarFoto");
+const $promoUploadInput = document.getElementById("promoUploadInput");
+const $btnPromoEnviarFoto = document.getElementById("btnPromoEnviarFoto");
+const $promoEditorWrap = document.getElementById("promoEditorWrap");
+const $promoEditorStage = document.getElementById("promoEditorStage");
+const $promoEditorImg = document.getElementById("promoEditorImg");
+const $promoChipPrecoConteudo = document.getElementById("promoChipPrecoConteudo");
+const $promoChipLojaConteudo = document.getElementById("promoChipLojaConteudo");
+const $promoElementoSelecionado = document.getElementById("promoElementoSelecionado");
+const $btnPromoMenor = document.getElementById("btnPromoMenor");
+const $btnPromoMaior = document.getElementById("btnPromoMaior");
+const $btnPromoConfirmarLayout = document.getElementById("btnPromoConfirmarLayout");
+const $btnPromoCancelarEdicao = document.getElementById("btnPromoCancelarEdicao");
+const $promoResultadoWrap = document.getElementById("promoResultadoWrap");
+const $promoCanvas = document.getElementById("promoCanvas");
+const $btnPromoEditarPosicao = document.getElementById("btnPromoEditarPosicao");
+const $btnPromoBaixar = document.getElementById("btnPromoBaixar");
+const $btnPromoCompartilhar = document.getElementById("btnPromoCompartilhar");
+const $btnPromoNovaFoto = document.getElementById("btnPromoNovaFoto");
+const $painelComissao = document.getElementById("painelComissao");
+const $painelAdmin = document.getElementById("painelAdmin");
+const $tabComissao = document.getElementById("tabComissao");
+const $comissaoResumo = document.getElementById("comissaoResumo");
+const $comissaoConfigCard = document.getElementById("comissaoConfigCard");
+const $comissaoSimulacao = document.getElementById("comissaoSimulacao");
+const $pctPrimeiro = document.getElementById("pctPrimeiro");
+const $pctSegundo = document.getElementById("pctSegundo");
+const $pctTerceiro = document.getElementById("pctTerceiro");
+const $pctMetaBatida = document.getElementById("pctMetaBatida");
+const $pctMetaNaoBatida = document.getElementById("pctMetaNaoBatida");
+const $btnSalvarComissaoConfig = document.getElementById("btnSalvarComissaoConfig");
+const $comissaoConfigMsg = document.getElementById("comissaoConfigMsg");
+const $painelAjuda = document.getElementById("painelAjuda");
+const $resumoVendedoresLista = document.getElementById("resumoVendedoresLista");
+const $btnModoVenda = document.getElementById("btnModoVenda");
+const $btnModoTroca = document.getElementById("btnModoTroca");
+const $tituloNovaVenda = document.getElementById("tituloNovaVenda");
+const $ladoTrocaWrap = document.getElementById("ladoTrocaWrap");
+const $btnLadoDevolvido = document.getElementById("btnLadoDevolvido");
+const $btnLadoNovo = document.getElementById("btnLadoNovo");
+const $trocaListasWrap = document.getElementById("trocaListasWrap");
+const $trocaDevolvidosLista = document.getElementById("trocaDevolvidosLista");
+const $trocaNovosLista = document.getElementById("trocaNovosLista");
+const $descontoWrap = document.getElementById("descontoWrap");
+const $rotuloSubtotal = document.getElementById("rotuloSubtotal");
+const $rotuloTotal = document.getElementById("rotuloTotal");
+const $vendaLoja = document.getElementById("vendaLoja");
+const $vendaProdutoInput = document.getElementById("vendaProdutoInput");
+const $btnVendaCamera = document.getElementById("btnVendaCamera");
+const $btnVendaHistorico = document.getElementById("btnVendaHistorico");
+const $btnVendaManualToggle = document.getElementById("btnVendaManualToggle");
+const $vendaManualForm = document.getElementById("vendaManualForm");
+const $vendaManualNome = document.getElementById("vendaManualNome");
+const $vendaManualPreco = document.getElementById("vendaManualPreco");
+aplicarMascaraMoeda($vendaManualPreco);
+const $btnVendaManualAdicionar = document.getElementById("btnVendaManualAdicionar");
+const $vendaMsgAdd = document.getElementById("vendaMsgAdd");
+const $vendaItensLista = document.getElementById("vendaItensLista");
+const $btnDescontoPct = document.getElementById("btnDescontoPct");
+const $btnDescontoValor = document.getElementById("btnDescontoValor");
+const $descontoPctWrap = document.getElementById("descontoPctWrap");
+const $descontoValorWrap = document.getElementById("descontoValorWrap");
+const $vendaDescontoPct = document.getElementById("vendaDescontoPct");
+const $vendaValorFinal = document.getElementById("vendaValorFinal");
+aplicarMascaraMoeda($vendaValorFinal);
+const $vendaSubtotal = document.getElementById("vendaSubtotal");
+const $vendaDescontoInfo = document.getElementById("vendaDescontoInfo");
+const $vendaTotal = document.getElementById("vendaTotal");
+const $vendaObservacao = document.getElementById("vendaObservacao");
+const $btnFinalizarVenda = document.getElementById("btnFinalizarVenda");
+const $vendaMsg = document.getElementById("vendaMsg");
+const $vendasLista = document.getElementById("vendasLista");
+const $vendaHistoricoModal = document.getElementById("vendaHistoricoModal");
+const $vendaHistoricoLista = document.getElementById("vendaHistoricoLista");
+const $btnFecharVendaHistorico = document.getElementById("btnFecharVendaHistorico");
+const $mensagemMotivacional = document.getElementById("mensagemMotivacional");
+const $metaBarra = document.getElementById("metaBarra");
+const $metaResumo = document.getElementById("metaResumo");
+const $btnConfigMetas = document.getElementById("btnConfigMetas");
+const $totalHoje = document.getElementById("totalHoje");
+const $vendasHojeCount = document.getElementById("vendasHojeCount");
+const $totalMes = document.getElementById("totalMes");
+const $vendasMesCount = document.getElementById("vendasMesCount");
+const $metasModal = document.getElementById("metasModal");
+const $metaQuinzena1 = document.getElementById("metaQuinzena1");
+aplicarMascaraMoeda($metaQuinzena1);
+const $metaQuinzena2 = document.getElementById("metaQuinzena2");
+aplicarMascaraMoeda($metaQuinzena2);
+const $btnSalvarMetas = document.getElementById("btnSalvarMetas");
+const $metasMsg = document.getElementById("metasMsg");
+const $folgasMesNome = document.getElementById("folgasMesNome");
+const $folgasCalendario = document.getElementById("folgasCalendario");
+const $btnFecharMetas = document.getElementById("btnFecharMetas");
+const $historicoLista = document.getElementById("historicoLista");
+const $favoritosLista = document.getElementById("favoritosLista");
+const $mpPendentesCard = document.getElementById("mpPendentesCard");
+const $mpPendentesLista = document.getElementById("mpPendentesLista");
+const $mpAprovadosLista = document.getElementById("mpAprovadosLista");
+const $sugestaoTexto = document.getElementById("sugestaoTexto");
+const $sugestaoMsg = document.getElementById("sugestaoMsg");
+const $btnEnviarSugestao = document.getElementById("btnEnviarSugestao");
+const $statsAdminLista = document.getElementById("statsAdminLista");
+const $sugestoesLista = document.getElementById("sugestoesLista");
+
+const $codigo = document.getElementById("codigo");
+const $lojas = document.getElementById("lojas");
+const $btnRedeToda = document.getElementById("btnRedeToda");
+const $buscar = document.getElementById("buscar");
+const $btnLimparBusca = document.getElementById("btnLimparBusca");
+const $status = document.getElementById("status");
+const $resumoCard = document.getElementById("resumoCard");
+const $resumoProduto = document.getElementById("resumoProduto");
+const $resumoPreco = document.getElementById("resumoPreco");
+const $resumoPrecoOriginal = document.getElementById("resumoPrecoOriginal");
+const $resultados = document.getElementById("resultados");
+const $modoMultiplo = document.getElementById("modoMultiplo");
+const $buscasMultiplas = document.getElementById("buscasMultiplas");
+const $referenciaBusca = document.getElementById("referenciaBusca");
+const $btnBuscarReferencia = document.getElementById("btnBuscarReferencia");
+const $referenciaMsg = document.getElementById("referenciaMsg");
+const $referenciaResultados = document.getElementById("referenciaResultados");
+const $btnLimparReferencia = document.getElementById("btnLimparReferencia");
+
+const $btnCamera = document.getElementById("btnCamera");
+const $camModal = document.getElementById("camModal");
+const $btnFecharCam = document.getElementById("btnFecharCam");
+const $btnTorch = document.getElementById("btnTorch");
+const $camDebug = document.getElementById("camDebug");
+const $nativeVideoWrap = document.getElementById("nativeVideoWrap");
+const $nativeVideo = document.getElementById("nativeVideo");
+
+let currentUser = null;
+let html5Qrcode = null;
+
+// ---------- AUTENTICAÇÃO ----------
+
+function setAuthMsg(txt, isErr) {
+  $authMsg.textContent = txt || "";
+  $authMsg.className = "msg " + (isErr ? "err" : "");
+}
+
+// ---------- Turnstile (verificação anti-robô) ----------
+let turnstileToken = null;
+let turnstileWidgetId = null;
+
+function onTurnstileSuccess(token) {
+  turnstileToken = token;
+}
+function onTurnstileExpired() {
+  turnstileToken = null;
+}
+window.onTurnstileSuccess = onTurnstileSuccess;
+window.onTurnstileExpired = onTurnstileExpired;
+
+function renderTurnstile() {
+  if (turnstileWidgetId !== null) return;
+  if (typeof turnstile === "undefined") {
+    setTimeout(renderTurnstile, 200); // script do Turnstile ainda carregando
+    return;
+  }
+  turnstileWidgetId = turnstile.render("#turnstileWidget", {
+    sitekey: TURNSTILE_SITE_KEY,
+    callback: "onTurnstileSuccess",
+    "expired-callback": "onTurnstileExpired",
+  });
+}
+
+function resetTurnstile() {
+  turnstileToken = null;
+  if (typeof turnstile !== "undefined" && turnstileWidgetId !== null) {
+    turnstile.reset(turnstileWidgetId);
+  }
+}
+
+// Lê o token direto do widget na hora do clique, em vez de confiar só na
+// variável setada pelo callback (mais confiável contra corridas de timing).
+function getTurnstileToken() {
+  if (typeof turnstile !== "undefined" && turnstileWidgetId !== null) {
+    const t = turnstile.getResponse(turnstileWidgetId);
+    if (t) return t;
+  }
+  return turnstileToken;
+}
+
+$btnEntrar.addEventListener("click", async () => {
+  const token = getTurnstileToken();
+  if (!token) {
+    setAuthMsg("Complete a verificação de segurança antes de continuar.", true);
+    return;
+  }
+  setAuthMsg("Entrando...");
+  const { error } = await sb.auth.signInWithPassword({
+    email: $authEmail.value.trim(),
+    password: $authSenha.value,
+    options: { captchaToken: token },
+  });
+  resetTurnstile();
+  if (error) setAuthMsg(error.message, true);
+});
+
+$btnCriarConta.addEventListener("click", async () => {
+  const token = getTurnstileToken();
+  if (!token) {
+    setAuthMsg("Complete a verificação de segurança antes de continuar.", true);
+    return;
+  }
+  setAuthMsg("Criando conta...");
+  const { error } = await sb.auth.signUp({
+    email: $authEmail.value.trim(),
+    password: $authSenha.value,
+    options: { captchaToken: token },
+  });
+  resetTurnstile();
+  if (error) {
+    setAuthMsg(error.message, true);
+  } else {
+    setAuthMsg("Conta criada! Verifique seu e-mail e clique no link de confirmação antes de entrar.");
+  }
+});
+
+$btnSair.addEventListener("click", () => sb.auth.signOut());
+
+// ---------- CONFIGURAÇÕES DO VENDEDOR ----------
+
+// Preferência do APARELHO (não da conta): se marcado, o campo de código de
+// barras fica sempre em foco pronto pra receber leitura de um bipador físico
+// (USB/Bluetooth). Fica salva no navegador, não no login — cada tablet/PC
+// guarda a própria escolha.
+function bipadorAtivo() {
+  return localStorage.getItem("bp_bipador") === "1";
+}
+
+function talvezFocarCodigo() {
+  if (bipadorAtivo()) $codigo.focus();
+}
+
+$btnConfig.addEventListener("click", () => {
+  const meta = (currentUser && currentUser.user_metadata) || {};
+  $cfgNome.value = meta.nome_vendedor || "";
+  $cfgCodigo.value = meta.codigo_vendedor || "";
+  $cfgLoja.value = meta.loja_vendedor || "";
+  $cfgMsg.textContent = "";
+  $cfgSenha1.value = "";
+  $cfgSenha2.value = "";
+  $cfgSenhaMsg.textContent = "";
+  $cfgBipador.checked = bipadorAtivo();
+  $cfgTemaClaro.checked = document.documentElement.getAttribute("data-theme") === "light";
+  $configModal.classList.remove("hidden");
+});
+
+$cfgBipador.addEventListener("change", () => {
+  localStorage.setItem("bp_bipador", $cfgBipador.checked ? "1" : "0");
+  talvezFocarCodigo();
+});
+
+$cfgTemaClaro.addEventListener("change", () => {
+  aplicarTema($cfgTemaClaro.checked ? "light" : "dark");
+});
+
+$btnFecharConfig.addEventListener("click", () => $configModal.classList.add("hidden"));
+
+$btnSalvarConfig.addEventListener("click", async () => {
+  $btnSalvarConfig.disabled = true;
+  $cfgMsg.textContent = "Salvando...";
+  $cfgMsg.className = "msg";
+
+  const { data, error } = await sb.auth.updateUser({
+    data: {
+      nome_vendedor: $cfgNome.value.trim(),
+      codigo_vendedor: $cfgCodigo.value.trim(),
+      loja_vendedor: $cfgLoja.value.trim(),
+    },
+  });
+
+  $btnSalvarConfig.disabled = false;
+  if (error) {
+    $cfgMsg.textContent = error.message;
+    $cfgMsg.className = "msg err";
+  } else {
+    currentUser = data.user;
+    $cfgMsg.textContent = "Salvo!";
+    $cfgMsg.className = "msg";
+  }
+});
+
+$btnSalvarSenhaConfig.addEventListener("click", async () => {
+  const s1 = $cfgSenha1.value;
+  const s2 = $cfgSenha2.value;
+  if (!s1 || s1.length < 6) {
+    $cfgSenhaMsg.textContent = "A senha precisa ter pelo menos 6 caracteres.";
+    $cfgSenhaMsg.className = "msg err";
+    return;
+  }
+  if (s1 !== s2) {
+    $cfgSenhaMsg.textContent = "As senhas não são iguais.";
+    $cfgSenhaMsg.className = "msg err";
+    return;
+  }
+
+  $btnSalvarSenhaConfig.disabled = true;
+  $cfgSenhaMsg.textContent = "Salvando...";
+  $cfgSenhaMsg.className = "msg";
+
+  const { error } = await sb.auth.updateUser({ password: s1 });
+
+  $btnSalvarSenhaConfig.disabled = false;
+  if (error) {
+    $cfgSenhaMsg.textContent = error.message;
+    $cfgSenhaMsg.className = "msg err";
+  } else {
+    $cfgSenha1.value = "";
+    $cfgSenha2.value = "";
+    $cfgSenhaMsg.textContent = "Senha alterada!";
+    $cfgSenhaMsg.className = "msg";
+  }
+});
+
+// ---------- RECUPERAÇÃO DE SENHA ----------
+
+$linkEsqueciSenha.addEventListener("click", () => {
+  $authCard.classList.add("hidden");
+  $recuperarCard.classList.remove("hidden");
+  $recuperarEmail.value = $authEmail.value;
+  $recuperarMsg.textContent = "";
+});
+
+$btnCancelarRecuperacao.addEventListener("click", () => {
+  $recuperarCard.classList.add("hidden");
+  $authCard.classList.remove("hidden");
+});
+
+$btnEnviarRecuperacao.addEventListener("click", async () => {
+  const email = $recuperarEmail.value.trim();
+  if (!email) return;
+
+  $btnEnviarRecuperacao.disabled = true;
+  $recuperarMsg.textContent = "Enviando...";
+  $recuperarMsg.className = "msg";
+
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin,
+  });
+
+  $btnEnviarRecuperacao.disabled = false;
+  if (error) {
+    $recuperarMsg.textContent = error.message;
+    $recuperarMsg.className = "msg err";
+  } else {
+    $recuperarMsg.textContent = "Link enviado! Verifique seu e-mail e clique no link pra criar uma nova senha.";
+    $recuperarMsg.className = "msg";
+  }
+});
+
+$btnSalvarNovaSenha.addEventListener("click", async () => {
+  const s1 = $novaSenha1.value;
+  const s2 = $novaSenha2.value;
+  if (!s1 || s1.length < 6) {
+    $novaSenhaMsg.textContent = "A senha precisa ter pelo menos 6 caracteres.";
+    $novaSenhaMsg.className = "msg err";
+    return;
+  }
+  if (s1 !== s2) {
+    $novaSenhaMsg.textContent = "As senhas não são iguais.";
+    $novaSenhaMsg.className = "msg err";
+    return;
+  }
+
+  $btnSalvarNovaSenha.disabled = true;
+  $novaSenhaMsg.textContent = "Salvando...";
+  $novaSenhaMsg.className = "msg";
+
+  const { error } = await sb.auth.updateUser({ password: s1 });
+
+  $btnSalvarNovaSenha.disabled = false;
+  if (error) {
+    $novaSenhaMsg.textContent = error.message;
+    $novaSenhaMsg.className = "msg err";
+    return;
+  }
+
+  $novaSenhaCard.classList.add("hidden");
+  $novaSenha1.value = "";
+  $novaSenha2.value = "";
+  emRecuperacaoDeSenha = false;
+
+  // A troca de senha não dispara um novo evento de login sozinha — usamos a
+  // sessão que já temos (criada quando o usuário clicou no link do e-mail)
+  // pra já deixar ele logado direto no app.
+  const { data } = await sb.auth.getSession();
+  if (data.session) mostrarAppLogado(data.session.user);
+});
+
+function mostrarAppLogado(user) {
+  currentUser = user;
+  $telaCarregando.classList.add("hidden");
+  $authCard.classList.add("hidden");
+  $recuperarCard.classList.add("hidden");
+  $novaSenhaCard.classList.add("hidden");
+  $app.classList.remove("hidden");
+  $userEmail.textContent = currentUser.email;
+
+  // Lojas favoritas ficam salvas no perfil do usuário (user_metadata),
+  // então acompanham o funcionário em qualquer dispositivo/login.
+  const lojasSalvas = currentUser.user_metadata && currentUser.user_metadata.lojas_favoritas;
+  if (lojasSalvas) $lojas.value = lojasSalvas;
+
+  $tabAdmin.classList.toggle("hidden", !ehAdmin());
+
+  carregarHistorico();
+  atualizarBadgeAdmin();
+  talvezFocarCodigo();
+}
+
+function mostrarTelaLogin() {
+  currentUser = null;
+  $telaCarregando.classList.add("hidden");
+  $authCard.classList.remove("hidden");
+  $recuperarCard.classList.add("hidden");
+  $novaSenhaCard.classList.add("hidden");
+  $app.classList.add("hidden");
+  renderTurnstile();
+}
+
+// Enquanto o usuário está no meio da troca de senha, o app ignora eventos de
+// login automático (a sessão temporária de recuperação não deve abrir o app).
+let emRecuperacaoDeSenha = false;
+
+sb.auth.onAuthStateChange((event, session) => {
+  // Ao clicar no link de recuperação por e-mail, o Supabase cria uma sessão
+  // temporária e dispara esse evento — mostramos o formulário de nova senha
+  // em vez de deixar entrar direto no app.
+  if (event === "PASSWORD_RECOVERY") {
+    emRecuperacaoDeSenha = true;
+    $telaCarregando.classList.add("hidden");
+    $authCard.classList.add("hidden");
+    $recuperarCard.classList.add("hidden");
+    $app.classList.add("hidden");
+    $novaSenhaCard.classList.remove("hidden");
+    return;
+  }
+
+  if (emRecuperacaoDeSenha) return;
+
+  if (session) {
+    mostrarAppLogado(session.user);
+  } else {
+    mostrarTelaLogin();
+  }
+});
+
+// Segurança: se por algum motivo o Supabase nunca responder (ex: rede
+// bloqueada), não deixa a tela de "Carregando..." presa pra sempre.
+setTimeout(() => {
+  if (!$telaCarregando.classList.contains("hidden")) mostrarTelaLogin();
+}, 5000);
+
+// ---------- ABAS ----------
+
+const ABAS = [
+  { tab: $tabBusca, painel: $painelBusca },
+  { tab: $tabHistorico, painel: $painelHistorico },
+  { tab: $tabFavoritos, painel: $painelFavoritos },
+  { tab: $tabMaisProcurados, painel: $painelMaisProcurados },
+  { tab: $tabVendas, painel: $painelVendas },
+  { tab: $tabPromocao, painel: $painelPromocao },
+  { tab: $tabComissao, painel: $painelComissao },
+  { tab: $tabAdmin, painel: $painelAdmin },
+  { tab: $tabAjuda, painel: $painelAjuda },
+];
+
+function mostrarAba(tabAlvo) {
+  ABAS.forEach(({ tab, painel }) => {
+    const ativa = tab === tabAlvo;
+    tab.classList.toggle("active", ativa);
+    painel.classList.toggle("hidden", !ativa);
+  });
+}
+
+$tabBusca.addEventListener("click", () => {
+  mostrarAba($tabBusca);
+  talvezFocarCodigo();
+});
+$tabHistorico.addEventListener("click", () => {
+  mostrarAba($tabHistorico);
+  carregarHistorico();
+});
+$tabFavoritos.addEventListener("click", () => {
+  mostrarAba($tabFavoritos);
+  carregarFavoritos();
+});
+$tabMaisProcurados.addEventListener("click", () => {
+  mostrarAba($tabMaisProcurados);
+  carregarMaisProcurados();
+});
+$tabVendas.addEventListener("click", () => {
+  mostrarAba($tabVendas);
+  popularLojasVenda();
+  if (modoVenda === "troca") renderTrocaListas(); else renderItensVenda();
+  carregarVendas();
+  carregarMetaEFolgas();
+});
+$tabPromocao.addEventListener("click", () => {
+  mostrarAba($tabPromocao);
+  popularLojasPromo();
+});
+$tabComissao.addEventListener("click", () => {
+  mostrarAba($tabComissao);
+  carregarComissao();
+});
+$tabAdmin.addEventListener("click", () => {
+  if (!ehAdmin()) return;
+  mostrarAba($tabAdmin);
+  carregarStatsAdmin();
+  carregarResumoVendedores();
+  carregarPendentesMP();
+  carregarSugestoes();
+});
+$tabAjuda.addEventListener("click", () => {
+  mostrarAba($tabAjuda);
+  checarMutePropio();
+});
+
+// ---------- HISTÓRICO / FAVORITOS ----------
+
+const PAGINA_TAMANHO = 30;
+
+function renderListaItens(container, data, { vazio, mostrarSugerir }) {
+  if (!data || data.length === 0) {
+    container.innerHTML = `<div class="msg">${vazio}</div>`;
+    return;
+  }
+
+  container.innerHTML = data.map(h => `
+    <div class="historico-item" data-id="${h.id}" data-codigo="${h.codigo_barras}" data-lojas="${h.lojas || ""}" data-produto="${(h.produto || "").replace(/"/g, "&quot;")}" data-preco="${h.preco != null ? h.preco : ""}">
+      <div class="h-conteudo">
+        <div class="h-produto">${h.produto || h.codigo_barras}</div>
+        <div class="h-meta">Lojas ${h.lojas || "-"} · ${new Date(h.criado_em).toLocaleString("pt-BR")}</div>
+      </div>
+      <div class="h-acoes">
+        <span>${h.preco != null ? fmtMoeda(h.preco) : ""}</span>
+        <button class="h-btn favorito ${h.favorito ? "ativo" : ""}" title="Favoritar">${h.favorito ? ICONE_ESTRELA_CHEIA : ICONE_ESTRELA_VAZIA}</button>
+        ${mostrarSugerir ? `<button class="h-btn sugerir" title="Sugerir para Mais Procurados">${ICONE_PIN}</button>` : ""}
+        <button class="h-btn apagar" title="Apagar">${ICONE_LIXEIRA}</button>
+      </div>
+    </div>
+  `).join("");
+
+  container.querySelectorAll(".historico-item").forEach(el => {
+    const id = el.dataset.id;
+
+    el.querySelector(".h-conteudo").addEventListener("click", () => {
+      $codigo.value = el.dataset.codigo;
+      $lojas.value = el.dataset.lojas;
+      $tabBusca.click();
+      buscar();
+    });
+
+    el.querySelector(".favorito").addEventListener("click", (e) => {
+      e.stopPropagation();
+      alternarFavorito(id, !el.querySelector(".favorito").classList.contains("ativo"));
+    });
+
+    el.querySelector(".apagar").addEventListener("click", (e) => {
+      e.stopPropagation();
+      apagarHistorico(id);
+    });
+
+    const $sugerir = el.querySelector(".sugerir");
+    if ($sugerir) {
+      $sugerir.addEventListener("click", (e) => {
+        e.stopPropagation();
+        sugerirMaisProcurado({
+          codigo_barras: el.dataset.codigo,
+          produto: el.dataset.produto,
+          preco: el.dataset.preco ? Number(el.dataset.preco) : null,
+          lojas: el.dataset.lojas,
+        }, $sugerir);
+      });
+    }
+  });
+}
+
+function renderPaginacao(container, paginaAtual, totalPaginas, aoMudar) {
+  const antiga = container.parentElement.querySelector(".h-paginacao");
+  if (antiga) antiga.remove();
+  if (totalPaginas <= 1) return;
+
+  const div = document.createElement("div");
+  div.className = "h-paginacao";
+  div.style.cssText = "display:flex;align-items:center;justify-content:center;gap:14px;margin-top:12px;";
+  div.innerHTML = `
+    <button class="secondary h-pg-ant" ${paginaAtual === 0 ? "disabled" : ""}>‹ Anterior</button>
+    <span style="white-space:nowrap;">Página ${paginaAtual + 1} de ${totalPaginas}</span>
+    <button class="secondary h-pg-prox" ${paginaAtual >= totalPaginas - 1 ? "disabled" : ""}>Próxima ›</button>
+  `;
+  container.insertAdjacentElement("afterend", div);
+  div.querySelector(".h-pg-ant").addEventListener("click", () => aoMudar(paginaAtual - 1));
+  div.querySelector(".h-pg-prox").addEventListener("click", () => aoMudar(paginaAtual + 1));
+}
+
+async function carregarHistorico(pagina = 0) {
+  if (!currentUser) return;
+  $historicoLista.innerHTML = `<div class="msg">Carregando histórico...</div>`;
+  const antiga = $historicoLista.parentElement.querySelector(".h-paginacao");
+  if (antiga) antiga.remove();
+
+  const from = pagina * PAGINA_TAMANHO;
+  const to = from + PAGINA_TAMANHO - 1;
+
+  const { data, error, count } = await sb
+    .from("historico")
+    .select("*", { count: "exact" })
+    .order("criado_em", { ascending: false })
+    .range(from, to);
+
+  if (error) {
+    $historicoLista.innerHTML = `<div class="msg err">Erro ao carregar histórico: ${error.message}</div>`;
+    return;
+  }
+
+  renderListaItens($historicoLista, data, { vazio: "Nenhuma busca ainda.", mostrarSugerir: true });
+  const totalPaginas = Math.max(1, Math.ceil((count || 0) / PAGINA_TAMANHO));
+  renderPaginacao($historicoLista, pagina, totalPaginas, (novaPagina) => carregarHistorico(novaPagina));
+}
+
+async function carregarFavoritos(pagina = 0) {
+  if (!currentUser) return;
+  $favoritosLista.innerHTML = `<div class="msg">Carregando favoritos...</div>`;
+  const antiga = $favoritosLista.parentElement.querySelector(".h-paginacao");
+  if (antiga) antiga.remove();
+
+  const from = pagina * PAGINA_TAMANHO;
+  const to = from + PAGINA_TAMANHO - 1;
+
+  const { data, error, count } = await sb
+    .from("historico")
+    .select("*", { count: "exact" })
+    .eq("favorito", true)
+    .order("criado_em", { ascending: false })
+    .range(from, to);
+
+  if (error) {
+    $favoritosLista.innerHTML = `<div class="msg err">Erro ao carregar favoritos: ${error.message}</div>`;
+    return;
+  }
+
+  renderListaItens($favoritosLista, data, { vazio: "Nenhum favorito ainda. Toque na estrela no histórico pra favoritar." });
+  const totalPaginas = Math.max(1, Math.ceil((count || 0) / PAGINA_TAMANHO));
+  renderPaginacao($favoritosLista, pagina, totalPaginas, (novaPagina) => carregarFavoritos(novaPagina));
+}
+
+async function alternarFavorito(id, novoValor) {
+  await sb.from("historico").update({ favorito: novoValor }).eq("id", id);
+  if (!$painelHistorico.classList.contains("hidden")) carregarHistorico();
+  if (!$painelFavoritos.classList.contains("hidden")) carregarFavoritos();
+}
+
+async function apagarHistorico(id) {
+  await sb.from("historico").delete().eq("id", id);
+  if (!$painelHistorico.classList.contains("hidden")) carregarHistorico();
+  if (!$painelFavoritos.classList.contains("hidden")) carregarFavoritos();
+}
+
+async function salvarHistorico(item, lojasStr) {
+  if (!currentUser) return;
+  await sb.from("historico").insert({
+    user_id: currentUser.id,
+    codigo_barras: item.cdProduto,
+    produto: item.dsProduto,
+    preco: item.vlPrecoPromocao > 0 ? item.vlPrecoPromocao : item.vlPreco,
+    lojas: lojasStr,
+  });
+}
+
+// ---------- BUSCA POR REFERÊNCIA ----------
+
+// Toda busca por código de barras alimenta esse índice compartilhado entre
+// todos os usuários — assim, com o tempo, produtos já vistos por qualquer
+// pessoa ficam disponíveis pra encontrar direto pela referência.
+async function salvarNoIndiceReferencias(item) {
+  if (!currentUser || !item.cdReferencia) return;
+  await sb.from("referencias_index").upsert({
+    codigo_barras: item.cdProduto,
+    cd_referencia: item.cdReferencia,
+    produto: item.dsProduto,
+    atualizado_em: new Date().toISOString(),
+  }, { onConflict: "codigo_barras" });
+}
+
+$btnBuscarReferencia.addEventListener("click", async () => {
+  const termo = $referenciaBusca.value.trim();
+  if (!termo) return;
+
+  $btnBuscarReferencia.disabled = true;
+  $referenciaMsg.textContent = "Buscando...";
+  $referenciaMsg.className = "msg";
+  $referenciaResultados.innerHTML = "";
+
+  const { data, error } = await sb
+    .from("referencias_index")
+    .select("*")
+    .or(`cd_referencia.ilike.%${termo}%,produto.ilike.%${termo}%`)
+    .order("atualizado_em", { ascending: false })
+    .limit(20);
+
+  $btnBuscarReferencia.disabled = false;
+
+  if (error) {
+    $referenciaMsg.textContent = error.message;
+    $referenciaMsg.className = "msg err";
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    $referenciaMsg.textContent = "Nenhum produto com essa referência foi escaneado ainda. Bipe o código de barras dele uma vez pra ele entrar no índice.";
+    $referenciaMsg.className = "msg";
+    return;
+  }
+
+  $referenciaMsg.textContent = "";
+  $referenciaResultados.innerHTML = data.map(r => `
+    <div class="historico-item" data-codigo="${r.codigo_barras}">
+      <div class="h-conteudo">
+        <div class="h-produto">${r.produto || r.codigo_barras}</div>
+        <div class="h-meta">Ref: ${r.cd_referencia}</div>
+      </div>
+    </div>
+  `).join("");
+
+  $referenciaResultados.querySelectorAll(".historico-item").forEach(el => {
+    el.addEventListener("click", () => {
+      $codigo.value = el.dataset.codigo;
+      $referenciaResultados.innerHTML = "";
+      $referenciaBusca.value = "";
+      buscar();
+    });
+  });
+});
+
+$referenciaBusca.addEventListener("keydown", e => {
+  if (e.key === "Enter") $btnBuscarReferencia.click();
+});
+
+// ---------- MAIS PROCURADOS ----------
+
+function ehAdmin() {
+  return currentUser && currentUser.email === ADMIN_EMAIL;
+}
+
+async function sugerirMaisProcurado(item, $botao) {
+  if (!currentUser) return;
+  $botao.disabled = true;
+  const { error } = await sb.from("mais_procurados").insert({
+    sugerido_por: currentUser.id,
+    codigo_barras: item.codigo_barras,
+    produto: item.produto,
+    preco: item.preco,
+    lojas: item.lojas,
+  });
+  if (error) {
+    alert("Erro ao sugerir: " + error.message);
+    $botao.disabled = false;
+  } else {
+    $botao.innerHTML = ICONE_CHECK;
+    $botao.classList.add("ativo");
+  }
+}
+
+function renderListaMaisProcurados(container, data, { vazio, comRevisao }) {
+  if (!data || data.length === 0) {
+    container.innerHTML = `<div class="msg">${vazio}</div>`;
+    return;
+  }
+
+  container.innerHTML = data.map(h => `
+    <div class="historico-item" data-id="${h.id}" data-codigo="${h.codigo_barras}" data-lojas="${h.lojas || ""}">
+      <div class="h-conteudo">
+        <div class="h-produto">${h.produto || h.codigo_barras}</div>
+        <div class="h-meta">Lojas ${h.lojas || "-"} · sugerido em ${new Date(h.criado_em).toLocaleString("pt-BR")}</div>
+      </div>
+      <div class="h-acoes">
+        <span>${h.preco != null ? fmtMoeda(h.preco) : ""}</span>
+        ${comRevisao ? `
+          <button class="h-btn aprovar" title="Aprovar">${ICONE_CHECK}</button>
+          <button class="h-btn rejeitar" title="Rejeitar">${ICONE_X}</button>
+        ` : ""}
+        ${!comRevisao && ehAdmin() ? `<button class="h-btn apagar-mp" title="Apagar">${ICONE_LIXEIRA}</button>` : ""}
+      </div>
+    </div>
+  `).join("");
+
+  container.querySelectorAll(".historico-item").forEach(el => {
+    const id = el.dataset.id;
+
+    if (!comRevisao) {
+      el.querySelector(".h-conteudo").addEventListener("click", () => {
+        $codigo.value = el.dataset.codigo;
+        $lojas.value = el.dataset.lojas;
+        $tabBusca.click();
+        buscar();
+      });
+      const $apagar = el.querySelector(".apagar-mp");
+      if ($apagar) {
+        $apagar.addEventListener("click", (e) => {
+          e.stopPropagation();
+          apagarMaisProcurado(id);
+        });
+      }
+    }
+
+    if (comRevisao) {
+      el.querySelector(".aprovar").addEventListener("click", () => revisarMaisProcurado(id, "aprovado"));
+      el.querySelector(".rejeitar").addEventListener("click", () => revisarMaisProcurado(id, "rejeitado"));
+    }
+  });
+}
+
+async function carregarPendentesMP() {
+  if (!ehAdmin()) return;
+  $mpPendentesCard.classList.remove("hidden");
+  $mpPendentesLista.innerHTML = `<div class="msg">Carregando pendentes...</div>`;
+  const { data: pendentes, error: errPend } = await sb
+    .from("mais_procurados")
+    .select("*")
+    .eq("status", "pendente")
+    .order("criado_em", { ascending: false });
+  if (errPend) {
+    $mpPendentesLista.innerHTML = `<div class="msg err">Erro: ${errPend.message}</div>`;
+  } else {
+    renderListaMaisProcurados($mpPendentesLista, pendentes, { vazio: "Nenhuma sugestão pendente.", comRevisao: true });
+  }
+}
+
+async function carregarMaisProcurados() {
+  if (!currentUser) return;
+
+  $mpAprovadosLista.innerHTML = `<div class="msg">Carregando...</div>`;
+  const { data: aprovados, error } = await sb
+    .from("mais_procurados")
+    .select("*")
+    .eq("status", "aprovado")
+    .order("criado_em", { ascending: false });
+
+  if (error) {
+    $mpAprovadosLista.innerHTML = `<div class="msg err">Erro ao carregar: ${error.message}</div>`;
+    return;
+  }
+  renderListaMaisProcurados($mpAprovadosLista, aprovados, { vazio: "Nenhum item aprovado ainda." });
+}
+
+async function revisarMaisProcurado(id, status) {
+  await sb.from("mais_procurados").update({ status, revisado_em: new Date().toISOString() }).eq("id", id);
+  carregarPendentesMP();
+  atualizarBadgeAdmin();
+}
+
+async function apagarMaisProcurado(id) {
+  await sb.from("mais_procurados").delete().eq("id", id);
+  carregarMaisProcurados();
+}
+
+// ---------- ESTATÍSTICAS E NOTIFICAÇÃO DO ADMIN ----------
+
+async function atualizarBadgeAdmin() {
+  if (!ehAdmin()) {
+    $ajudaBadge.classList.add("hidden");
+    return;
+  }
+
+  const [{ count: pendMP }, { count: sugCount }] = await Promise.all([
+    sb.from("mais_procurados").select("*", { count: "exact", head: true }).eq("status", "pendente"),
+    sb.from("sugestoes").select("*", { count: "exact", head: true }),
+  ]);
+
+  const total = (pendMP || 0) + (sugCount || 0);
+  if (total > 0) {
+    $ajudaBadge.textContent = total > 99 ? "99+" : String(total);
+    $ajudaBadge.classList.remove("hidden");
+  } else {
+    $ajudaBadge.classList.add("hidden");
+  }
+}
+
+async function carregarStatsAdmin() {
+  if (!ehAdmin()) return;
+  $statsAdminLista.innerHTML = `<div class="msg">Carregando estatísticas...</div>`;
+
+  const contar = (tabela, filtros) => {
+    let q = sb.from(tabela).select("*", { count: "exact", head: true });
+    if (filtros) q = filtros(q);
+    return q;
+  };
+
+  const [
+    totalBuscas,
+    totalFavoritos,
+    totalReferencias,
+    mpPendentes,
+    mpAprovados,
+    mpRejeitados,
+    totalSugestoes,
+  ] = await Promise.all([
+    contar("historico"),
+    contar("historico", q => q.eq("favorito", true)),
+    contar("referencias_index"),
+    contar("mais_procurados", q => q.eq("status", "pendente")),
+    contar("mais_procurados", q => q.eq("status", "aprovado")),
+    contar("mais_procurados", q => q.eq("status", "rejeitado")),
+    contar("sugestoes"),
+  ]);
+
+  const linhas = [
+    ["Buscas registradas (todos os usuários)", totalBuscas.count],
+    ["Itens favoritados", totalFavoritos.count],
+    ["Produtos no catálogo de referências", totalReferencias.count],
+    ["Mais Procurados pendentes", mpPendentes.count],
+    ["Mais Procurados aprovados", mpAprovados.count],
+    ["Mais Procurados rejeitados", mpRejeitados.count],
+    ["Sugestões recebidas", totalSugestoes.count],
+  ];
+
+  $statsAdminLista.innerHTML = `
+    <table style="width:100%;">
+      <tbody>
+        ${linhas.map(([nome, valor]) => `
+          <tr>
+            <td style="padding:6px 0; color:var(--muted);">${nome}</td>
+            <td style="padding:6px 0; text-align:right; font-weight:700;">${valor != null ? valor : "-"}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+async function carregarResumoVendedores() {
+  if (!ehAdmin()) return;
+  $resumoVendedoresLista.innerHTML = `<div class="msg">Carregando...</div>`;
+
+  const inicioMes = new Date();
+  inicioMes.setDate(1);
+  inicioMes.setHours(0, 0, 0, 0);
+
+  const { data, error } = await sb
+    .from("vendas")
+    .select("vendedor_email, total")
+    .gte("criado_em", inicioMes.toISOString());
+
+  if (error) {
+    $resumoVendedoresLista.innerHTML = `<div class="msg err">Erro ao carregar: ${error.message}</div>`;
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    $resumoVendedoresLista.innerHTML = `<div class="msg">Nenhuma venda registrada este mês ainda.</div>`;
+    return;
+  }
+
+  const porVendedor = {};
+  data.forEach(v => {
+    const chave = v.vendedor_email || "desconhecido";
+    if (!porVendedor[chave]) porVendedor[chave] = { total: 0, vendas: 0 };
+    porVendedor[chave].total += Number(v.total);
+    porVendedor[chave].vendas += 1;
+  });
+
+  const ranking = Object.entries(porVendedor).sort((a, b) => b[1].total - a[1].total);
+
+  $resumoVendedoresLista.innerHTML = `
+    <table style="width:100%;">
+      <thead><tr><th>Vendedor</th><th style="text-align:right;">Vendas</th><th style="text-align:right;">Total</th></tr></thead>
+      <tbody>
+        ${ranking.map(([email, r]) => `
+          <tr>
+            <td style="padding:6px 0;">${email}</td>
+            <td style="padding:6px 0; text-align:right;">${r.vendas}</td>
+            <td style="padding:6px 0; text-align:right; font-weight:700; color:var(--accent);">${fmtMoeda(r.total)}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+// ---------- SUGESTÕES ----------
+
+const DURACOES_MUTE = [
+  { label: "1 hora", horas: 1 },
+  { label: "6 horas", horas: 6 },
+  { label: "1 dia", horas: 24 },
+  { label: "3 dias", horas: 72 },
+  { label: "1 semana", horas: 24 * 7 },
+  { label: "1 mês", horas: 24 * 30 },
+];
+
+async function checarMutePropio() {
+  if (!currentUser) return;
+
+  const { data } = await sb
+    .from("sugestoes_mute")
+    .select("mutado_ate")
+    .eq("user_id", currentUser.id)
+    .maybeSingle();
+
+  const mutado = data && new Date(data.mutado_ate) > new Date();
+  $sugestaoTexto.disabled = !!mutado;
+  $btnEnviarSugestao.disabled = !!mutado;
+
+  if (mutado) {
+    $sugestaoMsg.textContent = `Você está impedido de enviar sugestões até ${new Date(data.mutado_ate).toLocaleString("pt-BR")}.`;
+    $sugestaoMsg.className = "msg err";
+  } else {
+    $sugestaoMsg.textContent = "";
+    $sugestaoMsg.className = "msg";
+  }
+}
+
+$btnEnviarSugestao.addEventListener("click", async () => {
+  const texto = $sugestaoTexto.value.trim();
+  if (!texto || !currentUser) return;
+
+  $btnEnviarSugestao.disabled = true;
+  $sugestaoMsg.textContent = "Enviando...";
+  $sugestaoMsg.className = "msg";
+
+  const { error } = await sb.from("sugestoes").insert({
+    user_id: currentUser.id,
+    email: currentUser.email,
+    texto,
+  });
+
+  $btnEnviarSugestao.disabled = false;
+  if (error) {
+    $sugestaoMsg.textContent = error.message;
+    $sugestaoMsg.className = "msg err";
+  } else {
+    $sugestaoTexto.value = "";
+    $sugestaoMsg.textContent = "Sugestão enviada, obrigado!";
+    $sugestaoMsg.className = "msg";
+  }
+});
+
+async function mutarUsuario(userId, horas) {
+  const mutadoAte = new Date(Date.now() + horas * 60 * 60 * 1000).toISOString();
+  await sb.from("sugestoes_mute").upsert({
+    user_id: userId,
+    mutado_ate: mutadoAte,
+    mutado_por: currentUser.id,
+  });
+  carregarSugestoes();
+}
+
+async function desmutarUsuario(userId) {
+  await sb.from("sugestoes_mute").delete().eq("user_id", userId);
+  carregarSugestoes();
+}
+
+async function carregarSugestoes() {
+  $sugestoesLista.innerHTML = `<div class="msg">Carregando...</div>`;
+
+  const { data, error } = await sb
+    .from("sugestoes")
+    .select("*")
+    .order("criado_em", { ascending: false });
+
+  if (error) {
+    $sugestoesLista.innerHTML = `<div class="msg err">Erro ao carregar: ${error.message}</div>`;
+    return;
+  }
+  if (!data || data.length === 0) {
+    $sugestoesLista.innerHTML = `<div class="msg">Nenhuma sugestão recebida ainda.</div>`;
+    return;
+  }
+
+  const userIds = [...new Set(data.map(s => s.user_id))];
+  const { data: mutes } = await sb
+    .from("sugestoes_mute")
+    .select("user_id, mutado_ate")
+    .in("user_id", userIds);
+  const mutesPorUsuario = {};
+  (mutes || []).forEach(m => { mutesPorUsuario[m.user_id] = m.mutado_ate; });
+
+  const opcoesDuracao = DURACOES_MUTE.map((d, i) => `<option value="${i}">${d.label}</option>`).join("");
+
+  $sugestoesLista.innerHTML = data.map(s => {
+    const mutadoAte = mutesPorUsuario[s.user_id];
+    const mutado = mutadoAte && new Date(mutadoAte) > new Date();
+    return `
+    <div class="historico-item" style="cursor:default; align-items:flex-start; flex-wrap:wrap;">
+      <div class="h-conteudo">
+        <div class="h-produto">${s.email}</div>
+        <div class="h-meta">${new Date(s.criado_em).toLocaleString("pt-BR")}</div>
+        <div style="margin-top:6px; font-size:0.9rem;">${s.texto.replace(/</g, "&lt;")}</div>
+        ${mutado ? `<div class="h-meta" style="color:var(--danger); margin-top:6px;">Mutado até ${new Date(mutadoAte).toLocaleString("pt-BR")}</div>` : ""}
+        <div class="row" style="margin-top:8px; margin-bottom:0;">
+          ${mutado
+            ? `<button class="secondary btn-desmutar" data-user="${s.user_id}" style="width:auto; padding:6px 10px; font-size:0.8rem;">Desmutar</button>`
+            : `<select class="duracao-mute" style="width:auto; margin-bottom:0; padding:6px; font-size:0.8rem;">${opcoesDuracao}</select>
+               <button class="secondary btn-mutar" data-user="${s.user_id}" style="width:auto; padding:6px 10px; font-size:0.8rem;">Mutar sugestões</button>`
+          }
+        </div>
+      </div>
+      <div class="h-acoes">
+        <button class="h-btn apagar-sugestao" title="Apagar">${ICONE_LIXEIRA}</button>
+      </div>
+    </div>
+  `;
+  }).join("");
+
+  $sugestoesLista.querySelectorAll(".apagar-sugestao").forEach((btn, i) => {
+    btn.addEventListener("click", async () => {
+      await sb.from("sugestoes").delete().eq("id", data[i].id);
+      carregarSugestoes();
+      atualizarBadgeAdmin();
+    });
+  });
+
+  $sugestoesLista.querySelectorAll(".btn-mutar").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const select = btn.parentElement.querySelector(".duracao-mute");
+      const horas = DURACOES_MUTE[Number(select.value)].horas;
+      mutarUsuario(btn.dataset.user, horas);
+    });
+  });
+
+  $sugestoesLista.querySelectorAll(".btn-desmutar").forEach(btn => {
+    btn.addEventListener("click", () => desmutarUsuario(btn.dataset.user));
+  });
+}
+
+// ---------- CÂMERA (QR / código de barras) ----------
+
+let torchLigada = false;
+
+// Formatos de código de barras que o app precisa reconhecer, além de QR.
+// Sem isso, alguns navegadores (principalmente iOS) ficam menos confiáveis
+// pra pegar código de barras 1D (EAN/UPC/Code128), só QR.
+const FORMATOS_CODIGO = (typeof Html5QrcodeSupportedFormats !== "undefined")
+  ? [
+      Html5QrcodeSupportedFormats.QR_CODE,
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.UPC_A,
+      Html5QrcodeSupportedFormats.UPC_E,
+      Html5QrcodeSupportedFormats.CODE_128,
+      Html5QrcodeSupportedFormats.CODE_39,
+      Html5QrcodeSupportedFormats.CODABAR,
+      Html5QrcodeSupportedFormats.ITF,
+    ]
+  : undefined;
+
+async function iniciarCamera(cameraIdOuConfig, videoConstraints) {
+  html5Qrcode = new Html5Qrcode("camReader", {
+    formatsToSupport: FORMATOS_CODIGO,
+    verbose: false,
+  });
+  torchLigada = false;
+  $btnTorch.classList.add("hidden");
+
+  const configuracao = {
+    fps: 15,
+    aspectRatio: 1.7777778,
+    disableFlip: false,
+    // Sem qrbox: escaneia o quadro inteiro em vez de exigir que o código
+    // fique alinhado numa caixinha pequena — mais tolerante, principalmente
+    // no iPhone onde a pré-visualização da câmera pode vir com outro corte.
+    qrbox: undefined,
+    videoConstraints,
+  };
+  const aoLer = (decodedText) => aoDetectarCodigo(decodedText);
+
+  // Diagnóstico visível na tela: mostra quantos quadros já foram processados
+  // e o último erro de leitura, pra sabermos se o problema é a câmera não
+  // capturar imagem nenhuma, ou capturar mas nunca reconhecer o código.
+  let tentativas = 0;
+  let ultimoErro = "";
+  const aoFalharFrame = (msg) => {
+    tentativas++;
+    ultimoErro = String(msg).slice(0, 80);
+  };
+  const atualizarDebug = () => {
+    const video = document.querySelector("#camReader video");
+    const dimensoes = video ? `${video.videoWidth}x${video.videoHeight}` : "sem vídeo";
+    $camDebug.textContent = `quadros: ${tentativas} | vídeo: ${dimensoes} | último: ${ultimoErro}`;
+  };
+  const intervaloDebug = setInterval(atualizarDebug, 500);
+  fecharCameraDebugCleanup = () => clearInterval(intervaloDebug);
+
+  await html5Qrcode.start(cameraIdOuConfig, configuracao, aoLer, aoFalharFrame);
+
+  // Reforça o foco contínuo direto na track de vídeo (além do que já foi
+  // pedido em videoConstraints) — sem isso, em alguns iPhones a câmera foca
+  // uma vez ao abrir e nunca reajusta, deixando tudo borrado de perto.
+  try {
+    await html5Qrcode.applyVideoConstraints({ advanced: [{ focusMode: "continuous" }] });
+  } catch (e) {
+    // Aparelho não suporta controlar o foco manualmente — sem problema.
+  }
+
+  // Mostra o botão de lanterna só se o dispositivo/lente atual suportar.
+  try {
+    const capacidades = html5Qrcode.getRunningTrackCameraCapabilities();
+    const torch = capacidades.torchFeature();
+    if (torch.isSupported()) $btnTorch.classList.remove("hidden");
+  } catch (e) {
+    // API de torch não suportada nesse navegador — mantém o botão escondido.
+  }
+}
+
+let fecharCameraDebugCleanup = null;
+let pararScanNativo = null;
+
+// Caminho preferencial: usa a API nativa do navegador (BarcodeDetector) em
+// vez de decodificar em JavaScript. Quando disponível, costuma ser bem mais
+// rápida e confiável do que a biblioteca — é o que outros apps que
+// funcionam bem no iPhone usam como primeira opção.
+async function iniciarCameraNativa() {
+  const formatos = await BarcodeDetector.getSupportedFormats().catch(() => [
+    "qr_code", "ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "codabar", "itf",
+  ]);
+  const detector = new BarcodeDetector({ formats: formatos });
+
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+    audio: false,
+  });
+
+  $nativeVideo.srcObject = stream;
+  await $nativeVideo.play();
+  $nativeVideoWrap.classList.remove("hidden");
+
+  const track = stream.getVideoTracks()[0];
+  if (track) {
+    track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }).catch(() => {});
+    try {
+      if (track.getCapabilities && track.getCapabilities().torch) {
+        $btnTorch.classList.remove("hidden");
+        $btnTorch.onclick = async () => {
+          torchLigada = !torchLigada;
+          await track.applyConstraints({ advanced: [{ torch: torchLigada }] }).catch(() => {});
+          $btnTorch.classList.toggle("ativo", torchLigada);
+        };
+      }
+    } catch (e) {}
+  }
+
+  let tentativasNativo = 0;
+  let ultimoErroNativo = "";
+  const intervaloDebugNativo = setInterval(() => {
+    $camDebug.textContent = `(nativo) quadros: ${tentativasNativo} | vídeo: ${$nativeVideo.videoWidth}x${$nativeVideo.videoHeight} | último: ${ultimoErroNativo}`;
+  }, 500);
+
+  let ativo = true;
+  pararScanNativo = () => {
+    ativo = false;
+    clearInterval(intervaloDebugNativo);
+    stream.getTracks().forEach(t => t.stop());
+    $nativeVideoWrap.classList.add("hidden");
+    $nativeVideo.srcObject = null;
+  };
+
+  (async function loop() {
+    while (ativo) {
+      try {
+        const codes = await detector.detect($nativeVideo);
+        tentativasNativo++;
+        if (codes.length > 0) {
+          aoDetectarCodigo(codes[0].rawValue);
+          return;
+        }
+      } catch (e) {
+        ultimoErroNativo = String(e).slice(0, 80);
+      }
+      await new Promise(r => setTimeout(r, 80));
+    }
+  })();
+}
+
+// Pra onde vai o código lido pela câmera: "busca" (padrão, campo de código
+// da aba Buscar) ou "venda" (campo de adicionar produto na aba Vendas).
+let alvoScanCamera = "busca";
+
+function aoDetectarCodigo(codigo) {
+  fecharCamera();
+  if (alvoScanCamera === "venda") {
+    adicionarProdutoNaVenda(codigo);
+  } else if (alvoScanCamera === "promo") {
+    $promoCodigoInput.value = codigo;
+    buscarProdutoPromo(codigo);
+  } else {
+    $codigo.value = codigo;
+    buscar();
+  }
+}
+
+async function abrirCameraModal() {
+  $camModal.classList.remove("hidden");
+
+  if ("BarcodeDetector" in window) {
+    try {
+      await iniciarCameraNativa();
+      return;
+    } catch (e) {
+      console.error("Scanner nativo falhou, usando biblioteca de leitura:", e);
+    }
+  }
+
+  // Monta uma lista de tentativas, da melhor pra mais simples, e usa a
+  // primeira que funcionar. O ponto principal é o "focusMode: continuous":
+  // sem isso, em vários iPhones a câmera foca uma vez ao abrir e nunca
+  // reajusta, deixando tudo borrado quando o celular chega perto do código.
+  const comFocoContinuo = (base) => ({
+    ...base,
+    width: { ideal: 1280 },
+    height: { ideal: 720 },
+    frameRate: { ideal: 15 },
+    advanced: [{ focusMode: "continuous" }],
+  });
+
+  const tentativas = [];
+
+  try {
+    const cameras = await Html5Qrcode.getCameras();
+    if (cameras && cameras.length > 0) {
+      // No iPhone, a lente principal normalmente aparece PRIMEIRO na lista
+      // de câmeras traseiras — as seguintes costumam ser ultra-wide/telefoto,
+      // que focam mal de perto e atrapalham a leitura do código de barras.
+      const traseiras = cameras.filter(c => /back|tras|rear/i.test(c.label || ""));
+      const principal = (traseiras[0] || cameras[0]).id;
+      tentativas.push([{ deviceId: { exact: principal } }, comFocoContinuo({ deviceId: { exact: principal } })]);
+      tentativas.push([{ deviceId: { exact: principal } }, undefined]);
+    }
+  } catch (e) {
+    console.error("Não consegui listar câmeras, seguindo com facingMode:", e);
+  }
+
+  tentativas.push([{ facingMode: "environment" }, comFocoContinuo({ facingMode: { ideal: "environment" } })]);
+  tentativas.push([{ facingMode: "environment" }, undefined]);
+
+  let sucesso = false;
+  for (const [cameraId, videoConstraints] of tentativas) {
+    try {
+      await iniciarCamera(cameraId, videoConstraints);
+      sucesso = true;
+      break;
+    } catch (e) {
+      console.error("Tentativa de câmera falhou:", cameraId, videoConstraints, e);
+    }
+  }
+
+  if (!sucesso) {
+    $camModal.classList.add("hidden");
+    setStatus("Não foi possível acessar a câmera.", true);
+  }
+}
+
+$btnCamera.addEventListener("click", () => {
+  alvoScanCamera = "busca";
+  abrirCameraModal();
+});
+
+$btnVendaCamera.addEventListener("click", () => {
+  alvoScanCamera = "venda";
+  abrirCameraModal();
+});
+
+$btnPromoCamera.addEventListener("click", () => {
+  alvoScanCamera = "promo";
+  abrirCameraModal();
+});
+
+$btnTorch.addEventListener("click", async () => {
+  if (!html5Qrcode) return;
+  try {
+    const capacidades = html5Qrcode.getRunningTrackCameraCapabilities();
+    torchLigada = !torchLigada;
+    await capacidades.torchFeature().apply(torchLigada);
+    $btnTorch.classList.toggle("ativo", torchLigada);
+  } catch (e) {
+    console.error(e);
+  }
+});
+
+$btnFecharCam.addEventListener("click", fecharCamera);
+
+function fecharCamera() {
+  if (html5Qrcode) {
+    html5Qrcode.stop().then(() => html5Qrcode.clear()).catch(() => {});
+    html5Qrcode = null;
+  }
+  if (fecharCameraDebugCleanup) {
+    fecharCameraDebugCleanup();
+    fecharCameraDebugCleanup = null;
+  }
+  if (pararScanNativo) {
+    pararScanNativo();
+    pararScanNativo = null;
+  }
+  $btnTorch.onclick = null;
+  torchLigada = false;
+  $btnTorch.classList.remove("ativo");
+  $camModal.classList.add("hidden");
+}
+
+// ---------- BUSCA DE PREÇO / ESTOQUE ----------
+
+function fmtMoeda(v) {
+  return Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+// Máscara de valor "tipo calculadora": os dígitos digitados entram pela
+// direita e os 2 últimos sempre são os centavos — digitar "3999" mostra
+// "39,99", não "3.999,00". Usada em todo campo que representa dinheiro.
+function formatarCentavosDigitados(digitos) {
+  const num = (Number(digitos) || 0) / 100;
+  return num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function aplicarMascaraMoeda(input) {
+  input.setAttribute("inputmode", "numeric");
+  input.addEventListener("input", () => {
+    const digitos = input.value.replace(/\D/g, "");
+    input.value = digitos ? formatarCentavosDigitados(digitos) : "";
+  });
+}
+
+function valorMascarado(input) {
+  if (!input.value) return 0;
+  return Number(input.value.replace(/\./g, "").replace(",", ".")) || 0;
+}
+
+function definirValorMascarado(input, numero) {
+  const centavos = Math.round((Number(numero) || 0) * 100);
+  input.value = centavos ? formatarCentavosDigitados(String(centavos)) : "";
+}
+
+function setStatus(html, isErr) {
+  $status.innerHTML = html ? `<div class="msg ${isErr ? "err" : ""}">${html}</div>` : "";
+}
+
+function parseLojas(raw) {
+  return [...new Set(
+    raw.split(/[,\s]+/).map(s => s.trim()).filter(Boolean).map(Number)
+  )].filter(n => !Number.isNaN(n));
+}
+
+function cardEstoqueLoadingInner(loja) {
+  const info = infoLoja(loja);
+  return `
+    <div class="loja-titulo">Loja ${loja}</div>
+    ${info ? `<div class="loja-endereco">${info}</div>` : ""}
+    <div class="estoque-badge">
+      <span>Estoque</span>
+      <span class="estoque-qtd"><span class="loading-dots"><span></span><span></span><span></span></span></span>
+    </div>
+    <div class="tabela-wrap"></div>`;
+}
+
+function criarLojaCardEl(loja) {
+  const div = document.createElement("div");
+  div.className = "loja-card";
+  div.innerHTML = cardEstoqueLoadingInner(loja);
+  return div;
+}
+
+// Cache local (no aparelho, não no banco) do último preço visto de cada
+// código, pra mostrar algo quando não tiver internet — nunca é usado se a
+// busca ao vivo funcionar, só entra como último recurso offline.
+function chaveCachePreco(codigo) {
+  return "bp_cache_preco_" + codigo;
+}
+
+function salvarCachePreco(codigo, item) {
+  try {
+    localStorage.setItem(chaveCachePreco(codigo), JSON.stringify({
+      cdSKU: item.cdSKU,
+      dsProduto: item.dsProduto,
+      vlPreco: item.vlPreco,
+      vlPrecoPromocao: item.vlPrecoPromocao,
+      ts: Date.now(),
+    }));
+  } catch (e) {
+    // localStorage cheio ou indisponível: não é crítico, ignora.
+  }
+}
+
+function lerCachePreco(codigo) {
+  try {
+    const raw = localStorage.getItem(chaveCachePreco(codigo));
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function buscarPreco(codigo, primeiraLoja, signal) {
+  const resp = await fetch(`${API_BASE}/${encodeURIComponent(codigo)}/${encodeURIComponent(primeiraLoja)}`, { signal });
+  const data = await resp.json();
+  return (data.precos || []).find(p => p.cdSKU && p.cdSKU !== 0) || null;
+}
+
+// O site da Mersan às vezes demora muito ou devolve uma página de erro (HTML)
+// em vez do JSON de estoque, principalmente sob carga. Aqui a gente valida a
+// resposta e tenta de novo uma vez antes de desistir, pra reduzir os "Erro ao
+// buscar estoque" causados por instabilidade do lado deles.
+async function fetchEstoqueComRetry(url, signal, tentativas = 2) {
+  for (let i = 0; i < tentativas; i++) {
+    try {
+      const resp = await fetch(url, { signal });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      if (!Array.isArray(data)) throw new Error("Resposta de estoque inesperada");
+      return data;
+    } catch (e) {
+      if (e.name === "AbortError" || i === tentativas - 1) throw e;
+    }
+  }
+}
+
+async function buscarEstoqueLoja(item, loja, estoqueCache, cardEl, signal) {
+  const $qtd = cardEl.querySelector(".estoque-qtd");
+  const $tabela = cardEl.querySelector(".tabela-wrap");
+
+  if (!estoqueCache.has(item.cdReferencia)) {
+    estoqueCache.set(
+      item.cdReferencia,
+      fetchEstoqueComRetry(`${API_BASE}/estoque/${encodeURIComponent(item.cdReferencia)}/${encodeURIComponent(loja)}`, signal)
+    );
+  }
+  const estData = await estoqueCache.get(item.cdReferencia);
+
+  const lojaNum = Number(loja);
+  const linhasLoja = estData.filter(r => r.cd_empresa === lojaNum);
+
+  const qtdTotal = linhasLoja.reduce((soma, r) => soma + r.qt_stock, 0);
+  $qtd.textContent = qtdTotal;
+  $qtd.className = "estoque-qtd " + (qtdTotal > 0 ? "pos" : "zero");
+
+  const comEstoque = linhasLoja.filter(r => r.qt_stock > 0);
+  if (comEstoque.length > 0) {
+    let rows = comEstoque
+      .sort((a, b) => a.ds_cor.localeCompare(b.ds_cor) || a.ds_tamanho.localeCompare(b.ds_tamanho))
+      .map(r => {
+        const bipado = r.cd_produto === item.cdSKU;
+        const classeAtual = bipado ? ' class="linha-bipada"' : "";
+        const marca = bipado ? " ●" : "";
+        return `<tr${classeAtual}><td>${r.ds_cor}${marca}</td><td>${r.ds_tamanho}</td><td class="pos">${r.qt_stock}</td></tr>`;
+      })
+      .join("");
+    $tabela.innerHTML = `
+      <table>
+        <thead><tr><th>Cor</th><th>Tam</th><th>Qtd</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  } else {
+    $tabela.innerHTML = `<div class="msg">Nenhuma outra numeração com estoque nesta loja.</div>`;
+  }
+
+  return qtdTotal;
+}
+
+async function tentarBuscarEstoque(item, loja, cache, cardEl, signal) {
+  try {
+    return await buscarEstoqueLoja(item, loja, cache, cardEl, signal);
+  } catch (e) {
+    console.error(e);
+    const info = infoLoja(loja);
+
+    if (e.name === "AbortError") {
+      cardEl.innerHTML = `
+        <div class="loja-titulo">Loja ${loja}</div>
+        ${info ? `<div class="loja-endereco">${info}</div>` : ""}
+        <div class="msg">Busca interrompida.</div>`;
+      return -1;
+    }
+
+    if (!navigator.onLine || e instanceof TypeError) {
+      cardEl.innerHTML = `
+        <div class="loja-titulo">Loja ${loja}</div>
+        ${info ? `<div class="loja-endereco">${info}</div>` : ""}
+        <div class="msg err">Sem conexão — vai tentar de novo sozinho quando a internet voltar.</div>`;
+      window.addEventListener("online", () => {
+        cardEl.innerHTML = cardEstoqueLoadingInner(loja);
+        tentarBuscarEstoque(item, loja, new Map(), cardEl);
+      }, { once: true });
+      return -1;
+    }
+
+    cardEl.innerHTML = `
+      <div class="loja-titulo">Loja ${loja}</div>
+      ${info ? `<div class="loja-endereco">${info}</div>` : ""}
+      <div class="msg err">Erro ao buscar estoque (a Mersan pode estar lenta ou instável).</div>
+      <button class="secondary full btn-tentar-de-novo">Tentar de novo</button>`;
+    cardEl.querySelector(".btn-tentar-de-novo").addEventListener("click", () => {
+      cardEl.innerHTML = cardEstoqueLoadingInner(loja);
+      tentarBuscarEstoque(item, loja, new Map(), cardEl);
+    });
+    return -1;
+  }
+}
+
+// Enquanto uma busca do botão principal está em andamento, guarda o
+// controlador aqui pra dar pra cancelar clicando de novo no botão (que vira
+// vermelho e escrito "Parar busca").
+let controladorBuscaAtual = null;
+
+function setBotaoBuscarParar(parar) {
+  $buscar.textContent = parar ? "Parar busca" : "Buscar";
+  $buscar.classList.toggle("btn-parar", parar);
+}
+
+// No modo padrão, reaproveita a área fixa de resultado (resumoCard/resultados).
+// No modo "múltiplos itens", cria um bloco novo e independente pra cada busca,
+// sem travar o campo/botão — assim dá pra já buscar o próximo item enquanto
+// o anterior ainda está carregando.
+async function executarBusca(codigo, lojasStrRaw, multiplo) {
+  const lojas = parseLojas(lojasStrRaw);
+  if (!codigo || lojas.length === 0) return;
+
+  const controller = new AbortController();
+  const signal = controller.signal;
+
+  let produtoEl, precoEl, precoOriginalEl, gridEl;
+  let setBuscaStatus = () => {};
+
+  if (multiplo) {
+    const bloco = document.createElement("div");
+    bloco.className = "card result show busca-multipla";
+    bloco.innerHTML = `
+      <div class="resumo">
+        <div class="resumo-produto"></div>
+        <div style="text-align:right;">
+          <div class="resumo-preco-original"></div>
+          <div class="resumo-preco"></div>
+        </div>
+      </div>
+      <div class="msg busca-status">Buscando preço...</div>
+      <div class="lojas-grid" style="margin-top:16px;"></div>
+      <button class="secondary full btn-parar-busca">Parar busca</button>`;
+    $buscasMultiplas.prepend(bloco);
+
+    produtoEl = bloco.querySelector(".resumo-produto");
+    precoEl = bloco.querySelector(".resumo-preco");
+    precoOriginalEl = bloco.querySelector(".resumo-preco-original");
+    gridEl = bloco.querySelector(".lojas-grid");
+    const statusEl = bloco.querySelector(".busca-status");
+    setBuscaStatus = (texto, isErr) => {
+      if (!texto) { statusEl.remove(); return; }
+      statusEl.textContent = texto;
+      statusEl.className = "msg busca-status" + (isErr ? " err" : "");
+    };
+    const $btnParar = bloco.querySelector(".btn-parar-busca");
+    $btnParar.addEventListener("click", () => {
+      if ($btnParar.textContent === "Remover") { bloco.remove(); return; }
+      controller.abort();
+    });
+  } else {
+    controladorBuscaAtual = controller;
+    setBotaoBuscarParar(true);
+    $resumoCard.classList.remove("show");
+    $resultados.innerHTML = "";
+    produtoEl = $resumoProduto;
+    precoEl = $resumoPreco;
+    precoOriginalEl = $resumoPrecoOriginal;
+    gridEl = $resultados;
+    setBuscaStatus = setStatus;
+  }
+
+  setBuscaStatus("Buscando preço...");
+
+  try {
+    const item = await buscarPreco(codigo, lojas[0], signal);
+    if (!item) {
+      setBuscaStatus("Produto não encontrado.", true);
+      return;
+    }
+
+    produtoEl.textContent = `${item.cdSKU} - ${item.dsProduto}`;
+    if (item.vlPrecoPromocao && item.vlPrecoPromocao > 0 && item.vlPrecoPromocao !== item.vlPreco) {
+      precoOriginalEl.textContent = fmtMoeda(item.vlPreco);
+      precoEl.textContent = fmtMoeda(item.vlPrecoPromocao);
+    } else {
+      precoOriginalEl.textContent = "";
+      precoEl.textContent = fmtMoeda(item.vlPreco);
+    }
+    if (!multiplo) $resumoCard.classList.add("show");
+
+    salvarHistorico(item, lojasStrRaw.trim());
+    salvarNoIndiceReferencias(item);
+    salvarCachePreco(codigo, item);
+
+    setBuscaStatus("Consultando estoque...");
+
+    const cardEls = lojas.map(loja => {
+      const el = criarLojaCardEl(loja);
+      gridEl.appendChild(el);
+      return { loja, el };
+    });
+
+    const estoqueCache = new Map();
+    const resultados = await Promise.all(
+      cardEls.map(({ loja, el }) => tentarBuscarEstoque(item, loja, estoqueCache, el, signal).then(qtd => ({ el, qtd: qtd ?? -1 })))
+    );
+
+    // Reordena os cards: lojas com estoque primeiro (mais peças no topo),
+    // depois as zeradas, depois as que deram erro.
+    resultados
+      .slice()
+      .sort((a, b) => b.qtd - a.qtd)
+      .forEach(({ el }) => gridEl.appendChild(el));
+
+    setBuscaStatus("");
+  } catch (e) {
+    if (e.name === "AbortError") {
+      setBuscaStatus("Busca interrompida.");
+    } else if (!navigator.onLine || e instanceof TypeError) {
+      // Sem internet: se já vimos esse código antes, mostra o último preço
+      // salvo no aparelho (sem estoque, que é sempre dado ao vivo).
+      const cache = lerCachePreco(codigo);
+      if (cache) {
+        produtoEl.textContent = `${cache.cdSKU} - ${cache.dsProduto}`;
+        if (cache.vlPrecoPromocao && cache.vlPrecoPromocao > 0 && cache.vlPrecoPromocao !== cache.vlPreco) {
+          precoOriginalEl.textContent = fmtMoeda(cache.vlPreco);
+          precoEl.textContent = fmtMoeda(cache.vlPrecoPromocao);
+        } else {
+          precoOriginalEl.textContent = "";
+          precoEl.textContent = fmtMoeda(cache.vlPreco);
+        }
+        if (!multiplo) $resumoCard.classList.add("show");
+        setBuscaStatus(`Sem conexão — mostrando o último preço visto (${new Date(cache.ts).toLocaleString("pt-BR")}). Pode estar desatualizado, e o estoque não está disponível offline.`, true);
+      } else {
+        setBuscaStatus("Sem conexão e nenhum preço salvo desse produto ainda.", true);
+      }
+
+      // No modo múltiplos itens, tenta de novo sozinho quando a conexão
+      // voltar, pra trazer o dado ao vivo (com estoque) assim que possível.
+      if (multiplo) {
+        window.addEventListener("online", () => {
+          executarBusca(codigo, lojasStrRaw, true);
+        }, { once: true });
+      }
+    } else {
+      setBuscaStatus("Erro ao buscar. Verifique a conexão.", true);
+      console.error(e);
+    }
+  } finally {
+    if (multiplo) {
+      const bloco = gridEl.closest(".busca-multipla");
+      const $btnParar = bloco && bloco.querySelector(".btn-parar-busca");
+      if ($btnParar) $btnParar.textContent = "Remover";
+    } else {
+      controladorBuscaAtual = null;
+      setBotaoBuscarParar(false);
+    }
+    talvezFocarCodigo();
+  }
+}
+
+function buscar() {
+  if (controladorBuscaAtual) {
+    controladorBuscaAtual.abort();
+    return;
+  }
+
+  const codigo = $codigo.value.trim();
+  const lojasStr = $lojas.value;
+  const multiplo = $modoMultiplo.checked;
+  if (!codigo) return;
+
+  if (multiplo) $codigo.value = ""; // libera o campo na hora pro próximo item
+
+  executarBusca(codigo, lojasStr, multiplo);
+}
+
+$buscar.addEventListener("click", buscar);
+$codigo.addEventListener("keydown", e => { if (e.key === "Enter") buscar(); });
+
+// Limpa tudo da busca por código de barras, sem precisar recarregar a
+// página: código digitado, resumo de preço, cards de estoque e status.
+$btnLimparBusca.addEventListener("click", () => {
+  if (controladorBuscaAtual) controladorBuscaAtual.abort();
+  $codigo.value = "";
+  $resumoCard.classList.remove("show");
+  $resumoProduto.textContent = "";
+  $resumoPreco.textContent = "";
+  $resumoPrecoOriginal.textContent = "";
+  $resultados.innerHTML = "";
+  $buscasMultiplas.innerHTML = "";
+  setStatus("");
+  talvezFocarCodigo();
+});
+
+$btnLimparReferencia.addEventListener("click", () => {
+  $referenciaBusca.value = "";
+  $referenciaResultados.innerHTML = "";
+  $referenciaMsg.textContent = "";
+  $referenciaMsg.className = "msg";
+});
+
+// ---------- VENDAS ----------
+
+let itensVendaAtual = []; // { codigo_barras, produto, preco_unit, quantidade }
+let modoVenda = "venda"; // "venda" | "troca"
+let ladoTroca = "devolvido"; // "devolvido" | "novo" — pra onde vai o próximo produto adicionado, na troca
+let itensDevolvidosAtual = [];
+let itensNovosTrocaAtual = [];
+
+function popularLojasVenda() {
+  if ($vendaLoja.options.length > 0) return; // já populado, não refaz toda vez
+  const salva = localStorage.getItem("bp_venda_loja");
+  $vendaLoja.innerHTML = TODAS_AS_LOJAS
+    .slice()
+    .sort((a, b) => a - b)
+    .map(n => {
+      const info = LOJAS_INFO[n];
+      const label = info ? `${n} - ${info.nome}` : String(n);
+      return `<option value="${n}">${label}</option>`;
+    })
+    .join("");
+  if (salva && TODAS_AS_LOJAS.includes(Number(salva))) {
+    $vendaLoja.value = salva;
+  }
+}
+
+$vendaLoja.addEventListener("change", () => {
+  localStorage.setItem("bp_venda_loja", $vendaLoja.value);
+});
+
+function renderItensVenda() {
+  if (itensVendaAtual.length === 0) {
+    $vendaItensLista.innerHTML = `<div class="msg">Nenhum produto adicionado ainda.</div>`;
+  } else {
+    $vendaItensLista.innerHTML = itensVendaAtual.map((item, i) => `
+      <div class="venda-item" data-i="${i}">
+        <div class="vi-info">
+          <div class="vi-produto">${item.produto || item.codigo_barras}</div>
+          <div class="vi-preco">${fmtMoeda(item.preco_unit)} cada</div>
+        </div>
+        <div class="vi-qtd-stepper">
+          <button type="button" class="vi-menos">−</button>
+          <span>${item.quantidade}</span>
+          <button type="button" class="vi-mais">+</button>
+        </div>
+        <div class="vi-subtotal">${fmtMoeda(item.preco_unit * item.quantidade)}</div>
+        <button type="button" class="h-btn apagar vi-remover" title="Remover">${ICONE_LIXEIRA}</button>
+      </div>
+    `).join("");
+  }
+
+  $btnFinalizarVenda.disabled = itensVendaAtual.length === 0;
+  atualizarTotaisVenda();
+}
+
+let modoDesconto = "percentual"; // "percentual" | "valor"
+
+function calcularSubtotalVenda() {
+  return itensVendaAtual.reduce((soma, item) => soma + item.preco_unit * item.quantidade, 0);
+}
+
+// Calcula subtotal/desconto/total a partir dos itens + do modo de desconto
+// escolhido (por %, ou digitando direto o valor final da compra — útil
+// quando a porcentagem "quebra" e não fecha um número redondo).
+function atualizarTotaisVenda() {
+  const subtotal = calcularSubtotalVenda();
+  $vendaSubtotal.textContent = fmtMoeda(subtotal);
+
+  let totalFinal = subtotal;
+  let descontoValor = 0;
+  let descontoPct = 0;
+
+  if (modoDesconto === "percentual") {
+    descontoPct = Math.min(100, Math.max(0, Number($vendaDescontoPct.value) || 0));
+    descontoValor = subtotal * (descontoPct / 100);
+    totalFinal = subtotal - descontoValor;
+  } else {
+    const digitado = $vendaValorFinal.value === "" ? subtotal : valorMascarado($vendaValorFinal);
+    totalFinal = Math.max(0, Math.min(subtotal, digitado));
+    descontoValor = subtotal - totalFinal;
+    descontoPct = subtotal > 0 ? (descontoValor / subtotal) * 100 : 0;
+  }
+
+  $vendaDescontoInfo.textContent = descontoValor > 0.001
+    ? `Desconto: -${fmtMoeda(descontoValor)} (${descontoPct.toFixed(1)}%)`
+    : "";
+  $vendaTotal.textContent = fmtMoeda(totalFinal);
+
+  return { subtotal, totalFinal, descontoValor, descontoPct };
+}
+
+$btnDescontoPct.addEventListener("click", () => {
+  modoDesconto = "percentual";
+  $btnDescontoPct.classList.add("desconto-ativo");
+  $btnDescontoValor.classList.remove("desconto-ativo");
+  $descontoPctWrap.classList.remove("hidden");
+  $descontoValorWrap.classList.add("hidden");
+  atualizarTotaisVenda();
+});
+
+$btnDescontoValor.addEventListener("click", () => {
+  modoDesconto = "valor";
+  $btnDescontoValor.classList.add("desconto-ativo");
+  $btnDescontoPct.classList.remove("desconto-ativo");
+  $descontoValorWrap.classList.remove("hidden");
+  $descontoPctWrap.classList.add("hidden");
+  if (!$vendaValorFinal.value) definirValorMascarado($vendaValorFinal, calcularSubtotalVenda());
+  atualizarTotaisVenda();
+});
+
+$vendaDescontoPct.addEventListener("input", atualizarTotaisVenda);
+$vendaValorFinal.addEventListener("input", atualizarTotaisVenda);
+
+function resetarDescontoVenda() {
+  modoDesconto = "percentual";
+  $btnDescontoPct.classList.add("desconto-ativo");
+  $btnDescontoValor.classList.remove("desconto-ativo");
+  $descontoPctWrap.classList.remove("hidden");
+  $descontoValorWrap.classList.add("hidden");
+  $vendaDescontoPct.value = "";
+  $vendaValorFinal.value = "";
+}
+
+$vendaItensLista.addEventListener("click", (e) => {
+  const el = e.target.closest(".venda-item");
+  if (!el) return;
+  const i = Number(el.dataset.i);
+
+  if (e.target.closest(".vi-mais")) {
+    itensVendaAtual[i].quantidade++;
+    renderItensVenda();
+  } else if (e.target.closest(".vi-menos")) {
+    itensVendaAtual[i].quantidade--;
+    if (itensVendaAtual[i].quantidade <= 0) itensVendaAtual.splice(i, 1);
+    renderItensVenda();
+  } else if (e.target.closest(".vi-remover")) {
+    itensVendaAtual.splice(i, 1);
+    renderItensVenda();
+  }
+});
+
+function adicionarEmLista(lista, novoItem) {
+  const existente = lista.find(it => {
+    if (novoItem.codigo_barras) return it.codigo_barras === novoItem.codigo_barras;
+    // Item manual (sem código): só junta se for exatamente o mesmo nome e preço.
+    return !it.codigo_barras && it.produto === novoItem.produto && it.preco_unit === novoItem.preco_unit;
+  });
+  if (existente) {
+    existente.quantidade++;
+  } else {
+    lista.push({ ...novoItem, quantidade: 1 });
+  }
+}
+
+// Ponto único de entrada usado pelo bip, pela câmera, pelo histórico e pelo
+// item manual — decide sozinho pra qual lista o produto vai, dependendo do
+// modo (venda normal ou troca) e, na troca, de qual lado está ativo.
+function adicionarItemNaListaDeVenda(novoItem) {
+  if (modoVenda === "troca") {
+    adicionarEmLista(ladoTroca === "devolvido" ? itensDevolvidosAtual : itensNovosTrocaAtual, novoItem);
+    renderTrocaListas();
+  } else {
+    adicionarEmLista(itensVendaAtual, novoItem);
+    renderItensVenda();
+  }
+}
+
+function renderListaDeItens(container, lista) {
+  if (lista.length === 0) {
+    container.innerHTML = `<div class="msg">Nenhum produto ainda.</div>`;
+    return;
+  }
+  container.innerHTML = lista.map((item, i) => `
+    <div class="venda-item" data-i="${i}">
+      <div class="vi-info">
+        <div class="vi-produto">${item.produto || item.codigo_barras}</div>
+        <div class="vi-preco">${fmtMoeda(item.preco_unit)} cada</div>
+      </div>
+      <div class="vi-qtd-stepper">
+        <button type="button" class="vi-menos">−</button>
+        <span>${item.quantidade}</span>
+        <button type="button" class="vi-mais">+</button>
+      </div>
+      <div class="vi-subtotal">${fmtMoeda(item.preco_unit * item.quantidade)}</div>
+      <button type="button" class="h-btn apagar vi-remover" title="Remover">${ICONE_LIXEIRA}</button>
+    </div>
+  `).join("");
+}
+
+function bindListaDeItens(container, lista, aoMudar) {
+  container.querySelectorAll(".venda-item").forEach(el => {
+    const i = Number(el.dataset.i);
+    el.querySelector(".vi-mais").addEventListener("click", () => {
+      lista[i].quantidade++;
+      aoMudar();
+    });
+    el.querySelector(".vi-menos").addEventListener("click", () => {
+      lista[i].quantidade--;
+      if (lista[i].quantidade <= 0) lista.splice(i, 1);
+      aoMudar();
+    });
+    el.querySelector(".vi-remover").addEventListener("click", () => {
+      lista.splice(i, 1);
+      aoMudar();
+    });
+  });
+}
+
+function somaLista(lista) {
+  return lista.reduce((soma, item) => soma + item.preco_unit * item.quantidade, 0);
+}
+
+function renderTrocaListas() {
+  renderListaDeItens($trocaDevolvidosLista, itensDevolvidosAtual);
+  bindListaDeItens($trocaDevolvidosLista, itensDevolvidosAtual, renderTrocaListas);
+  renderListaDeItens($trocaNovosLista, itensNovosTrocaAtual);
+  bindListaDeItens($trocaNovosLista, itensNovosTrocaAtual, renderTrocaListas);
+
+  const totalDevolvido = somaLista(itensDevolvidosAtual);
+  const totalNovo = somaLista(itensNovosTrocaAtual);
+  const diferenca = totalNovo - totalDevolvido;
+
+  $vendaSubtotal.textContent = `Devolvido ${fmtMoeda(totalDevolvido)} · Novo ${fmtMoeda(totalNovo)}`;
+  $vendaDescontoInfo.textContent = "";
+  $vendaTotal.textContent = fmtMoeda(diferenca);
+  $vendaTotal.style.color = diferenca < 0 ? "var(--danger)" : "var(--accent)";
+
+  $btnFinalizarVenda.disabled = itensNovosTrocaAtual.length === 0 && itensDevolvidosAtual.length === 0;
+}
+
+function alternarModoVenda(novoModo) {
+  modoVenda = novoModo;
+  const ehTroca = modoVenda === "troca";
+
+  $btnModoVenda.classList.toggle("desconto-ativo", !ehTroca);
+  $btnModoTroca.classList.toggle("desconto-ativo", ehTroca);
+  $tituloNovaVenda.textContent = ehTroca ? "Nova troca" : "Nova venda";
+  $ladoTrocaWrap.classList.toggle("hidden", !ehTroca);
+  $vendaItensLista.classList.toggle("hidden", ehTroca);
+  $trocaListasWrap.classList.toggle("hidden", !ehTroca);
+  $descontoWrap.classList.toggle("hidden", ehTroca);
+  $vendaTotal.style.color = "";
+  $rotuloSubtotal.textContent = ehTroca ? "Resumo" : "Subtotal";
+  $rotuloTotal.textContent = ehTroca ? "Diferença (a favor da loja)" : "Total da venda";
+  $btnFinalizarVenda.textContent = ehTroca ? "Finalizar troca" : "Finalizar venda";
+
+  if (ehTroca) renderTrocaListas();
+  else renderItensVenda();
+}
+
+$btnModoVenda.addEventListener("click", () => alternarModoVenda("venda"));
+$btnModoTroca.addEventListener("click", () => alternarModoVenda("troca"));
+
+$btnLadoDevolvido.addEventListener("click", () => {
+  ladoTroca = "devolvido";
+  $btnLadoDevolvido.classList.add("desconto-ativo");
+  $btnLadoNovo.classList.remove("desconto-ativo");
+});
+$btnLadoNovo.addEventListener("click", () => {
+  ladoTroca = "novo";
+  $btnLadoNovo.classList.add("desconto-ativo");
+  $btnLadoDevolvido.classList.remove("desconto-ativo");
+});
+
+async function adicionarProdutoNaVenda(codigo) {
+  codigo = (codigo || "").trim();
+  if (!codigo) return;
+  const loja = $vendaLoja.value;
+  if (!loja) return;
+
+  $vendaMsgAdd.textContent = "Buscando produto...";
+  $vendaMsgAdd.className = "msg";
+
+  try {
+    const item = await buscarPreco(codigo, loja);
+    if (!item) {
+      $vendaMsgAdd.textContent = "Produto não encontrado.";
+      $vendaMsgAdd.className = "msg err";
+      return;
+    }
+    adicionarItemNaListaDeVenda({
+      codigo_barras: item.cdProduto,
+      produto: item.dsProduto,
+      preco_unit: item.vlPrecoPromocao > 0 ? item.vlPrecoPromocao : item.vlPreco,
+    });
+    salvarCachePreco(codigo, item);
+    $vendaMsgAdd.textContent = "";
+  } catch (e) {
+    $vendaMsgAdd.textContent = "Erro ao buscar produto. Verifique a conexão.";
+    $vendaMsgAdd.className = "msg err";
+  }
+}
+
+$vendaProdutoInput.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  const codigo = $vendaProdutoInput.value.trim();
+  if (!codigo) return;
+  $vendaProdutoInput.value = "";
+  adicionarProdutoNaVenda(codigo);
+});
+
+$btnVendaManualToggle.addEventListener("click", () => {
+  $vendaManualForm.classList.toggle("hidden");
+});
+
+$btnVendaManualAdicionar.addEventListener("click", () => {
+  const nome = $vendaManualNome.value.trim();
+  const preco = valorMascarado($vendaManualPreco);
+
+  if (!nome || !preco || preco <= 0) {
+    $vendaMsgAdd.textContent = "Preencha o nome e um preço válido.";
+    $vendaMsgAdd.className = "msg err";
+    return;
+  }
+
+  adicionarItemNaListaDeVenda({
+    codigo_barras: null,
+    produto: nome,
+    preco_unit: preco,
+  });
+
+  $vendaManualNome.value = "";
+  $vendaManualPreco.value = "";
+  $vendaMsgAdd.textContent = "";
+});
+
+$btnVendaHistorico.addEventListener("click", async () => {
+  $vendaHistoricoModal.classList.remove("hidden");
+  $vendaHistoricoLista.innerHTML = `<div class="msg">Carregando histórico...</div>`;
+
+  const { data, error } = await sb
+    .from("historico")
+    .select("*")
+    .order("criado_em", { ascending: false })
+    .limit(30);
+
+  if (error) {
+    $vendaHistoricoLista.innerHTML = `<div class="msg err">Erro ao carregar: ${error.message}</div>`;
+    return;
+  }
+  if (!data || data.length === 0) {
+    $vendaHistoricoLista.innerHTML = `<div class="msg">Nenhuma busca no histórico ainda.</div>`;
+    return;
+  }
+
+  $vendaHistoricoLista.innerHTML = data.map((h, i) => `
+    <div class="historico-item" data-i="${i}">
+      <div class="h-conteudo">
+        <div class="h-produto">${h.produto || h.codigo_barras}</div>
+        <div class="h-meta">${h.preco != null ? fmtMoeda(h.preco) : "sem preço salvo"} · ${new Date(h.criado_em).toLocaleString("pt-BR")}</div>
+      </div>
+    </div>
+  `).join("");
+
+  $vendaHistoricoLista.querySelectorAll(".historico-item").forEach((el, i) => {
+    el.addEventListener("click", () => {
+      const h = data[i];
+      if (h.preco == null) {
+        $vendaMsgAdd.textContent = "Esse item não tem preço salvo — bipe ele direto pra adicionar.";
+        $vendaMsgAdd.className = "msg err";
+      } else {
+        adicionarItemNaListaDeVenda({
+          codigo_barras: h.codigo_barras,
+          produto: h.produto,
+          preco_unit: h.preco,
+        });
+        $vendaMsgAdd.textContent = "";
+      }
+      $vendaHistoricoModal.classList.add("hidden");
+    });
+  });
+});
+
+$btnFecharVendaHistorico.addEventListener("click", () => {
+  $vendaHistoricoModal.classList.add("hidden");
+});
+
+async function salvarLinhasItens(vendaId, itens, devolvido) {
+  if (itens.length === 0) return null;
+  const linhas = itens.map(item => ({
+    venda_id: vendaId,
+    codigo_barras: item.codigo_barras,
+    produto: item.produto,
+    preco_unit: item.preco_unit,
+    quantidade: item.quantidade,
+    subtotal: item.preco_unit * item.quantidade,
+    devolvido,
+  }));
+  const { error } = await sb.from("venda_itens").insert(linhas);
+  return error;
+}
+
+$btnFinalizarVenda.addEventListener("click", async () => {
+  if (!currentUser) return;
+  const ehTroca = modoVenda === "troca";
+
+  if (ehTroca) {
+    if (itensDevolvidosAtual.length === 0 && itensNovosTrocaAtual.length === 0) return;
+  } else if (itensVendaAtual.length === 0) {
+    return;
+  }
+
+  $btnFinalizarVenda.disabled = true;
+  $vendaMsg.textContent = ehTroca ? "Salvando troca..." : "Salvando venda...";
+  $vendaMsg.className = "msg";
+
+  const payload = {
+    loja: Number($vendaLoja.value),
+    observacao: $vendaObservacao.value.trim() || null,
+    vendedor_email: currentUser.email,
+  };
+
+  if (ehTroca) {
+    const totalDevolvido = somaLista(itensDevolvidosAtual);
+    const totalNovo = somaLista(itensNovosTrocaAtual);
+    payload.tipo = "troca";
+    payload.subtotal = totalNovo;
+    payload.valor_devolvido = totalDevolvido;
+    payload.desconto_valor = 0;
+    payload.desconto_percentual = 0;
+    payload.total = totalNovo - totalDevolvido;
+  } else {
+    const { subtotal, totalFinal, descontoValor, descontoPct } = atualizarTotaisVenda();
+    payload.tipo = "venda";
+    payload.subtotal = subtotal;
+    payload.desconto_valor = descontoValor;
+    payload.desconto_percentual = descontoPct;
+    payload.total = totalFinal;
+  }
+
+  const { data: vendaCriada, error: errVenda } = await sb.from("vendas").insert(payload).select().single();
+
+  if (errVenda) {
+    $vendaMsg.textContent = "Erro ao salvar: " + errVenda.message;
+    $vendaMsg.className = "msg err";
+    $btnFinalizarVenda.disabled = false;
+    return;
+  }
+
+  let errItens;
+  if (ehTroca) {
+    errItens = (await salvarLinhasItens(vendaCriada.id, itensDevolvidosAtual, true))
+      || (await salvarLinhasItens(vendaCriada.id, itensNovosTrocaAtual, false));
+  } else {
+    errItens = await salvarLinhasItens(vendaCriada.id, itensVendaAtual, false);
+  }
+
+  if (errItens) {
+    $vendaMsg.textContent = "Registro salvo, mas houve erro ao salvar os itens: " + errItens.message;
+    $vendaMsg.className = "msg err";
+  } else {
+    $vendaMsg.textContent = ehTroca ? "Troca registrada com sucesso!" : "Venda registrada com sucesso!";
+    $vendaMsg.className = "msg";
+  }
+
+  itensVendaAtual = [];
+  itensDevolvidosAtual = [];
+  itensNovosTrocaAtual = [];
+  $vendaObservacao.value = "";
+  resetarDescontoVenda();
+  if (ehTroca) renderTrocaListas(); else renderItensVenda();
+  carregarVendas();
+  atualizarResumoVendas();
+});
+
+let vendasPagina = 0;
+
+async function carregarVendas(pagina = 0) {
+  if (!currentUser) return;
+  $vendasLista.innerHTML = `<div class="msg">Carregando vendas...</div>`;
+  const antiga = $vendasLista.parentElement.querySelector(".h-paginacao");
+  if (antiga) antiga.remove();
+
+  const from = pagina * PAGINA_TAMANHO;
+  const to = from + PAGINA_TAMANHO - 1;
+
+  const { data, error, count } = await sb
+    .from("vendas")
+    .select("*", { count: "exact" })
+    .order("criado_em", { ascending: false })
+    .range(from, to);
+
+  if (error) {
+    $vendasLista.innerHTML = `<div class="msg err">Erro ao carregar vendas: ${error.message}</div>`;
+    return;
+  }
+
+  renderVendasLista(data);
+  const totalPaginas = Math.max(1, Math.ceil((count || 0) / PAGINA_TAMANHO));
+  renderPaginacao($vendasLista, pagina, totalPaginas, (novaPagina) => carregarVendas(novaPagina));
+}
+
+function renderVendasLista(data) {
+  if (!data || data.length === 0) {
+    $vendasLista.innerHTML = `<div class="msg">Nenhuma venda registrada ainda.</div>`;
+    return;
+  }
+
+  const souAdmin = ehAdmin();
+
+  $vendasLista.innerHTML = data.map(v => {
+    const info = LOJAS_INFO[v.loja];
+    const lojaTexto = info ? `Loja ${v.loja} - ${info.nome}` : `Loja ${v.loja}`;
+    const vendedorTexto = souAdmin && v.vendedor_email ? ` · ${v.vendedor_email}` : "";
+    const ehTroca = v.tipo === "troca";
+    const tituloLinha = ehTroca ? `🔁 Troca — ${lojaTexto}` : lojaTexto;
+    return `
+    <div class="historico-item venda-resumo" data-id="${v.id}" style="cursor:pointer;">
+      <div class="h-conteudo">
+        <div class="h-produto">${tituloLinha}</div>
+        <div class="h-meta">${new Date(v.criado_em).toLocaleString("pt-BR")}${vendedorTexto}</div>
+        ${v.observacao ? `<div class="h-meta">${v.observacao.replace(/</g, "&lt;")}</div>` : ""}
+        <div class="venda-detalhe hidden" style="margin-top:8px;"></div>
+      </div>
+      <div class="h-acoes">
+        <span style="${v.total < 0 ? "color:var(--danger);" : ""}">${fmtMoeda(v.total)}</span>
+        <button class="h-btn apagar" title="Apagar">${ICONE_LIXEIRA}</button>
+      </div>
+    </div>
+  `;
+  }).join("");
+
+  $vendasLista.querySelectorAll(".venda-resumo").forEach(el => {
+    const id = el.dataset.id;
+
+    el.querySelector(".h-conteudo").addEventListener("click", async () => {
+      const $detalhe = el.querySelector(".venda-detalhe");
+      const abrindo = $detalhe.classList.contains("hidden");
+      if (!abrindo) {
+        $detalhe.classList.add("hidden");
+        return;
+      }
+      $detalhe.classList.remove("hidden");
+      if ($detalhe.dataset.carregado) return;
+      $detalhe.innerHTML = `<div class="msg">Carregando itens...</div>`;
+
+      const { data: itens, error } = await sb
+        .from("venda_itens")
+        .select("*")
+        .eq("venda_id", id);
+
+      if (error) {
+        $detalhe.innerHTML = `<div class="msg err">Erro ao carregar itens.</div>`;
+        return;
+      }
+      $detalhe.dataset.carregado = "1";
+      const v = data.find(x => x.id === id);
+
+      const linhaItem = it => `
+        <div style="display:flex; justify-content:space-between; font-size:0.82rem; padding:3px 0;">
+          <span>${it.quantidade}x ${it.produto || it.codigo_barras}</span>
+          <span>${fmtMoeda(it.subtotal)}</span>
+        </div>`;
+
+      if (v && v.tipo === "troca") {
+        const devolvidos = (itens || []).filter(it => it.devolvido);
+        const novos = (itens || []).filter(it => !it.devolvido);
+        $detalhe.innerHTML = `
+          <div style="font-size:0.78rem; color:var(--muted); margin-top:4px;">Devolvido</div>
+          ${devolvidos.map(linhaItem).join("") || `<div class="msg">Nenhum</div>`}
+          <div style="font-size:0.78rem; color:var(--muted); margin-top:8px;">Novo</div>
+          ${novos.map(linhaItem).join("") || `<div class="msg">Nenhum</div>`}
+          <div style="display:flex; justify-content:space-between; font-size:0.82rem; padding:6px 0; margin-top:4px; border-top:1px solid var(--border); font-weight:700;">
+            <span>Diferença</span><span>${fmtMoeda(v.total)}</span>
+          </div>
+        `;
+        return;
+      }
+
+      const linhaDesconto = v && v.desconto_valor > 0
+        ? `<div style="display:flex; justify-content:space-between; font-size:0.82rem; padding:3px 0; color:var(--muted);">
+             <span>Subtotal</span><span>${fmtMoeda(v.subtotal)}</span>
+           </div>
+           <div style="display:flex; justify-content:space-between; font-size:0.82rem; padding:3px 0; color:var(--danger);">
+             <span>Desconto (${Number(v.desconto_percentual).toFixed(1)}%)</span><span>-${fmtMoeda(v.desconto_valor)}</span>
+           </div>`
+        : "";
+      $detalhe.innerHTML = (itens || []).map(linhaItem).join("") + linhaDesconto;
+    });
+
+    el.querySelector(".apagar").addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await sb.from("vendas").delete().eq("id", id);
+      carregarVendas();
+    });
+  });
+}
+
+// ---------- METAS E FOLGAS ----------
+
+function chaveDia(data) {
+  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
+}
+
+function anoMesAtual(data = new Date()) {
+  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}`;
+}
+
+// A "quinzena" de vendas: dia 1 ao 15 é a 1ª, dia 16 ao fim do mês é a 2ª.
+function quinzenaAtual(hoje) {
+  const dia = hoje.getDate();
+  const ano = hoje.getFullYear();
+  const mes = hoje.getMonth();
+  if (dia <= 15) {
+    return { numero: 1, inicio: new Date(ano, mes, 1), fim: new Date(ano, mes, 15) };
+  }
+  const ultimoDia = new Date(ano, mes + 1, 0).getDate();
+  return { numero: 2, inicio: new Date(ano, mes, 16), fim: new Date(ano, mes, ultimoDia) };
+}
+
+let folgasDoMes = new Set(); // chaves "YYYY-MM-DD" do mês atual
+let metaAtual = { meta_quinzena_1: 0, meta_quinzena_2: 0 };
+
+async function carregarMetaEFolgas() {
+  if (!currentUser) return;
+
+  const { data: metaData } = await sb
+    .from("metas")
+    .select("*")
+    .eq("ano_mes", anoMesAtual())
+    .maybeSingle();
+  metaAtual = metaData || { meta_quinzena_1: 0, meta_quinzena_2: 0 };
+
+  const hoje = new Date();
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+
+  const { data: folgasData } = await sb
+    .from("folgas")
+    .select("data")
+    .gte("data", chaveDia(inicioMes))
+    .lte("data", chaveDia(fimMes));
+  folgasDoMes = new Set((folgasData || []).map(f => f.data));
+
+  await atualizarResumoVendas();
+}
+
+// Mensagem "zoeira" que muda todo dia (mesma mensagem o dia inteiro, troca
+// sozinha à meia-noite) — pura brincadeira pra dar uma cutucada.
+const MENSAGENS_ZERO_VENDAS = [
+  "Bora trabalhar, vagabundo! Ainda não vendeu nada hoje 👀",
+  "Cadê as vendas? O caixa não vai se encher sozinho...",
+  "Já tomou café, já viu o celular... e as vendas, hein?",
+  "Hoje o placar tá 0 a 0. Bora sair na frente!",
+  "Levanta dessa cadeira e vai atrás de cliente!",
+  "O dia começou e você ainda não vendeu nada. Bora resolver isso.",
+  "Suspeito que você esteja mais em pé de loja que vendendo.",
+];
+const MENSAGENS_VENDA_PARCIAL = [
+  "Boa, já quebrou o gelo! Agora não para.",
+  "Isso aí, continua nesse ritmo que a meta cai.",
+  "Já vendeu, mas ainda falta um pouquinho — não afrouxa!",
+  "Show! Só falta o resto da meta agora.",
+  "Tá esquentando... bora fechar mais uma.",
+  "Metade do caminho andado, vagabundo (com carinho).",
+];
+const MENSAGENS_META_BATIDA = [
+  "Meta batida! Pode ir tomar um café, você mereceu 🎉",
+  "Aí sim! Hoje você é o rei/rainha das vendas.",
+  "Bateu a meta! Bora bater recorde agora?",
+  "Show de bola! Meta do dia: concluída.",
+  "Meta na conta! Agora é só sobreviver tranquilo o resto do plantão.",
+  "Confirmado: hoje você não é vagabundo nenhum.",
+];
+
+function indiceDoDia(tamanho) {
+  const hoje = new Date();
+  const inicioAno = new Date(hoje.getFullYear(), 0, 0);
+  const diaDoAno = Math.floor((hoje - inicioAno) / 86400000);
+  return diaDoAno % tamanho;
+}
+
+function atualizarMensagemMotivacional(totalHoje, metaBatida) {
+  const pool = metaBatida ? MENSAGENS_META_BATIDA : (totalHoje > 0 ? MENSAGENS_VENDA_PARCIAL : MENSAGENS_ZERO_VENDAS);
+  $mensagemMotivacional.textContent = pool[indiceDoDia(pool.length)];
+}
+
+async function atualizarResumoVendas() {
+  if (!currentUser) return;
+
+  const hoje = new Date();
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const fimMesExclusivo = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1);
+
+  const { data, error } = await sb
+    .from("vendas")
+    .select("total, criado_em")
+    .gte("criado_em", inicioMes.toISOString())
+    .lt("criado_em", fimMesExclusivo.toISOString());
+
+  if (error) {
+    $metaResumo.textContent = "Erro ao carregar resumo de vendas.";
+    $metaResumo.className = "msg err";
+    return;
+  }
+
+  const hojeChave = chaveDia(hoje);
+  const quinzena = quinzenaAtual(hoje);
+  const fimQuinzenaFimDoDia = new Date(quinzena.fim.getFullYear(), quinzena.fim.getMonth(), quinzena.fim.getDate(), 23, 59, 59);
+
+  let totalHoje = 0, totalMes = 0, totalQuinzena = 0, vendasHoje = 0, vendasMes = 0;
+
+  (data || []).forEach(v => {
+    const d = new Date(v.criado_em);
+    const valor = Number(v.total);
+    totalMes += valor;
+    vendasMes++;
+    if (chaveDia(d) === hojeChave) { totalHoje += valor; vendasHoje++; }
+    if (d >= quinzena.inicio && d <= fimQuinzenaFimDoDia) totalQuinzena += valor;
+  });
+
+  $totalHoje.textContent = fmtMoeda(totalHoje);
+  $vendasHojeCount.textContent = `${vendasHoje} venda${vendasHoje === 1 ? "" : "s"}`;
+  $totalMes.textContent = fmtMoeda(totalMes);
+  $vendasMesCount.textContent = `${vendasMes} venda${vendasMes === 1 ? "" : "s"}`;
+
+  const metaQuinzena = Number(quinzena.numero === 1 ? metaAtual.meta_quinzena_1 : metaAtual.meta_quinzena_2) || 0;
+
+  if (metaQuinzena <= 0) {
+    $metaBarra.style.width = "0%";
+    $metaResumo.innerHTML = `Nenhuma meta definida pra ${quinzena.numero}ª quinzena ainda. Toque em "Configurar meta e folgas" pra definir.`;
+    $metaResumo.className = "msg";
+    atualizarMensagemMotivacional(totalHoje, false);
+    return;
+  }
+
+  const restante = Math.max(0, metaQuinzena - totalQuinzena);
+  const pct = Math.min(100, (totalQuinzena / metaQuinzena) * 100);
+  $metaBarra.style.width = pct + "%";
+
+  if (restante <= 0) {
+    $metaResumo.innerHTML = `<strong style="color:var(--accent);">Meta da ${quinzena.numero}ª quinzena batida! 🎉</strong> ${fmtMoeda(totalQuinzena)} de ${fmtMoeda(metaQuinzena)}.`;
+    $metaResumo.className = "msg";
+    atualizarMensagemMotivacional(totalHoje, true);
+    return;
+  }
+
+  atualizarMensagemMotivacional(totalHoje, false);
+
+  // Dias restantes da quinzena a partir de hoje (inclusive), sem contar folga.
+  let diasRestantes = 0;
+  const inicioContagem = new Date(Math.max(quinzena.inicio.getTime(), new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()).getTime()));
+  const cursor = new Date(inicioContagem);
+  while (cursor <= quinzena.fim) {
+    if (!folgasDoMes.has(chaveDia(cursor))) diasRestantes++;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  const metaDiaria = diasRestantes > 0 ? restante / diasRestantes : restante;
+  $metaResumo.innerHTML = `
+    ${fmtMoeda(totalQuinzena)} de ${fmtMoeda(metaQuinzena)} (${quinzena.numero}ª quinzena) · faltam ${fmtMoeda(restante)}<br>
+    Meta de hoje: <strong>${fmtMoeda(metaDiaria)}</strong> (${diasRestantes} dia${diasRestantes === 1 ? "" : "s"} restantes, sem contar folga)
+  `;
+  $metaResumo.className = "msg";
+}
+
+function renderFolgasCalendario() {
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  const mes = hoje.getMonth();
+  const nomeMes = hoje.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  $folgasMesNome.textContent = nomeMes;
+
+  const primeiroDiaSemana = new Date(ano, mes, 1).getDay();
+  const totalDias = new Date(ano, mes + 1, 0).getDate();
+  const hojeChave = chaveDia(hoje);
+
+  const celulas = [];
+  for (let i = 0; i < primeiroDiaSemana; i++) celulas.push(`<div></div>`);
+  for (let dia = 1; dia <= totalDias; dia++) {
+    const chave = chaveDia(new Date(ano, mes, dia));
+    const ehFolga = folgasDoMes.has(chave);
+    const ehPassado = chave < hojeChave;
+    celulas.push(`<div class="folgas-dia ${ehFolga ? "folga" : ""} ${ehPassado ? "passado" : ""}" data-chave="${chave}">${dia}</div>`);
+  }
+
+  $folgasCalendario.innerHTML = `
+    <div class="folgas-semana-label">D</div><div class="folgas-semana-label">S</div><div class="folgas-semana-label">T</div><div class="folgas-semana-label">Q</div><div class="folgas-semana-label">Q</div><div class="folgas-semana-label">S</div><div class="folgas-semana-label">S</div>
+    ${celulas.join("")}
+  `;
+
+  $folgasCalendario.querySelectorAll(".folgas-dia:not(.passado)").forEach(el => {
+    el.addEventListener("click", () => alternarFolga(el.dataset.chave));
+  });
+}
+
+async function alternarFolga(chave) {
+  if (folgasDoMes.has(chave)) {
+    await sb.from("folgas").delete().eq("data", chave);
+    folgasDoMes.delete(chave);
+  } else {
+    await sb.from("folgas").insert({ data: chave });
+    folgasDoMes.add(chave);
+  }
+  renderFolgasCalendario();
+  atualizarResumoVendas();
+}
+
+$btnConfigMetas.addEventListener("click", () => {
+  definirValorMascarado($metaQuinzena1, metaAtual.meta_quinzena_1);
+  definirValorMascarado($metaQuinzena2, metaAtual.meta_quinzena_2);
+  $metasMsg.textContent = "";
+  renderFolgasCalendario();
+  $metasModal.classList.remove("hidden");
+});
+
+$btnFecharMetas.addEventListener("click", () => $metasModal.classList.add("hidden"));
+
+$btnSalvarMetas.addEventListener("click", async () => {
+  const payload = {
+    ano_mes: anoMesAtual(),
+    meta_quinzena_1: valorMascarado($metaQuinzena1),
+    meta_quinzena_2: valorMascarado($metaQuinzena2),
+  };
+  $metasMsg.textContent = "Salvando...";
+  $metasMsg.className = "msg";
+
+  const { error } = await sb.from("metas").upsert(payload, { onConflict: "user_id,ano_mes" });
+
+  if (error) {
+    $metasMsg.textContent = "Erro: " + error.message;
+    $metasMsg.className = "msg err";
+    return;
+  }
+  metaAtual = payload;
+  $metasMsg.textContent = "Metas salvas!";
+  $metasMsg.className = "msg";
+  atualizarResumoVendas();
+});
+
+// As lojas escolhidas ficam salvas no perfil do usuário (sincroniza entre
+// dispositivos); enquanto não há login, usa um rascunho local.
+$lojas.addEventListener("change", () => {
+  localStorage.setItem("bp_lojas", $lojas.value);
+  if (currentUser) {
+    sb.auth.updateUser({ data: { lojas_favoritas: $lojas.value } });
+  }
+});
+$lojas.value = localStorage.getItem("bp_lojas") || "1";
+
+$btnRedeToda.addEventListener("click", () => {
+  $lojas.value = TODAS_AS_LOJAS.join(",");
+  $lojas.dispatchEvent(new Event("change"));
+});
+
+// ---------- COMISSÃO ----------
+
+let configComissaoAtual = null;
+let totalVendidoMesComissao = 0;
+
+async function carregarComissao() {
+  if (!currentUser) return;
+  $comissaoResumo.innerHTML = `<div class="msg">Carregando...</div>`;
+  $comissaoSimulacao.textContent = "";
+  document.querySelectorAll(".sim-colocacao").forEach(b => b.classList.remove("desconto-ativo"));
+  $comissaoConfigCard.classList.toggle("hidden", !ehAdmin());
+
+  const hoje = new Date();
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const fimMesExclusivo = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1);
+
+  const [{ data: config, error: errConfig }, { data: vendasMes, error: errVendas }, { data: metaData }] = await Promise.all([
+    sb.from("config_comissao").select("*").eq("id", 1).maybeSingle(),
+    sb.from("vendas").select("total, criado_em").gte("criado_em", inicioMes.toISOString()).lt("criado_em", fimMesExclusivo.toISOString()),
+    sb.from("metas").select("*").eq("ano_mes", anoMesAtual()).maybeSingle(),
+  ]);
+
+  if (errConfig || errVendas) {
+    $comissaoResumo.innerHTML = `<div class="msg err">Erro ao carregar comissão: ${(errConfig || errVendas).message}</div>`;
+    return;
+  }
+
+  configComissaoAtual = config;
+
+  if (ehAdmin() && config) {
+    $pctPrimeiro.value = config.pct_1_lugar;
+    $pctSegundo.value = config.pct_2_lugar;
+    $pctTerceiro.value = config.pct_3_lugar;
+    $pctMetaBatida.value = config.pct_meta_batida;
+    $pctMetaNaoBatida.value = config.pct_meta_nao_batida;
+  }
+
+  // A meta é por quinzena, então bater ou não a meta — e o percentual que
+  // isso libera — é calculado separado pra cada quinzena, não no mês inteiro.
+  const ano = hoje.getFullYear();
+  const mes = hoje.getMonth();
+  const ultimoDia = new Date(ano, mes + 1, 0).getDate();
+  const q1Inicio = new Date(ano, mes, 1);
+  const q1Fim = new Date(ano, mes, 15, 23, 59, 59);
+  const q2Inicio = new Date(ano, mes, 16);
+  const q2Fim = new Date(ano, mes, ultimoDia, 23, 59, 59);
+
+  let totalQ1 = 0, totalQ2 = 0;
+  (vendasMes || []).forEach(v => {
+    const d = new Date(v.criado_em);
+    const valor = Number(v.total);
+    if (d >= q1Inicio && d <= q1Fim) totalQ1 += valor;
+    else if (d >= q2Inicio && d <= q2Fim) totalQ2 += valor;
+  });
+
+  const metaQ1 = metaData ? Number(metaData.meta_quinzena_1 || 0) : 0;
+  const metaQ2 = metaData ? Number(metaData.meta_quinzena_2 || 0) : 0;
+  const bateuQ1 = metaQ1 > 0 && totalQ1 >= metaQ1;
+  const bateuQ2 = metaQ2 > 0 && totalQ2 >= metaQ2;
+  const pctQ1 = bateuQ1 ? Number(config.pct_meta_batida) : Number(config.pct_meta_nao_batida);
+  const pctQ2 = bateuQ2 ? Number(config.pct_meta_batida) : Number(config.pct_meta_nao_batida);
+  const comissaoQ1 = totalQ1 * (pctQ1 / 100);
+  const comissaoQ2 = totalQ2 * (pctQ2 / 100);
+  const comissaoTotal = comissaoQ1 + comissaoQ2;
+
+  // Usado pelo simulador de colocação (que continua olhando o mês inteiro).
+  totalVendidoMesComissao = totalQ1 + totalQ2;
+
+  const linhaQuinzena = (titulo, total, meta, bateu, pct, comissao) => {
+    const metaTexto = meta > 0 ? `${fmtMoeda(meta)}${bateu ? " · batida ✅" : " · não batida"}` : "não definida";
+    return `
+      <div class="loja-titulo" style="margin-top:10px; margin-bottom:4px;">${titulo}</div>
+      <table style="width:100%;">
+        <tbody>
+          <tr><td style="padding:4px 0; color:var(--muted);">Vendido</td><td style="padding:4px 0; text-align:right;">${fmtMoeda(total)}</td></tr>
+          <tr><td style="padding:4px 0; color:var(--muted);">Meta</td><td style="padding:4px 0; text-align:right;">${metaTexto}</td></tr>
+          <tr><td style="padding:4px 0; color:var(--muted);">Percentual</td><td style="padding:4px 0; text-align:right; font-weight:700;">${pct}%</td></tr>
+          <tr><td style="padding:4px 0; font-weight:700;">Comissão</td><td style="padding:4px 0; text-align:right; font-weight:700; color:var(--accent);">${fmtMoeda(comissao)}</td></tr>
+        </tbody>
+      </table>
+    `;
+  };
+
+  $comissaoResumo.innerHTML =
+    linhaQuinzena("1ª quinzena (dia 1 ao 15)", totalQ1, metaQ1, bateuQ1, pctQ1, comissaoQ1) +
+    linhaQuinzena("2ª quinzena (dia 16 ao fim do mês)", totalQ2, metaQ2, bateuQ2, pctQ2, comissaoQ2) +
+    `<div style="display:flex; justify-content:space-between; padding:10px 0; margin-top:12px; border-top:1px solid var(--border); font-weight:700; font-size:1.05rem;">
+       <span>Comissão total do mês</span><span style="color:var(--accent);">${fmtMoeda(comissaoTotal)}</span>
+     </div>`;
+}
+
+document.querySelectorAll(".sim-colocacao").forEach(btn => {
+  btn.addEventListener("click", () => {
+    if (!configComissaoAtual) return;
+    document.querySelectorAll(".sim-colocacao").forEach(b => b.classList.remove("desconto-ativo"));
+    btn.classList.add("desconto-ativo");
+
+    const pos = btn.dataset.pos;
+    const pctPorPosicao = { "1": configComissaoAtual.pct_1_lugar, "2": configComissaoAtual.pct_2_lugar, "3": configComissaoAtual.pct_3_lugar };
+    const pct = Number(pctPorPosicao[pos]);
+    const valor = totalVendidoMesComissao * (pct / 100);
+
+    $comissaoSimulacao.innerHTML = `Se você ficasse em <strong>${pos}º lugar</strong>: ${pct}% sobre ${fmtMoeda(totalVendidoMesComissao)} = <strong style="color:var(--accent);">${fmtMoeda(valor)}</strong>`;
+  });
+});
+
+$btnSalvarComissaoConfig.addEventListener("click", async () => {
+  $comissaoConfigMsg.textContent = "Salvando...";
+  $comissaoConfigMsg.className = "msg";
+
+  const { error } = await sb.from("config_comissao").update({
+    pct_1_lugar: Number($pctPrimeiro.value) || 0,
+    pct_2_lugar: Number($pctSegundo.value) || 0,
+    pct_3_lugar: Number($pctTerceiro.value) || 0,
+    pct_meta_batida: Number($pctMetaBatida.value) || 0,
+    pct_meta_nao_batida: Number($pctMetaNaoBatida.value) || 0,
+    atualizado_em: new Date().toISOString(),
+  }).eq("id", 1);
+
+  if (error) {
+    $comissaoConfigMsg.textContent = "Erro: " + error.message;
+    $comissaoConfigMsg.className = "msg err";
+    return;
+  }
+  $comissaoConfigMsg.textContent = "Salvo!";
+  $comissaoConfigMsg.className = "msg";
+  carregarComissao();
+});
+
+// ---------- PROMOÇÃO ----------
+
+function popularLojasPromo() {
+  if ($promoLoja.options.length > 0) return;
+  $promoLoja.innerHTML = TODAS_AS_LOJAS
+    .slice()
+    .sort((a, b) => a - b)
+    .map(n => {
+      const info = LOJAS_INFO[n];
+      const label = info ? `${n} - ${info.nome}` : String(n);
+      return `<option value="${n}">${label}</option>`;
+    })
+    .join("");
+  const salva = localStorage.getItem("bp_venda_loja"); // reaproveita a loja padrão já usada na aba Vendas
+  if (salva && TODAS_AS_LOJAS.includes(Number(salva))) $promoLoja.value = salva;
+}
+
+// Selos usados na arte: logo do app, logo da Mersan, e o banner de campanha
+// "Liquida Mais" (só entra quando o item tem preço promocional).
+function carregarImagemPromo(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+// Os selos foram mandados com fundo sólido (cor de bloco em vez de PNG
+// transparente) — aqui a gente "recorta" isso sozinho: pega a cor do
+// canto da imagem como referência do fundo e apaga (alpha 0) todo pixel
+// parecido com ela, deixando só o desenho/texto do logo por cima da foto.
+function removerFundoSolido(img, tolerancia = 42) {
+  return new Promise((resolve) => {
+    const c = document.createElement("canvas");
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    const cctx = c.getContext("2d");
+    cctx.drawImage(img, 0, 0);
+    try {
+      const imgData = cctx.getImageData(0, 0, c.width, c.height);
+      const dados = imgData.data;
+      const corFundo = [dados[0], dados[1], dados[2]];
+      for (let i = 0; i < dados.length; i += 4) {
+        const dr = dados[i] - corFundo[0];
+        const dg = dados[i + 1] - corFundo[1];
+        const db = dados[i + 2] - corFundo[2];
+        if (Math.sqrt(dr * dr + dg * dg + db * db) < tolerancia) dados[i + 3] = 0;
+      }
+      cctx.putImageData(imgData, 0, 0);
+    } catch (e) {
+      // se der erro, segue com o fundo original em vez de travar a arte
+    }
+    const resultado = new Image();
+    resultado.onload = () => resolve(resultado);
+    resultado.src = c.toDataURL();
+  });
+}
+
+// Pra logos que são só um texto/desenho claro em cima de qualquer fundo
+// colorido (não só uma cor sólida) — mantém só os pixels claros (o texto)
+// e apaga o resto, independente da cor do fundo.
+function manterApenasClaro(img, limiar = 190) {
+  return new Promise((resolve) => {
+    const c = document.createElement("canvas");
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    const cctx = c.getContext("2d");
+    cctx.drawImage(img, 0, 0);
+    try {
+      const imgData = cctx.getImageData(0, 0, c.width, c.height);
+      const dados = imgData.data;
+      for (let i = 0; i < dados.length; i += 4) {
+        const brilho = (dados[i] + dados[i + 1] + dados[i + 2]) / 3;
+        if (brilho < limiar) dados[i + 3] = 0;
+      }
+      cctx.putImageData(imgData, 0, 0);
+    } catch (e) {
+      // se der erro, segue com a imagem original em vez de travar a arte
+    }
+    const resultado = new Image();
+    resultado.onload = () => resolve(resultado);
+    resultado.src = c.toDataURL();
+  });
+}
+
+let imgLogoMep = null;
+let imgLogoMersan = null;
+const logosPromoProntos = Promise.all([
+  carregarImagemPromo("icon-192.png").then(img => removerFundoSolido(img, 110)).then(img => { imgLogoMep = img; }),
+  carregarImagemPromo("promo-mersan-logo-2.jpg").then(img => manterApenasClaro(img)).then(img => { imgLogoMersan = img; }),
+]).catch(() => {
+  // Se algum selo não carregar, a arte ainda é gerada sem ele.
+});
+
+let promoItemAtual = null; // { produto, precoOriginal, precoFinal, temPromo, tamanhos }
+
+async function buscarProdutoPromo(codigo) {
+  codigo = (codigo || "").trim();
+  if (!codigo) return;
+  const loja = $promoLoja.value;
+  if (!loja) return;
+
+  $promoMsg.textContent = "Buscando produto...";
+  $promoMsg.className = "msg";
+  $promoInfo.classList.add("hidden");
+  $promoResultadoWrap.classList.add("hidden");
+
+  try {
+    const item = await buscarPreco(codigo, loja);
+    if (!item) {
+      $promoMsg.textContent = "Produto não encontrado.";
+      $promoMsg.className = "msg err";
+      return;
+    }
+
+    const precoOriginal = item.vlPreco;
+    const precoFinal = item.vlPrecoPromocao > 0 ? item.vlPrecoPromocao : item.vlPreco;
+    const temPromo = item.vlPrecoPromocao > 0 && item.vlPrecoPromocao !== item.vlPreco;
+
+    let tamanhos = [];
+    let corBipada = null;
+    try {
+      const estData = await fetchEstoqueComRetry(`${API_BASE}/estoque/${encodeURIComponent(item.cdReferencia)}/${encodeURIComponent(loja)}`);
+      const lojaNum = Number(loja);
+      // Muitos produtos têm a grade de todas as cores junta na mesma
+      // referência — filtra só a cor do item que foi bipado, achando a
+      // linha de estoque que bate com o SKU exato lido.
+      const linhaBipada = estData.find(r => r.cd_produto === item.cdSKU);
+      corBipada = linhaBipada ? linhaBipada.ds_cor : null;
+      tamanhos = [...new Set(
+        estData
+          .filter(r => r.cd_empresa === lojaNum && r.qt_stock > 0 && (!corBipada || r.ds_cor === corBipada))
+          .map(r => r.ds_tamanho)
+      )];
+    } catch (e) {
+      // segue sem grade se a consulta de estoque falhar — não impede a arte
+    }
+
+    promoItemAtual = { produto: item.dsProduto, precoOriginal, precoFinal, temPromo, tamanhos, corBipada };
+
+    $promoProdutoNome.textContent = item.dsProduto;
+    if (temPromo) {
+      $promoPrecoOriginal.textContent = fmtMoeda(precoOriginal);
+      $promoPrecoFinal.textContent = fmtMoeda(precoFinal);
+    } else {
+      $promoPrecoOriginal.textContent = "";
+      $promoPrecoFinal.textContent = fmtMoeda(precoFinal);
+    }
+    $promoGradeTitulo.textContent = corBipada
+      ? `Numerações com estoque nessa loja (cor ${corBipada}):`
+      : "Numerações com estoque nessa loja:";
+    $promoGradeLista.innerHTML = tamanhos.length > 0
+      ? tamanhos.map(t => `<span style="display:inline-block; background:var(--bg); border:1px solid var(--border); border-radius:999px; padding:4px 10px; margin:2px; font-size:0.82rem;">${t}</span>`).join("")
+      : `<span class="msg">Nenhuma numeração com estoque nessa loja.</span>`;
+
+    $promoInfo.classList.remove("hidden");
+    $promoMsg.textContent = "";
+  } catch (e) {
+    $promoMsg.textContent = "Erro ao buscar produto. Verifique a conexão.";
+    $promoMsg.className = "msg err";
+  }
+}
+
+$promoCodigoInput.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  const codigo = $promoCodigoInput.value.trim();
+  if (!codigo) return;
+  buscarProdutoPromo(codigo);
+});
+
+$btnPromoBuscar.addEventListener("click", () => {
+  const codigo = $promoCodigoInput.value.trim();
+  if (!codigo) return;
+  buscarProdutoPromo(codigo);
+});
+
+$btnPromoTirarFoto.addEventListener("click", () => $promoFotoInput.click());
+$btnPromoEnviarFoto.addEventListener("click", () => $promoUploadInput.click());
+$btnPromoNovaFoto.addEventListener("click", () => {
+  $promoFotoInput.value = "";
+  $promoFotoInput.click();
+});
+
+// Fotos tiradas com o celular "de lado" geralmente não vêm com os pixels
+// realmente girados — o celular só marca a rotação certa numa tag EXIF, e
+// o <canvas> ignora essa tag (diferente de abrir a foto num app comum).
+// Sem isso, a arte sairia deitada. Aqui a gente lê a tag na mão.
+function lerOrientacaoExif(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const view = new DataView(e.target.result);
+        if (view.getUint16(0, false) !== 0xffd8) return resolve(1); // não é JPEG
+        const length = view.byteLength;
+        let offset = 2;
+        while (offset < length) {
+          const marker = view.getUint16(offset, false);
+          offset += 2;
+          if (marker === 0xffe1) {
+            if (view.getUint32(offset + 2, false) !== 0x45786966) return resolve(1);
+            const little = view.getUint16(offset + 8, false) === 0x4949;
+            const primeiroIFD = view.getUint32(offset + 8 + 4, little);
+            const dirOffset = offset + 8 + primeiroIFD;
+            const totalTags = view.getUint16(dirOffset, little);
+            for (let i = 0; i < totalTags; i++) {
+              const entrada = dirOffset + 2 + i * 12;
+              if (view.getUint16(entrada, little) === 0x0112) {
+                return resolve(view.getUint16(entrada + 8, little));
+              }
+            }
+            return resolve(1);
+          } else if ((marker & 0xff00) !== 0xff00) {
+            break;
+          } else {
+            offset += view.getUint16(offset, false);
+          }
+        }
+      } catch (e) {
+        // arquivo sem EXIF legível — segue sem corrigir rotação
+      }
+      resolve(1);
+    };
+    reader.onerror = () => resolve(1);
+    reader.readAsArrayBuffer(file.slice(0, 128 * 1024));
+  });
+}
+
+// Aplica a correção de rotação/espelho de acordo com a tag EXIF, desenhando
+// a foto já "em pé" no destino (destW x destH).
+function desenharFotoOrientada(ctx, img, orientacao, destW, destH) {
+  ctx.save();
+  switch (orientacao) {
+    case 2: ctx.translate(destW, 0); ctx.scale(-1, 1); break;
+    case 3: ctx.translate(destW, destH); ctx.rotate(Math.PI); break;
+    case 4: ctx.translate(0, destH); ctx.scale(1, -1); break;
+    case 5: ctx.rotate(0.5 * Math.PI); ctx.scale(1, -1); break;
+    case 6: ctx.rotate(0.5 * Math.PI); ctx.translate(0, -destH); break;
+    case 7: ctx.rotate(0.5 * Math.PI); ctx.translate(destW, -destH); ctx.scale(-1, 1); break;
+    case 8: ctx.rotate(-0.5 * Math.PI); ctx.translate(-destW, 0); break;
+    default: break; // 1 (ou desconhecida): já está normal
+  }
+  const girado = orientacao >= 5 && orientacao <= 8;
+  const larguraDesenho = girado ? destH : destW;
+  const alturaDesenho = girado ? destW : destH;
+  ctx.drawImage(img, 0, 0, larguraDesenho, alturaDesenho);
+  ctx.restore();
+}
+
+function processarFotoPromo(file) {
+  if (!file || !promoItemAtual) return;
+
+  const img = new Image();
+  const url = URL.createObjectURL(file);
+  img.onload = async () => {
+    const [orientacao] = await Promise.all([lerOrientacaoExif(file), logosPromoProntos]);
+    promoImgAtual = img;
+    promoOrientacaoAtual = orientacao;
+    promoLayoutEditavel = layoutPromoPadrao();
+    // Gera a arte direto com o layout padrão — editar é opcional, só quem
+    // quiser ajustar posição/tamanho toca em "Editar posição".
+    desenharArtePromo(img, orientacao, promoLayoutEditavel);
+    URL.revokeObjectURL(url);
+  };
+  img.src = url;
+}
+
+// ---------- Editor: arrastar/redimensionar nome, preço e selo (opcional,
+// aberto a partir do botão "Editar posição" depois que a arte já foi
+// gerada com o layout padrão) ----------
+
+let promoImgAtual = null;
+let promoOrientacaoAtual = 1;
+let promoElementoAtivo = "nome";
+let promoLayoutEditavel = null;
+let promoArrastando = null;
+
+// Nome + endereço (sem cidade, pra não poluir) da loja escolhida na aba
+// Promoção — usado tanto no editor quanto na arte final.
+function textoLojaPromo() {
+  const info = LOJAS_INFO[Number($promoLoja.value)];
+  if (!info) return "";
+  return `${info.nome} - ${info.endereco}`;
+}
+
+function layoutPromoPadrao() {
+  return {
+    nome: { xPct: 0.5, yPct: 0.12, escala: 0.85 },
+    logoMersan: { xPct: 0.02, yPct: 0.02, escala: 1 },
+    loja: { xPct: 0.5, yPct: 0.95, escala: 0.8 },
+    preco: { xPct: 0.06, yPct: 0.78, escala: 1 },
+    mep: { xPct: 0.80, yPct: 0.90, escala: 1 },
+  };
+}
+
+function abrirEditorPromo() {
+  if (!promoImgAtual) return;
+  promoElementoAtivo = "nome";
+
+  // Mostra a foto já corrigida (em pé) no editor, do mesmo jeito que sai
+  // na arte final.
+  const girado = promoOrientacaoAtual >= 5 && promoOrientacaoAtual <= 8;
+  const larguraNatural = girado ? promoImgAtual.naturalHeight : promoImgAtual.naturalWidth;
+  const alturaNatural = girado ? promoImgAtual.naturalWidth : promoImgAtual.naturalHeight;
+  const escalaPreview = Math.min(1, 700 / larguraNatural);
+  const wPrev = Math.round(larguraNatural * escalaPreview);
+  const hPrev = Math.round(alturaNatural * escalaPreview);
+  const c = document.createElement("canvas");
+  c.width = wPrev;
+  c.height = hPrev;
+  desenharFotoOrientada(c.getContext("2d"), promoImgAtual, promoOrientacaoAtual, wPrev, hPrev);
+  $promoEditorImg.src = c.toDataURL();
+
+  const nomeChip = $promoEditorStage.querySelector('[data-elemento="nome"] .promo-chip-texto');
+  nomeChip.textContent = (promoItemAtual.produto || "").toUpperCase();
+
+  $promoChipLojaConteudo.textContent = textoLojaPromo();
+
+  // Usa os selos já processados (fundo removido) na prévia, pra ficar
+  // igual ao que sai na arte final.
+  if (imgLogoMersan) $promoEditorStage.querySelector('[data-elemento="logoMersan"] img').src = imgLogoMersan.src;
+  if (imgLogoMep) $promoEditorStage.querySelector('[data-elemento="mep"] img').src = imgLogoMep.src;
+
+  const temPromo = promoItemAtual.temPromo;
+  $promoChipPrecoConteudo.innerHTML = temPromo
+    ? `<div style="text-decoration:line-through; opacity:.75; font-size:0.55em;">DE: ${fmtMoeda(promoItemAtual.precoOriginal)}</div>POR: ${fmtMoeda(promoItemAtual.precoFinal)}`
+    : fmtMoeda(promoItemAtual.precoFinal);
+  if ($promoMostrarGrade.checked && promoItemAtual.tamanhos.length > 0) {
+    $promoChipPrecoConteudo.innerHTML += `<div style="font-size:0.42em; font-weight:600; margin-top:4px;">Numerações: ${promoItemAtual.tamanhos.join(" · ")}</div>`;
+  }
+
+  aplicarPosicoesChips();
+  atualizarSelecaoChip();
+
+  $promoResultadoWrap.classList.add("hidden");
+  $promoEditorWrap.classList.remove("hidden");
+}
+
+function aplicarPosicoesChips() {
+  Object.entries(promoLayoutEditavel).forEach(([elemento, layout]) => {
+    const chip = $promoEditorStage.querySelector(`[data-elemento="${elemento}"]`);
+    if (elemento === "nome" || elemento === "loja") {
+      // Nome e loja ficam sempre centralizados horizontalmente — só a
+      // altura e o tamanho são ajustáveis.
+      chip.style.left = "50%";
+      chip.style.top = (layout.yPct * 100) + "%";
+      chip.style.transform = `translateX(-50%) scale(${layout.escala})`;
+    } else {
+      chip.style.left = (layout.xPct * 100) + "%";
+      chip.style.top = (layout.yPct * 100) + "%";
+      chip.style.transform = `scale(${layout.escala})`;
+    }
+  });
+}
+
+function atualizarSelecaoChip() {
+  $promoEditorStage.querySelectorAll(".promo-chip").forEach(chip => {
+    chip.classList.toggle("selecionado", chip.dataset.elemento === promoElementoAtivo);
+  });
+  const nomes = { nome: "Nome", loja: "Loja", preco: "Preço", mep: "Selo do app", logoMersan: "Logo Mersan" };
+  $promoElementoSelecionado.textContent = "Selecionado: " + nomes[promoElementoAtivo];
+}
+
+$promoEditorStage.querySelectorAll(".promo-chip").forEach(chip => {
+  const elemento = chip.dataset.elemento;
+  chip.addEventListener("pointerdown", (e) => {
+    promoElementoAtivo = elemento;
+    atualizarSelecaoChip();
+    chip.setPointerCapture(e.pointerId);
+    const rectChip = chip.getBoundingClientRect();
+    promoArrastando = {
+      elemento,
+      offsetX: e.clientX - rectChip.left,
+      offsetY: e.clientY - rectChip.top,
+    };
+  });
+});
+
+$promoEditorStage.addEventListener("pointermove", (e) => {
+  if (!promoArrastando) return;
+  const rectStage = $promoEditorStage.getBoundingClientRect();
+  const layout = promoLayoutEditavel[promoArrastando.elemento];
+  const y = e.clientY - rectStage.top - promoArrastando.offsetY;
+  layout.yPct = Math.max(0, Math.min(1, y / rectStage.height));
+  // Nome e loja ficam sempre centralizados — só arrastam na vertical.
+  if (promoArrastando.elemento !== "nome" && promoArrastando.elemento !== "loja") {
+    const x = e.clientX - rectStage.left - promoArrastando.offsetX;
+    layout.xPct = Math.max(0, Math.min(1, x / rectStage.width));
+  }
+  aplicarPosicoesChips();
+});
+$promoEditorStage.addEventListener("pointerup", () => { promoArrastando = null; });
+$promoEditorStage.addEventListener("pointercancel", () => { promoArrastando = null; });
+
+$btnPromoMenor.addEventListener("click", () => {
+  const layout = promoLayoutEditavel[promoElementoAtivo];
+  layout.escala = Math.max(0.5, +(layout.escala - 0.1).toFixed(2));
+  aplicarPosicoesChips();
+});
+$btnPromoMaior.addEventListener("click", () => {
+  const layout = promoLayoutEditavel[promoElementoAtivo];
+  layout.escala = Math.min(2.2, +(layout.escala + 0.1).toFixed(2));
+  aplicarPosicoesChips();
+});
+
+$btnPromoCancelarEdicao.addEventListener("click", () => {
+  $promoEditorWrap.classList.add("hidden");
+  $promoResultadoWrap.classList.remove("hidden");
+});
+
+$btnPromoConfirmarLayout.addEventListener("click", () => {
+  desenharArtePromo(promoImgAtual, promoOrientacaoAtual, promoLayoutEditavel);
+  $promoEditorWrap.classList.add("hidden");
+});
+
+$btnPromoEditarPosicao.addEventListener("click", () => abrirEditorPromo());
+
+$promoFotoInput.addEventListener("change", () => {
+  processarFotoPromo($promoFotoInput.files && $promoFotoInput.files[0]);
+});
+
+$promoUploadInput.addEventListener("change", () => {
+  processarFotoPromo($promoUploadInput.files && $promoUploadInput.files[0]);
+});
+
+// Quebra o texto em linhas que cabem em larguraMax (sem desenhar), limitado
+// a maxLinhas — usada pra medir quantas linhas o nome do produto vai ocupar
+// antes de desenhar qualquer coisa.
+function quebrarTextoLinhas(ctx, texto, larguraMax, maxLinhas) {
+  const palavras = texto.split(" ");
+  const linhas = [];
+  let linha = "";
+  for (const palavra of palavras) {
+    const teste = linha ? linha + " " + palavra : palavra;
+    if (ctx.measureText(teste).width > larguraMax && linha) {
+      linhas.push(linha);
+      linha = palavra;
+      if (linhas.length >= maxLinhas) return linhas;
+    } else {
+      linha = teste;
+    }
+  }
+  if (linha) linhas.push(linha);
+  return linhas;
+}
+
+// Acha a cor predominante "de verdade" do produto na foto: reduz a imagem,
+// ignora pixels sem saturação (parede, chão, sombra — geralmente cinza ou
+// muito claro/escuro) e conta qual cor colorida aparece mais.
+function corPredominante(img) {
+  const tam = 60;
+  const c = document.createElement("canvas");
+  c.width = tam;
+  c.height = tam;
+  const cctx = c.getContext("2d");
+  cctx.drawImage(img, 0, 0, tam, tam);
+
+  let dados;
+  try {
+    dados = cctx.getImageData(0, 0, tam, tam).data;
+  } catch (e) {
+    return { r: 15, g: 23, b: 42 }; // fallback: escuro padrão do app
+  }
+
+  const contagem = {};
+  for (let i = 0; i < dados.length; i += 4) {
+    const r = dados[i], g = dados[i + 1], b = dados[i + 2];
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    const sat = max === 0 ? 0 : (max - min) / max;
+    const luz = (max + min) / 2;
+    if (sat < 0.18 || luz > 235 || luz < 20) continue; // ignora fundo/sombra
+    const chave = `${Math.round(r / 24) * 24},${Math.round(g / 24) * 24},${Math.round(b / 24) * 24}`;
+    contagem[chave] = (contagem[chave] || 0) + 1;
+  }
+
+  let melhorChave = null, melhorCont = 0;
+  for (const chave in contagem) {
+    if (contagem[chave] > melhorCont) { melhorCont = contagem[chave]; melhorChave = chave; }
+  }
+  if (!melhorChave) return { r: 15, g: 23, b: 42 };
+  const [r, g, b] = melhorChave.split(",").map(Number);
+  return { r, g, b };
+}
+
+// Escolhe texto branco ou escuro dependendo do quão clara é a cor de fundo.
+function corTextoContraste({ r, g, b }) {
+  const luminancia = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminancia > 0.6 ? "15,23,42" : "255,255,255";
+}
+
+// Estilo baseado nos exemplos de artes feitas à mão pra loja: nome do
+// produto em destaque, uma caixinha "DE / POR" com uma linha e uma bolinha
+// apontando pro produto, e o selo da campanha embaixo — sem faixa escura,
+// a foto fica limpa.
+function desenharArtePromo(img, orientacao = 1, layout = null) {
+  layout = layout || layoutPromoPadrao();
+
+  const girado = orientacao >= 5 && orientacao <= 8;
+  const larguraNatural = girado ? img.naturalHeight : img.naturalWidth;
+  const alturaNatural = girado ? img.naturalWidth : img.naturalHeight;
+
+  const larguraMax = 1080;
+  const escala = Math.min(1, larguraMax / larguraNatural);
+  const w = Math.round(larguraNatural * escala);
+  const h = Math.round(alturaNatural * escala);
+  $promoCanvas.width = w;
+  $promoCanvas.height = h;
+
+  const ctx = $promoCanvas.getContext("2d");
+  desenharFotoOrientada(ctx, img, orientacao, w, h);
+
+  // Usa a MENOR dimensão da foto como referência de escala (não sempre a
+  // largura) — numa foto deitada (paisagem), a largura é bem maior que a
+  // altura, e usar ela deixava tudo desproporcionalmente grande/perto.
+  const base = Math.min(w, h);
+
+  const temPromo = promoItemAtual.temPromo;
+  const mostrarGrade = $promoMostrarGrade.checked && promoItemAtual.tamanhos.length > 0;
+
+  // ---- Nome do produto — sempre centralizado horizontalmente, em cima ----
+  const tamanhoFonteNome = Math.round(base * 0.05 * layout.nome.escala);
+  const alturaLinhaNome = Math.round(tamanhoFonteNome * 1.15);
+  ctx.font = `800 ${tamanhoFonteNome}px sans-serif`;
+  const nomeX = w / 2;
+  const linhasNome = quebrarTextoLinhas(ctx, (promoItemAtual.produto || "").toUpperCase(), w * 0.85, 3);
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#fff";
+  ctx.shadowColor = "rgba(0,0,0,0.65)";
+  ctx.shadowBlur = base * 0.012;
+  ctx.shadowOffsetY = base * 0.004;
+  const nomeYBase = layout.nome.yPct * h;
+  linhasNome.forEach((linha, i) => ctx.fillText(linha, nomeX, nomeYBase + (i + 1) * alturaLinhaNome));
+  ctx.shadowColor = "transparent";
+  ctx.textAlign = "left";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+
+  // ---- Loja (nome + endereço, curto) — sempre centralizada, perto do rodapé ----
+  const textoLoja = textoLojaPromo();
+  if (textoLoja) {
+    const tamanhoFonteLoja = Math.round(base * 0.028 * layout.loja.escala);
+    ctx.font = `600 ${tamanhoFonteLoja}px sans-serif`;
+    ctx.fillStyle = "#fff";
+    ctx.shadowColor = "rgba(0,0,0,0.65)";
+    ctx.shadowBlur = base * 0.008;
+    ctx.textAlign = "center";
+    ctx.fillText(textoLoja, w / 2, layout.loja.yPct * h);
+    ctx.textAlign = "left";
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+  }
+
+  // ---- Logo da Mersan (posição/tamanho escolhidos no editor) ----
+  if (imgLogoMersan) {
+    const largLogo = Math.round(base * 0.16 * layout.logoMersan.escala);
+    const altLogo = Math.round(largLogo * (imgLogoMersan.naturalHeight / imgLogoMersan.naturalWidth));
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.5)";
+    ctx.shadowBlur = base * 0.012;
+    ctx.drawImage(imgLogoMersan, layout.logoMersan.xPct * w, layout.logoMersan.yPct * h, largLogo, altLogo);
+    ctx.restore();
+  }
+
+  // ---- Mede a caixinha DE / POR antes de desenhar ----
+  const boxAlturaLinha = Math.round(base * 0.058 * layout.preco.escala);
+  const boxPad = Math.round(base * 0.03 * layout.preco.escala);
+  const boxAltura = (temPromo ? boxAlturaLinha * 2 : boxAlturaLinha) + boxPad * 1.6;
+
+  const tamanhoFontePor = Math.round(boxAlturaLinha * 0.72);
+  ctx.font = `800 ${tamanhoFontePor}px sans-serif`;
+  const textoPor = (temPromo ? "POR: " : "") + fmtMoeda(promoItemAtual.precoFinal);
+  const largTextoPor = ctx.measureText(textoPor).width;
+  const tamanhoFonteDe = Math.round(boxAlturaLinha * 0.46);
+  ctx.font = `700 ${tamanhoFonteDe}px sans-serif`;
+  const textoDe = temPromo ? "DE: " + fmtMoeda(promoItemAtual.precoOriginal) : "";
+  const largTextoDe = temPromo ? ctx.measureText(textoDe).width : 0;
+  const boxLargura = Math.round(Math.max(largTextoPor, largTextoDe) + boxPad * 2);
+
+  const textoGrade = "Numerações: " + promoItemAtual.tamanhos.join(" · ");
+
+  const boxX = Math.round(layout.preco.xPct * w);
+  const boxY = Math.round(layout.preco.yPct * h);
+
+  // Vermelho na promoção; preço normal usa a cor predominante da foto.
+  const corBox = temPromo ? { r: 200, g: 25, b: 30 } : corPredominante(img);
+  const corTextoRGB = corTextoContraste(corBox);
+  const corTextoPrincipal = `rgb(${corTextoRGB})`;
+  const corTextoSecundario = `rgba(${corTextoRGB},0.78)`;
+
+  ctx.fillStyle = `rgba(${corBox.r},${corBox.g},${corBox.b},0.93)`;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(boxX, boxY, boxLargura, boxAltura, 10);
+  else ctx.rect(boxX, boxY, boxLargura, boxAltura);
+  ctx.fill();
+
+  let textoY = boxY + boxPad;
+  ctx.textBaseline = "top";
+  if (temPromo) {
+    ctx.font = `700 ${tamanhoFonteDe}px sans-serif`;
+    ctx.fillStyle = corTextoSecundario;
+    ctx.fillText(textoDe, boxX + boxPad, textoY);
+    // Risco no meio do preço antigo, indicando que não vale mais.
+    const meioDe = textoY + tamanhoFonteDe / 2;
+    ctx.strokeStyle = corTextoSecundario;
+    ctx.lineWidth = Math.max(1.5, base * 0.003);
+    ctx.beginPath();
+    ctx.moveTo(boxX + boxPad, meioDe);
+    ctx.lineTo(boxX + boxPad + largTextoDe, meioDe);
+    ctx.stroke();
+    textoY += boxAlturaLinha;
+  }
+  ctx.font = `800 ${tamanhoFontePor}px sans-serif`;
+  ctx.fillStyle = corTextoPrincipal;
+  ctx.fillText(textoPor, boxX + boxPad, textoY);
+
+  // Linha com bolinha, saindo da caixinha e sempre apontando pro centro
+  // da imagem (onde o produto costuma estar), não numa direção fixa —
+  // assim funciona certo não importa pra onde a caixinha foi arrastada.
+  const linhaX1 = boxX + boxPad * 1.2;
+  const linhaY1 = boxY + boxAltura;
+  const direcaoX = (w / 2) - linhaX1;
+  const direcaoY = (h / 2) - linhaY1;
+  const distanciaCentro = Math.sqrt(direcaoX * direcaoX + direcaoY * direcaoY) || 1;
+  const comprimentoLinha = base * 0.06;
+  const linhaX2 = linhaX1 + (direcaoX / distanciaCentro) * comprimentoLinha;
+  const linhaY2 = linhaY1 + (direcaoY / distanciaCentro) * comprimentoLinha;
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = Math.max(1.5, base * 0.0025);
+  ctx.beginPath();
+  ctx.moveTo(linhaX1, linhaY1);
+  ctx.lineTo(linhaX2, linhaY2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(linhaX2, linhaY2, Math.max(3, base * 0.0055), 0, Math.PI * 2);
+  ctx.fillStyle = "#fff";
+  ctx.fill();
+
+  // ---- Grade (numerações com estoque) ----
+  if (mostrarGrade) {
+    ctx.textBaseline = "alphabetic";
+    ctx.font = `600 ${Math.round(base * 0.032 * layout.preco.escala)}px sans-serif`;
+    ctx.fillStyle = "#fff";
+    ctx.shadowColor = "rgba(0,0,0,0.65)";
+    ctx.shadowBlur = base * 0.008;
+    ctx.fillText(textoGrade, boxX, boxY + boxAltura + Math.round(base * 0.06 * layout.preco.escala));
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+  }
+
+  // ---- Selo do app (MEP), posição/tamanho escolhidos no editor ----
+  if (imgLogoMep) {
+    const lado = Math.round(base * 0.09 * layout.mep.escala);
+    ctx.save();
+    ctx.globalAlpha = 0.92;
+    ctx.shadowColor = "rgba(0,0,0,0.55)";
+    ctx.shadowBlur = base * 0.01;
+    ctx.drawImage(imgLogoMep, layout.mep.xPct * w, layout.mep.yPct * h, lado, lado);
+    ctx.restore();
+  }
+
+  $promoResultadoWrap.classList.remove("hidden");
+  $btnPromoCompartilhar.classList.toggle("hidden", !(navigator.canShare));
+}
+
+$btnPromoBaixar.addEventListener("click", () => {
+  $promoCanvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `promocao-${($promoCodigoInput.value || "produto").trim()}.png`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, "image/png");
+});
+
+$btnPromoCompartilhar.addEventListener("click", () => {
+  $promoCanvas.toBlob(async (blob) => {
+    const file = new File([blob], "promocao.png", { type: "image/png" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: "Promoção" });
+      } catch (e) {
+        // usuário cancelou o compartilhamento — sem problema
+      }
+    }
+  }, "image/png");
+});
+
+// Registra o service worker: guarda o "shell" do app (HTML/manifest/ícones)
+// em cache, então abrir de novo é instantâneo mesmo com internet ruim.
+// Preço e estoque continuam sempre buscados ao vivo, nunca do cache.
+//
+// Também detecta quando uma nova versão do app foi publicada e recarrega
+// a página sozinho, sem o usuário precisar apertar F5/atualizar.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", async () => {
+    try {
+      const reg = await navigator.serviceWorker.register("sw.js");
+
+      // Verifica se tem versão nova a cada 60s enquanto o app estiver aberto
+      setInterval(() => reg.update().catch(() => {}), 60000);
+
+      let jaRecarregou = false;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (jaRecarregou) return;
+        jaRecarregou = true;
+        window.location.reload();
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  });
+}
