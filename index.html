@@ -3760,24 +3760,45 @@ function carregarImagemPromo(src) {
   });
 }
 
+// Os selos foram mandados com fundo sólido (cor de bloco em vez de PNG
+// transparente) — aqui a gente "recorta" isso sozinho: pega a cor do
+// canto da imagem como referência do fundo e apaga (alpha 0) todo pixel
+// parecido com ela, deixando só o desenho/texto do logo por cima da foto.
+function removerFundoSolido(img, tolerancia = 42) {
+  return new Promise((resolve) => {
+    const c = document.createElement("canvas");
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    const cctx = c.getContext("2d");
+    cctx.drawImage(img, 0, 0);
+    try {
+      const imgData = cctx.getImageData(0, 0, c.width, c.height);
+      const dados = imgData.data;
+      const corFundo = [dados[0], dados[1], dados[2]];
+      for (let i = 0; i < dados.length; i += 4) {
+        const dr = dados[i] - corFundo[0];
+        const dg = dados[i + 1] - corFundo[1];
+        const db = dados[i + 2] - corFundo[2];
+        if (Math.sqrt(dr * dr + dg * dg + db * db) < tolerancia) dados[i + 3] = 0;
+      }
+      cctx.putImageData(imgData, 0, 0);
+    } catch (e) {
+      // se der erro, segue com o fundo original em vez de travar a arte
+    }
+    const resultado = new Image();
+    resultado.onload = () => resolve(resultado);
+    resultado.src = c.toDataURL();
+  });
+}
+
 let imgLogoMep = null, imgLogoMersan = null, imgLiquidaMais = null;
 const logosPromoProntos = Promise.all([
-  carregarImagemPromo("icon-192.png").then(img => { imgLogoMep = img; }),
-  carregarImagemPromo("promo-mersan-logo.jpg").then(img => { imgLogoMersan = img; }),
-  carregarImagemPromo("promo-liquida-mais.jpg").then(img => { imgLiquidaMais = img; }),
+  carregarImagemPromo("icon-192.png").then(img => removerFundoSolido(img)).then(img => { imgLogoMep = img; }),
+  carregarImagemPromo("promo-mersan-logo.jpg").then(img => removerFundoSolido(img)).then(img => { imgLogoMersan = img; }),
+  carregarImagemPromo("promo-liquida-mais.jpg").then(img => removerFundoSolido(img)).then(img => { imgLiquidaMais = img; }),
 ]).catch(() => {
   // Se algum selo não carregar, a arte ainda é gerada sem ele.
 });
-
-function desenharImagemArredondada(ctx, img, x, y, largura, altura, raio) {
-  ctx.save();
-  ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect(x, y, largura, altura, raio);
-  else ctx.rect(x, y, largura, altura);
-  ctx.clip();
-  ctx.drawImage(img, x, y, largura, altura);
-  ctx.restore();
-}
 
 let promoItemAtual = null; // { produto, precoOriginal, precoFinal, temPromo, tamanhos }
 
@@ -3957,61 +3978,55 @@ function desenharArtePromo(img) {
 
   const temPromo = promoItemAtual.temPromo;
   const margemX = Math.round(w * 0.06);
+  const margemInferior = Math.round(w * 0.05);
+  const mostrarGrade = $promoMostrarGrade.checked && promoItemAtual.tamanhos.length > 0;
 
-  // Logos discretos no canto superior direito.
-  if (imgLogoMersan) {
-    const lado = Math.round(w * 0.12);
-    ctx.save();
-    ctx.shadowColor = "rgba(0,0,0,0.5)";
-    ctx.shadowBlur = w * 0.012;
-    desenharImagemArredondada(ctx, imgLogoMersan, w - lado - margemX, margemX * 0.6, lado, lado, lado * 0.2);
-    ctx.restore();
-  }
-  if (imgLogoMep) {
-    const lado = Math.round(w * 0.08);
-    const y = imgLogoMersan ? margemX * 0.6 + Math.round(w * 0.12) + Math.round(w * 0.02) : margemX * 0.6;
-    ctx.save();
-    ctx.globalAlpha = 0.92;
-    ctx.shadowColor = "rgba(0,0,0,0.5)";
-    ctx.shadowBlur = w * 0.01;
-    desenharImagemArredondada(ctx, imgLogoMep, w - lado - margemX, y, lado, lado, lado * 0.22);
-    ctx.restore();
-  }
-
-  // ---- Nome do produto ----
-  let cursorY = Math.round(h * 0.42);
-  ctx.textAlign = "left";
-  ctx.textBaseline = "alphabetic";
+  // ---- Mede tudo antes de desenhar, pra poder ancorar o bloco de texto
+  // no canto inferior esquerdo (em vez de no meio da foto, em cima do
+  // produto). ----
   const tamanhoFonteNome = Math.round(w * 0.058);
+  const alturaLinhaNome = Math.round(tamanhoFonteNome * 1.1);
   ctx.font = `800 ${tamanhoFonteNome}px sans-serif`;
-  ctx.fillStyle = "#fff";
-  ctx.shadowColor = "rgba(0,0,0,0.65)";
-  ctx.shadowBlur = w * 0.012;
-  ctx.shadowOffsetY = w * 0.004;
   const linhasNome = quebrarTextoLinhas(ctx, (promoItemAtual.produto || "").toUpperCase(), w * 0.6, 2);
-  linhasNome.forEach((linha, i) => ctx.fillText(linha, margemX, cursorY + i * Math.round(tamanhoFonteNome * 1.1)));
-  ctx.shadowColor = "transparent";
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetY = 0;
-  cursorY += linhasNome.length * Math.round(tamanhoFonteNome * 1.1) + Math.round(w * 0.025);
+  const alturaNome = linhasNome.length * alturaLinhaNome;
 
-  // ---- Caixinha DE / POR ----
   const boxAlturaLinha = Math.round(w * 0.058);
   const boxPad = Math.round(w * 0.03);
   const boxAltura = (temPromo ? boxAlturaLinha * 2 : boxAlturaLinha) + boxPad * 1.6;
 
   ctx.font = `800 ${Math.round(boxAlturaLinha * 0.62)}px sans-serif`;
   const textoPor = (temPromo ? "POR: " : "") + fmtMoeda(promoItemAtual.precoFinal);
-  ctx.font = `700 ${Math.round(boxAlturaLinha * 0.5)}px sans-serif`;
-  const textoDe = temPromo ? "DE: " + fmtMoeda(promoItemAtual.precoOriginal) : "";
-  ctx.font = `800 ${Math.round(boxAlturaLinha * 0.62)}px sans-serif`;
   const largTextoPor = ctx.measureText(textoPor).width;
   ctx.font = `700 ${Math.round(boxAlturaLinha * 0.5)}px sans-serif`;
+  const textoDe = temPromo ? "DE: " + fmtMoeda(promoItemAtual.precoOriginal) : "";
   const largTextoDe = temPromo ? ctx.measureText(textoDe).width : 0;
   const boxLargura = Math.round(Math.max(largTextoPor, largTextoDe) + boxPad * 2);
 
+  const rotuloGrade = promoItemAtual.corBipada ? `Numerações (${promoItemAtual.corBipada}): ` : "Numerações: ";
+  const textoGrade = rotuloGrade + promoItemAtual.tamanhos.join(" · ");
+
+  const gapNomeBox = Math.round(w * 0.025);
+  const alturaAbaixoDoBox = mostrarGrade ? Math.round(w * 0.08) : Math.round(w * 0.058);
+
+  const alturaBlocoTotal = alturaNome + gapNomeBox + boxAltura + alturaAbaixoDoBox;
+  const topoBloco = h - margemInferior - alturaBlocoTotal;
+
+  // ---- Desenha o nome ----
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.font = `800 ${tamanhoFonteNome}px sans-serif`;
+  ctx.fillStyle = "#fff";
+  ctx.shadowColor = "rgba(0,0,0,0.65)";
+  ctx.shadowBlur = w * 0.012;
+  ctx.shadowOffsetY = w * 0.004;
+  linhasNome.forEach((linha, i) => ctx.fillText(linha, margemX, topoBloco + (i + 1) * alturaLinhaNome - Math.round(alturaLinhaNome * 0.15)));
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+
+  // ---- Caixinha DE / POR ----
   const boxX = margemX;
-  const boxY = cursorY;
+  const boxY = topoBloco + alturaNome + gapNomeBox;
 
   // Vermelho pra promoção (combina com o selo Liquida Mais); pra preço
   // normal, usa a cor predominante do próprio produto na foto.
@@ -4038,11 +4053,11 @@ function desenharArtePromo(img) {
   ctx.fillStyle = corTextoPrincipal;
   ctx.fillText(textoPor, boxX + boxPad, textoY);
 
-  // Linha com bolinha, apontando da caixinha pro produto.
+  // Linha com bolinha, saindo da caixinha (efeito de etiqueta de preço).
   const linhaX1 = boxX + boxPad * 1.2;
   const linhaY1 = boxY + boxAltura;
   const linhaX2 = linhaX1 + w * 0.035;
-  const linhaY2 = linhaY1 + w * 0.05;
+  const linhaY2 = linhaY1 + w * 0.03;
   ctx.strokeStyle = "#fff";
   ctx.lineWidth = Math.max(1.5, w * 0.0025);
   ctx.beginPath();
@@ -4055,27 +4070,50 @@ function desenharArtePromo(img) {
   ctx.fill();
 
   // ---- Grade (numerações com estoque) ----
-  if ($promoMostrarGrade.checked && promoItemAtual.tamanhos.length > 0) {
+  if (mostrarGrade) {
+    ctx.textBaseline = "alphabetic";
     ctx.font = `600 ${Math.round(w * 0.024)}px sans-serif`;
     ctx.fillStyle = "#fff";
     ctx.shadowColor = "rgba(0,0,0,0.65)";
     ctx.shadowBlur = w * 0.008;
-    const rotuloGrade = promoItemAtual.corBipada
-      ? `Numerações (${promoItemAtual.corBipada}): `
-      : "Numerações: ";
-    ctx.fillText(rotuloGrade + promoItemAtual.tamanhos.join(" · "), boxX, boxY + boxAltura + Math.round(w * 0.06));
+    ctx.fillText(textoGrade, boxX, boxY + boxAltura + Math.round(w * 0.06));
     ctx.shadowColor = "transparent";
     ctx.shadowBlur = 0;
   }
 
-  // ---- Selo da campanha, embaixo ----
+  // ---- Logo da Mersan, canto superior direito ----
+  if (imgLogoMersan) {
+    const largura = Math.round(w * 0.16);
+    const altura = Math.round(largura * (imgLogoMersan.naturalHeight / imgLogoMersan.naturalWidth));
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.55)";
+    ctx.shadowBlur = w * 0.012;
+    ctx.drawImage(imgLogoMersan, w - largura - margemX, Math.round(w * 0.04), largura, altura);
+    ctx.restore();
+  }
+
+  // ---- Selo "Liquida Mais", canto inferior... centro-baixo ----
   if (temPromo && imgLiquidaMais) {
-    const bannerW = Math.round(w * 0.3);
+    const bannerW = Math.round(w * 0.28);
     const bannerH = Math.round(bannerW * (imgLiquidaMais.naturalHeight / imgLiquidaMais.naturalWidth));
     ctx.save();
-    ctx.shadowColor = "rgba(0,0,0,0.5)";
+    ctx.shadowColor = "rgba(0,0,0,0.55)";
     ctx.shadowBlur = w * 0.015;
-    ctx.drawImage(imgLiquidaMais, w / 2 - bannerW / 2, h - bannerH - Math.round(w * 0.035), bannerW, bannerH);
+    ctx.drawImage(imgLiquidaMais, w - bannerW - margemX, h - bannerH - margemInferior, bannerW, bannerH);
+    ctx.restore();
+  }
+
+  // ---- Selo do app (MEP), discreto no canto inferior direito ----
+  if (imgLogoMep) {
+    const lado = Math.round(w * 0.09);
+    const y = (temPromo && imgLiquidaMais)
+      ? h - lado - margemInferior - Math.round(w * 0.28 * (imgLiquidaMais.naturalHeight / imgLiquidaMais.naturalWidth)) - Math.round(w * 0.02)
+      : h - lado - margemInferior;
+    ctx.save();
+    ctx.globalAlpha = 0.92;
+    ctx.shadowColor = "rgba(0,0,0,0.55)";
+    ctx.shadowBlur = w * 0.01;
+    ctx.drawImage(imgLogoMep, w - lado - margemX, y, lado, lado);
     ctx.restore();
   }
 
