@@ -3695,17 +3695,11 @@ function desenharArtePromo(img, orientacao = 1, layout = null) {
   ctx.fillStyle = corTextoPrincipal;
   ctx.fillText(textoPor, boxX + boxPad, textoY);
 
-  // Linha com bolinha, saindo da caixinha e sempre apontando pro centro
-  // da imagem (onde o produto costuma estar), não numa direção fixa —
-  // assim funciona certo não importa pra onde a caixinha foi arrastada.
+  // Linha com bolinha, saindo da caixinha (efeito de etiqueta de preço).
   const linhaX1 = boxX + boxPad * 1.2;
   const linhaY1 = boxY + boxAltura;
-  const direcaoX = (w / 2) - linhaX1;
-  const direcaoY = (h / 2) - linhaY1;
-  const distanciaCentro = Math.sqrt(direcaoX * direcaoX + direcaoY * direcaoY) || 1;
-  const comprimentoLinha = base * 0.06;
-  const linhaX2 = linhaX1 + (direcaoX / distanciaCentro) * comprimentoLinha;
-  const linhaY2 = linhaY1 + (direcaoY / distanciaCentro) * comprimentoLinha;
+  const linhaX2 = linhaX1 + base * 0.035;
+  const linhaY2 = linhaY1 + base * 0.03;
   ctx.strokeStyle = "#fff";
   ctx.lineWidth = Math.max(1.5, base * 0.0025);
   ctx.beginPath();
