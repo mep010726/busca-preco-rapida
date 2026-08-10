@@ -1,7 +1,7 @@
 {
-  "name": "Busca Preço",
-  "short_name": "Busca Preço",
-  "description": "Consulta rápida de preço e estoque por loja",
+  "name": "MEP Gestor",
+  "short_name": "MEP Gestor",
+  "description": "Preço, estoque, vendas, comissão e artes de promoção num só app",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
