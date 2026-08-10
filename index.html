@@ -614,7 +614,7 @@
             <div class="promo-chip" data-elemento="nome" style="position:absolute; left:50%; top:5%; text-align:center;">
               <div class="promo-chip-texto">NOME DO PRODUTO</div>
             </div>
-            <div class="promo-chip" data-elemento="loja" style="position:absolute; left:6%; top:17%;">
+            <div class="promo-chip" data-elemento="loja" style="position:absolute; left:50%; top:95%; text-align:center;">
               <div class="promo-chip-loja" id="promoChipLojaConteudo">Loja</div>
             </div>
             <div class="promo-chip" data-elemento="preco" style="position:absolute; left:6%; top:78%;">
@@ -4094,7 +4094,7 @@ function layoutPromoPadrao() {
   return {
     nome: { xPct: 0.5, yPct: 0.05, escala: 1 },
     logoMersan: { xPct: 0.02, yPct: 0.02, escala: 1 },
-    loja: { xPct: 0.06, yPct: 0.17, escala: 0.8 },
+    loja: { xPct: 0.5, yPct: 0.95, escala: 0.8 },
     preco: { xPct: 0.06, yPct: 0.78, escala: 1 },
     mep: { xPct: 0.80, yPct: 0.90, escala: 1 },
   };
@@ -4146,9 +4146,9 @@ function abrirEditorPromo() {
 function aplicarPosicoesChips() {
   Object.entries(promoLayoutEditavel).forEach(([elemento, layout]) => {
     const chip = $promoEditorStage.querySelector(`[data-elemento="${elemento}"]`);
-    if (elemento === "nome") {
-      // Nome fica sempre centralizado horizontalmente — só a altura e o
-      // tamanho são ajustáveis.
+    if (elemento === "nome" || elemento === "loja") {
+      // Nome e loja ficam sempre centralizados horizontalmente — só a
+      // altura e o tamanho são ajustáveis.
       chip.style.left = "50%";
       chip.style.top = (layout.yPct * 100) + "%";
       chip.style.transform = `translateX(-50%) scale(${layout.escala})`;
@@ -4189,8 +4189,8 @@ $promoEditorStage.addEventListener("pointermove", (e) => {
   const layout = promoLayoutEditavel[promoArrastando.elemento];
   const y = e.clientY - rectStage.top - promoArrastando.offsetY;
   layout.yPct = Math.max(0, Math.min(1, y / rectStage.height));
-  // O nome fica sempre centralizado — só arrasta na vertical.
-  if (promoArrastando.elemento !== "nome") {
+  // Nome e loja ficam sempre centralizados — só arrastam na vertical.
+  if (promoArrastando.elemento !== "nome" && promoArrastando.elemento !== "loja") {
     const x = e.clientX - rectStage.left - promoArrastando.offsetX;
     layout.xPct = Math.max(0, Math.min(1, x / rectStage.width));
   }
@@ -4344,7 +4344,7 @@ function desenharArtePromo(img, orientacao = 1, layout = null) {
   ctx.shadowBlur = 0;
   ctx.shadowOffsetY = 0;
 
-  // ---- Loja (nome + endereço, curto) ----
+  // ---- Loja (nome + endereço, curto) — sempre centralizada, perto do rodapé ----
   const textoLoja = textoLojaPromo();
   if (textoLoja) {
     const tamanhoFonteLoja = Math.round(base * 0.028 * layout.loja.escala);
@@ -4352,7 +4352,9 @@ function desenharArtePromo(img, orientacao = 1, layout = null) {
     ctx.fillStyle = "#fff";
     ctx.shadowColor = "rgba(0,0,0,0.65)";
     ctx.shadowBlur = base * 0.008;
-    ctx.fillText(textoLoja, layout.loja.xPct * w, layout.loja.yPct * h);
+    ctx.textAlign = "center";
+    ctx.fillText(textoLoja, w / 2, layout.loja.yPct * h);
+    ctx.textAlign = "left";
     ctx.shadowColor = "transparent";
     ctx.shadowBlur = 0;
   }
