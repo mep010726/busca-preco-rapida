@@ -150,7 +150,11 @@ async function main() {
       // a janela inteira do zero.
       if (processados % 200 === 0) {
         await flushBuffer();
-        await salvarEstadoReverso(atual + 1);
+        try {
+          await salvarEstadoReverso(atual + 1);
+        } catch (e) {
+          console.error("Falha ao salvar checkpoint (tenta de novo no proximo):", e.message);
+        }
       }
       await dormir(PAUSA_ENTRE_REQUISICOES_MS);
     }
