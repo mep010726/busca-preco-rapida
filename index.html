@@ -322,6 +322,10 @@
             <input type="checkbox" id="promoEfeitoRetrato">
             Efeito retrato (desfoca o fundo, destaca o produto no centro)
           </label>
+          <div id="promoRetratoIntensidadeWrap" class="row hidden" style="align-items:center; gap:8px; margin-top:4px;">
+            <span class="h-meta" style="flex:0 0 auto;">Desfoque:</span>
+            <input type="range" id="promoRetratoIntensidade" min="1" max="10" value="3" style="flex:1;">
+          </div>
 
           <input id="promoFotoInput" type="file" accept="image/*" capture="environment" class="hidden">
           <button id="btnPromoTirarFoto" class="full" style="margin-top:4px;">Tirar foto do produto</button>

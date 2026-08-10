@@ -142,6 +142,11 @@ const $promoGradeTitulo = document.getElementById("promoGradeTitulo");
 const $promoGradeLista = document.getElementById("promoGradeLista");
 const $promoMostrarGrade = document.getElementById("promoMostrarGrade");
 const $promoEfeitoRetrato = document.getElementById("promoEfeitoRetrato");
+const $promoRetratoIntensidadeWrap = document.getElementById("promoRetratoIntensidadeWrap");
+const $promoRetratoIntensidade = document.getElementById("promoRetratoIntensidade");
+$promoEfeitoRetrato.addEventListener("change", () => {
+  $promoRetratoIntensidadeWrap.classList.toggle("hidden", !$promoEfeitoRetrato.checked);
+});
 const $promoFotoInput = document.getElementById("promoFotoInput");
 const $btnPromoTirarFoto = document.getElementById("btnPromoTirarFoto");
 const $promoUploadInput = document.getElementById("promoUploadInput");
@@ -3343,7 +3348,7 @@ function lerOrientacaoExif(file) {
 // o produto costuma estar nas fotos tiradas na loja). Não é uma segmentação
 // de verdade (isso exigiria IA/modelo de recorte) — é uma aproximação por
 // máscara radial, mas funciona bem quando o produto está centralizado.
-function aplicarEfeitoRetrato(ctx, w, h) {
+function aplicarEfeitoRetrato(ctx, w, h, intensidade = 3) {
   if (typeof ctx.filter !== "string") return; // sem suporte a filter no canvas, pula o efeito
 
   const nitida = document.createElement("canvas");
@@ -3351,8 +3356,8 @@ function aplicarEfeitoRetrato(ctx, w, h) {
   nitida.height = h;
   nitida.getContext("2d").drawImage(ctx.canvas, 0, 0);
 
-  // Fundo: a própria foto borrada.
-  const blurPx = Math.round(Math.min(w, h) * 0.025);
+  // Fundo: a própria foto borrada. Intensidade vem do slider (1 a 10).
+  const blurPx = Math.round(Math.min(w, h) * 0.0035 * intensidade);
   ctx.save();
   ctx.filter = `blur(${blurPx}px)`;
   ctx.drawImage(nitida, 0, 0, w, h);
@@ -3463,7 +3468,7 @@ function abrirEditorPromo() {
   c.height = hPrev;
   const cctx = c.getContext("2d");
   desenharFotoOrientada(cctx, promoImgAtual, promoOrientacaoAtual, wPrev, hPrev);
-  if ($promoEfeitoRetrato.checked) aplicarEfeitoRetrato(cctx, wPrev, hPrev);
+  if ($promoEfeitoRetrato.checked) aplicarEfeitoRetrato(cctx, wPrev, hPrev, Number($promoRetratoIntensidade.value));
   $promoEditorImg.src = c.toDataURL();
 
   const nomeChip = $promoEditorStage.querySelector('[data-elemento="nome"] .promo-chip-texto');
@@ -3675,7 +3680,7 @@ function desenharArtePromo(img, orientacao = 1, layout = null) {
 
   const ctx = $promoCanvas.getContext("2d");
   desenharFotoOrientada(ctx, img, orientacao, w, h);
-  if ($promoEfeitoRetrato.checked) aplicarEfeitoRetrato(ctx, w, h);
+  if ($promoEfeitoRetrato.checked) aplicarEfeitoRetrato(ctx, w, h, Number($promoRetratoIntensidade.value));
 
   // Usa a MENOR dimensão da foto como referência de escala (não sempre a
   // largura) — numa foto deitada (paisagem), a largura é bem maior que a
