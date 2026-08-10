@@ -3791,14 +3791,13 @@ function removerFundoSolido(img, tolerancia = 42) {
   });
 }
 
-let imgLogoMep = null, imgLogoMersan = null, imgLiquidaMais = null;
-const logosPromoProntos = Promise.all([
-  carregarImagemPromo("icon-192.png").then(img => removerFundoSolido(img)).then(img => { imgLogoMep = img; }),
-  carregarImagemPromo("promo-mersan-logo.jpg").then(img => removerFundoSolido(img)).then(img => { imgLogoMersan = img; }),
-  carregarImagemPromo("promo-liquida-mais.jpg").then(img => removerFundoSolido(img)).then(img => { imgLiquidaMais = img; }),
-]).catch(() => {
-  // Se algum selo não carregar, a arte ainda é gerada sem ele.
-});
+let imgLogoMep = null;
+const logosPromoProntos = carregarImagemPromo("icon-192.png")
+  .then(img => removerFundoSolido(img))
+  .then(img => { imgLogoMep = img; })
+  .catch(() => {
+    // Se o selo não carregar, a arte ainda é gerada sem ele.
+  });
 
 let promoItemAtual = null; // { produto, precoOriginal, precoFinal, temPromo, tamanhos }
 
@@ -3882,6 +3881,72 @@ $btnPromoNovaFoto.addEventListener("click", () => {
   $promoFotoInput.click();
 });
 
+// Fotos tiradas com o celular "de lado" geralmente não vêm com os pixels
+// realmente girados — o celular só marca a rotação certa numa tag EXIF, e
+// o <canvas> ignora essa tag (diferente de abrir a foto num app comum).
+// Sem isso, a arte sairia deitada. Aqui a gente lê a tag na mão.
+function lerOrientacaoExif(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const view = new DataView(e.target.result);
+        if (view.getUint16(0, false) !== 0xffd8) return resolve(1); // não é JPEG
+        const length = view.byteLength;
+        let offset = 2;
+        while (offset < length) {
+          const marker = view.getUint16(offset, false);
+          offset += 2;
+          if (marker === 0xffe1) {
+            if (view.getUint32(offset + 2, false) !== 0x45786966) return resolve(1);
+            const little = view.getUint16(offset + 8, false) === 0x4949;
+            const primeiroIFD = view.getUint32(offset + 8 + 4, little);
+            const dirOffset = offset + 8 + primeiroIFD;
+            const totalTags = view.getUint16(dirOffset, little);
+            for (let i = 0; i < totalTags; i++) {
+              const entrada = dirOffset + 2 + i * 12;
+              if (view.getUint16(entrada, little) === 0x0112) {
+                return resolve(view.getUint16(entrada + 8, little));
+              }
+            }
+            return resolve(1);
+          } else if ((marker & 0xff00) !== 0xff00) {
+            break;
+          } else {
+            offset += view.getUint16(offset, false);
+          }
+        }
+      } catch (e) {
+        // arquivo sem EXIF legível — segue sem corrigir rotação
+      }
+      resolve(1);
+    };
+    reader.onerror = () => resolve(1);
+    reader.readAsArrayBuffer(file.slice(0, 128 * 1024));
+  });
+}
+
+// Aplica a correção de rotação/espelho de acordo com a tag EXIF, desenhando
+// a foto já "em pé" no destino (destW x destH).
+function desenharFotoOrientada(ctx, img, orientacao, destW, destH) {
+  ctx.save();
+  switch (orientacao) {
+    case 2: ctx.translate(destW, 0); ctx.scale(-1, 1); break;
+    case 3: ctx.translate(destW, destH); ctx.rotate(Math.PI); break;
+    case 4: ctx.translate(0, destH); ctx.scale(1, -1); break;
+    case 5: ctx.rotate(0.5 * Math.PI); ctx.scale(1, -1); break;
+    case 6: ctx.rotate(0.5 * Math.PI); ctx.translate(0, -destH); break;
+    case 7: ctx.rotate(0.5 * Math.PI); ctx.translate(destW, -destH); ctx.scale(-1, 1); break;
+    case 8: ctx.rotate(-0.5 * Math.PI); ctx.translate(-destW, 0); break;
+    default: break; // 1 (ou desconhecida): já está normal
+  }
+  const girado = orientacao >= 5 && orientacao <= 8;
+  const larguraDesenho = girado ? destH : destW;
+  const alturaDesenho = girado ? destW : destH;
+  ctx.drawImage(img, 0, 0, larguraDesenho, alturaDesenho);
+  ctx.restore();
+}
+
 $promoFotoInput.addEventListener("change", () => {
   const file = $promoFotoInput.files && $promoFotoInput.files[0];
   if (!file || !promoItemAtual) return;
@@ -3889,8 +3954,8 @@ $promoFotoInput.addEventListener("change", () => {
   const img = new Image();
   const url = URL.createObjectURL(file);
   img.onload = async () => {
-    await logosPromoProntos;
-    desenharArtePromo(img);
+    const [orientacao] = await Promise.all([lerOrientacaoExif(file), logosPromoProntos]);
+    desenharArtePromo(img, orientacao);
     URL.revokeObjectURL(url);
   };
   img.src = url;
@@ -3965,31 +4030,47 @@ function corTextoContraste({ r, g, b }) {
 // produto em destaque, uma caixinha "DE / POR" com uma linha e uma bolinha
 // apontando pro produto, e o selo da campanha embaixo — sem faixa escura,
 // a foto fica limpa.
-function desenharArtePromo(img) {
+function desenharArtePromo(img, orientacao = 1) {
+  const girado = orientacao >= 5 && orientacao <= 8;
+  const larguraNatural = girado ? img.naturalHeight : img.naturalWidth;
+  const alturaNatural = girado ? img.naturalWidth : img.naturalHeight;
+
   const larguraMax = 1080;
-  const escala = Math.min(1, larguraMax / img.naturalWidth);
-  const w = Math.round(img.naturalWidth * escala);
-  const h = Math.round(img.naturalHeight * escala);
+  const escala = Math.min(1, larguraMax / larguraNatural);
+  const w = Math.round(larguraNatural * escala);
+  const h = Math.round(alturaNatural * escala);
   $promoCanvas.width = w;
   $promoCanvas.height = h;
 
   const ctx = $promoCanvas.getContext("2d");
-  ctx.drawImage(img, 0, 0, w, h);
+  desenharFotoOrientada(ctx, img, orientacao, w, h);
 
   const temPromo = promoItemAtual.temPromo;
   const margemX = Math.round(w * 0.06);
+  const margemTopo = Math.round(w * 0.05);
   const margemInferior = Math.round(w * 0.05);
   const mostrarGrade = $promoMostrarGrade.checked && promoItemAtual.tamanhos.length > 0;
 
-  // ---- Mede tudo antes de desenhar, pra poder ancorar o bloco de texto
-  // no canto inferior esquerdo (em vez de no meio da foto, em cima do
-  // produto). ----
-  const tamanhoFonteNome = Math.round(w * 0.058);
-  const alturaLinhaNome = Math.round(tamanhoFonteNome * 1.1);
+  // ---- Nome do produto, canto superior direito ----
+  const tamanhoFonteNome = Math.round(w * 0.05);
+  const alturaLinhaNome = Math.round(tamanhoFonteNome * 1.15);
   ctx.font = `800 ${tamanhoFonteNome}px sans-serif`;
-  const linhasNome = quebrarTextoLinhas(ctx, (promoItemAtual.produto || "").toUpperCase(), w * 0.6, 2);
-  const alturaNome = linhasNome.length * alturaLinhaNome;
+  const linhasNome = quebrarTextoLinhas(ctx, (promoItemAtual.produto || "").toUpperCase(), w * 0.55, 3);
 
+  ctx.textAlign = "right";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#fff";
+  ctx.shadowColor = "rgba(0,0,0,0.65)";
+  ctx.shadowBlur = w * 0.012;
+  ctx.shadowOffsetY = w * 0.004;
+  linhasNome.forEach((linha, i) => ctx.fillText(linha, w - margemX, margemTopo + (i + 1) * alturaLinhaNome));
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.textAlign = "left";
+
+  // ---- Mede a caixinha DE / POR antes de desenhar, pra ancorar tudo no
+  // canto inferior esquerdo. ----
   const boxAlturaLinha = Math.round(w * 0.058);
   const boxPad = Math.round(w * 0.03);
   const boxAltura = (temPromo ? boxAlturaLinha * 2 : boxAlturaLinha) + boxPad * 1.6;
@@ -4004,32 +4085,12 @@ function desenharArtePromo(img) {
 
   const rotuloGrade = promoItemAtual.corBipada ? `Numerações (${promoItemAtual.corBipada}): ` : "Numerações: ";
   const textoGrade = rotuloGrade + promoItemAtual.tamanhos.join(" · ");
-
-  const gapNomeBox = Math.round(w * 0.025);
   const alturaAbaixoDoBox = mostrarGrade ? Math.round(w * 0.08) : Math.round(w * 0.058);
 
-  const alturaBlocoTotal = alturaNome + gapNomeBox + boxAltura + alturaAbaixoDoBox;
-  const topoBloco = h - margemInferior - alturaBlocoTotal;
-
-  // ---- Desenha o nome ----
-  ctx.textAlign = "left";
-  ctx.textBaseline = "alphabetic";
-  ctx.font = `800 ${tamanhoFonteNome}px sans-serif`;
-  ctx.fillStyle = "#fff";
-  ctx.shadowColor = "rgba(0,0,0,0.65)";
-  ctx.shadowBlur = w * 0.012;
-  ctx.shadowOffsetY = w * 0.004;
-  linhasNome.forEach((linha, i) => ctx.fillText(linha, margemX, topoBloco + (i + 1) * alturaLinhaNome - Math.round(alturaLinhaNome * 0.15)));
-  ctx.shadowColor = "transparent";
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetY = 0;
-
-  // ---- Caixinha DE / POR ----
   const boxX = margemX;
-  const boxY = topoBloco + alturaNome + gapNomeBox;
+  const boxY = h - margemInferior - alturaAbaixoDoBox - boxAltura;
 
-  // Vermelho pra promoção (combina com o selo Liquida Mais); pra preço
-  // normal, usa a cor predominante do próprio produto na foto.
+  // Vermelho na promoção; preço normal usa a cor predominante da foto.
   const corBox = temPromo ? { r: 200, g: 25, b: 30 } : corPredominante(img);
   const corTextoRGB = corTextoContraste(corBox);
   const corTextoPrincipal = `rgb(${corTextoRGB})`;
@@ -4081,39 +4142,14 @@ function desenharArtePromo(img) {
     ctx.shadowBlur = 0;
   }
 
-  // ---- Logo da Mersan, canto superior direito ----
-  if (imgLogoMersan) {
-    const largura = Math.round(w * 0.16);
-    const altura = Math.round(largura * (imgLogoMersan.naturalHeight / imgLogoMersan.naturalWidth));
-    ctx.save();
-    ctx.shadowColor = "rgba(0,0,0,0.55)";
-    ctx.shadowBlur = w * 0.012;
-    ctx.drawImage(imgLogoMersan, w - largura - margemX, Math.round(w * 0.04), largura, altura);
-    ctx.restore();
-  }
-
-  // ---- Selo "Liquida Mais", canto inferior... centro-baixo ----
-  if (temPromo && imgLiquidaMais) {
-    const bannerW = Math.round(w * 0.28);
-    const bannerH = Math.round(bannerW * (imgLiquidaMais.naturalHeight / imgLiquidaMais.naturalWidth));
-    ctx.save();
-    ctx.shadowColor = "rgba(0,0,0,0.55)";
-    ctx.shadowBlur = w * 0.015;
-    ctx.drawImage(imgLiquidaMais, w - bannerW - margemX, h - bannerH - margemInferior, bannerW, bannerH);
-    ctx.restore();
-  }
-
   // ---- Selo do app (MEP), discreto no canto inferior direito ----
   if (imgLogoMep) {
     const lado = Math.round(w * 0.09);
-    const y = (temPromo && imgLiquidaMais)
-      ? h - lado - margemInferior - Math.round(w * 0.28 * (imgLiquidaMais.naturalHeight / imgLiquidaMais.naturalWidth)) - Math.round(w * 0.02)
-      : h - lado - margemInferior;
     ctx.save();
     ctx.globalAlpha = 0.92;
     ctx.shadowColor = "rgba(0,0,0,0.55)";
     ctx.shadowBlur = w * 0.01;
-    ctx.drawImage(imgLogoMep, w - lado - margemX, y, lado, lado);
+    ctx.drawImage(imgLogoMep, w - lado - margemX, h - lado - margemInferior, lado, lado);
     ctx.restore();
   }
 
