@@ -611,7 +611,7 @@
           <div class="h-meta" style="margin-bottom:6px;">Toque numa etiqueta pra selecionar, arraste pra mover, e use os botões abaixo pra mudar o tamanho.</div>
           <div id="promoEditorStage" style="position:relative; width:100%; overflow:hidden; border-radius:8px; touch-action:none; background:#000;">
             <img id="promoEditorImg" style="width:100%; display:block; pointer-events:none; user-select:none;">
-            <div class="promo-chip" data-elemento="nome" style="position:absolute; left:55%; top:5%;">
+            <div class="promo-chip" data-elemento="nome" style="position:absolute; left:50%; top:5%; text-align:center;">
               <div class="promo-chip-texto">NOME DO PRODUTO</div>
             </div>
             <div class="promo-chip" data-elemento="loja" style="position:absolute; left:6%; top:17%;">
@@ -4092,7 +4092,7 @@ function textoLojaPromo() {
 
 function layoutPromoPadrao() {
   return {
-    nome: { xPct: 0.55, yPct: 0.05, escala: 1 },
+    nome: { xPct: 0.5, yPct: 0.05, escala: 1 },
     logoMersan: { xPct: 0.06, yPct: 0.05, escala: 1 },
     loja: { xPct: 0.06, yPct: 0.17, escala: 0.8 },
     preco: { xPct: 0.06, yPct: 0.72, escala: 1 },
@@ -4146,9 +4146,17 @@ function abrirEditorPromo() {
 function aplicarPosicoesChips() {
   Object.entries(promoLayoutEditavel).forEach(([elemento, layout]) => {
     const chip = $promoEditorStage.querySelector(`[data-elemento="${elemento}"]`);
-    chip.style.left = (layout.xPct * 100) + "%";
-    chip.style.top = (layout.yPct * 100) + "%";
-    chip.style.transform = `scale(${layout.escala})`;
+    if (elemento === "nome") {
+      // Nome fica sempre centralizado horizontalmente — só a altura e o
+      // tamanho são ajustáveis.
+      chip.style.left = "50%";
+      chip.style.top = (layout.yPct * 100) + "%";
+      chip.style.transform = `translateX(-50%) scale(${layout.escala})`;
+    } else {
+      chip.style.left = (layout.xPct * 100) + "%";
+      chip.style.top = (layout.yPct * 100) + "%";
+      chip.style.transform = `scale(${layout.escala})`;
+    }
   });
 }
 
@@ -4179,10 +4187,13 @@ $promoEditorStage.addEventListener("pointermove", (e) => {
   if (!promoArrastando) return;
   const rectStage = $promoEditorStage.getBoundingClientRect();
   const layout = promoLayoutEditavel[promoArrastando.elemento];
-  const x = e.clientX - rectStage.left - promoArrastando.offsetX;
   const y = e.clientY - rectStage.top - promoArrastando.offsetY;
-  layout.xPct = Math.max(0, Math.min(1, x / rectStage.width));
   layout.yPct = Math.max(0, Math.min(1, y / rectStage.height));
+  // O nome fica sempre centralizado — só arrasta na vertical.
+  if (promoArrastando.elemento !== "nome") {
+    const x = e.clientX - rectStage.left - promoArrastando.offsetX;
+    layout.xPct = Math.max(0, Math.min(1, x / rectStage.width));
+  }
   aplicarPosicoesChips();
 });
 $promoEditorStage.addEventListener("pointerup", () => { promoArrastando = null; });
@@ -4313,18 +4324,14 @@ function desenharArtePromo(img, orientacao = 1, layout = null) {
   const temPromo = promoItemAtual.temPromo;
   const mostrarGrade = $promoMostrarGrade.checked && promoItemAtual.tamanhos.length > 0;
 
-  // ---- Nome do produto (posição/tamanho escolhidos no editor) ----
+  // ---- Nome do produto — sempre centralizado horizontalmente, em cima ----
   const tamanhoFonteNome = Math.round(base * 0.05 * layout.nome.escala);
   const alturaLinhaNome = Math.round(tamanhoFonteNome * 1.15);
   ctx.font = `800 ${tamanhoFonteNome}px sans-serif`;
-  const nomeX = layout.nome.xPct * w;
-  // A largura disponível pra quebrar linha depende de onde o nome foi
-  // posicionado — sem isso, um nome comprido perto da borda direita
-  // ultrapassava a imagem em vez de quebrar linha.
-  const larguraDisponivelNome = Math.max(base * 0.3, w - nomeX - Math.round(base * 0.04));
-  const linhasNome = quebrarTextoLinhas(ctx, (promoItemAtual.produto || "").toUpperCase(), larguraDisponivelNome, 3);
+  const nomeX = w / 2;
+  const linhasNome = quebrarTextoLinhas(ctx, (promoItemAtual.produto || "").toUpperCase(), w * 0.85, 3);
 
-  ctx.textAlign = "left";
+  ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "#fff";
   ctx.shadowColor = "rgba(0,0,0,0.65)";
@@ -4333,6 +4340,7 @@ function desenharArtePromo(img, orientacao = 1, layout = null) {
   const nomeYBase = layout.nome.yPct * h;
   linhasNome.forEach((linha, i) => ctx.fillText(linha, nomeX, nomeYBase + (i + 1) * alturaLinhaNome));
   ctx.shadowColor = "transparent";
+  ctx.textAlign = "left";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetY = 0;
 
