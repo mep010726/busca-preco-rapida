@@ -576,8 +576,11 @@
             Mostrar numerações na arte
           </label>
 
-          <input id="promoFotoInput" type="file" accept="image/*" capture="environment" class="hidden">
+          <input id="promoFotoInput" type="file" accept="image/*" class="hidden">
           <button id="btnPromoTirarFoto" class="full" style="margin-top:4px;">Tirar foto do produto</button>
+
+          <input id="promoUploadInput" type="file" accept="image/*" class="hidden">
+          <button id="btnPromoEnviarFoto" class="secondary full" style="margin-top:8px;">Enviar foto já tirada</button>
         </div>
 
         <div id="promoResultadoWrap" class="hidden" style="margin-top:12px;">
@@ -974,6 +977,8 @@ const $promoGradeLista = document.getElementById("promoGradeLista");
 const $promoMostrarGrade = document.getElementById("promoMostrarGrade");
 const $promoFotoInput = document.getElementById("promoFotoInput");
 const $btnPromoTirarFoto = document.getElementById("btnPromoTirarFoto");
+const $promoUploadInput = document.getElementById("promoUploadInput");
+const $btnPromoEnviarFoto = document.getElementById("btnPromoEnviarFoto");
 const $promoResultadoWrap = document.getElementById("promoResultadoWrap");
 const $promoCanvas = document.getElementById("promoCanvas");
 const $btnPromoBaixar = document.getElementById("btnPromoBaixar");
@@ -3876,6 +3881,7 @@ $promoCodigoInput.addEventListener("keydown", (e) => {
 });
 
 $btnPromoTirarFoto.addEventListener("click", () => $promoFotoInput.click());
+$btnPromoEnviarFoto.addEventListener("click", () => $promoUploadInput.click());
 $btnPromoNovaFoto.addEventListener("click", () => {
   $promoFotoInput.value = "";
   $promoFotoInput.click();
@@ -3947,8 +3953,7 @@ function desenharFotoOrientada(ctx, img, orientacao, destW, destH) {
   ctx.restore();
 }
 
-$promoFotoInput.addEventListener("change", () => {
-  const file = $promoFotoInput.files && $promoFotoInput.files[0];
+function processarFotoPromo(file) {
   if (!file || !promoItemAtual) return;
 
   const img = new Image();
@@ -3959,6 +3964,14 @@ $promoFotoInput.addEventListener("change", () => {
     URL.revokeObjectURL(url);
   };
   img.src = url;
+}
+
+$promoFotoInput.addEventListener("change", () => {
+  processarFotoPromo($promoFotoInput.files && $promoFotoInput.files[0]);
+});
+
+$promoUploadInput.addEventListener("change", () => {
+  processarFotoPromo($promoUploadInput.files && $promoUploadInput.files[0]);
 });
 
 // Quebra o texto em linhas que cabem em larguraMax (sem desenhar), limitado
