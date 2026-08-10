@@ -148,7 +148,7 @@ async function main() {
       // Salva o ponteiro periodicamente: se o job for interrompido (ex: timeout
       // do GitHub Actions), a proxima execucao retoma daqui em vez de repetir
       // a janela inteira do zero.
-      if (processados % 1000 === 0) {
+      if (processados % 200 === 0) {
         await flushBuffer();
         await salvarEstadoReverso(atual + 1);
       }
