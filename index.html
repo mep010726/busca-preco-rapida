@@ -3893,7 +3893,7 @@ function manterApenasClaro(img, limiar = 190) {
 let imgLogoMep = null;
 let imgLogoMersan = null;
 const logosPromoProntos = Promise.all([
-  carregarImagemPromo("icon-192.png").then(img => removerFundoSolido(img)).then(img => { imgLogoMep = img; }),
+  carregarImagemPromo("icon-192.png").then(img => removerFundoSolido(img, 110)).then(img => { imgLogoMep = img; }),
   carregarImagemPromo("promo-mersan-logo-2.jpg").then(img => manterApenasClaro(img)).then(img => { imgLogoMersan = img; }),
 ]).catch(() => {
   // Se algum selo não carregar, a arte ainda é gerada sem ele.
@@ -4317,7 +4317,12 @@ function desenharArtePromo(img, orientacao = 1, layout = null) {
   const tamanhoFonteNome = Math.round(base * 0.05 * layout.nome.escala);
   const alturaLinhaNome = Math.round(tamanhoFonteNome * 1.15);
   ctx.font = `800 ${tamanhoFonteNome}px sans-serif`;
-  const linhasNome = quebrarTextoLinhas(ctx, (promoItemAtual.produto || "").toUpperCase(), w * 0.9, 3);
+  const nomeX = layout.nome.xPct * w;
+  // A largura disponível pra quebrar linha depende de onde o nome foi
+  // posicionado — sem isso, um nome comprido perto da borda direita
+  // ultrapassava a imagem em vez de quebrar linha.
+  const larguraDisponivelNome = Math.max(base * 0.3, w - nomeX - Math.round(base * 0.04));
+  const linhasNome = quebrarTextoLinhas(ctx, (promoItemAtual.produto || "").toUpperCase(), larguraDisponivelNome, 3);
 
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
@@ -4325,7 +4330,6 @@ function desenharArtePromo(img, orientacao = 1, layout = null) {
   ctx.shadowColor = "rgba(0,0,0,0.65)";
   ctx.shadowBlur = base * 0.012;
   ctx.shadowOffsetY = base * 0.004;
-  const nomeX = layout.nome.xPct * w;
   const nomeYBase = layout.nome.yPct * h;
   linhasNome.forEach((linha, i) => ctx.fillText(linha, nomeX, nomeYBase + (i + 1) * alturaLinhaNome));
   ctx.shadowColor = "transparent";
