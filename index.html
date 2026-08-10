@@ -611,7 +611,7 @@
           <div class="h-meta" style="margin-bottom:6px;">Toque numa etiqueta pra selecionar, arraste pra mover, e use os botões abaixo pra mudar o tamanho.</div>
           <div id="promoEditorStage" style="position:relative; width:100%; overflow:hidden; border-radius:8px; touch-action:none; background:#000;">
             <img id="promoEditorImg" style="width:100%; display:block; pointer-events:none; user-select:none;">
-            <div class="promo-chip" data-elemento="nome" style="position:absolute; left:50%; top:5%; text-align:center;">
+            <div class="promo-chip" data-elemento="nome" style="position:absolute; left:50%; top:12%; text-align:center;">
               <div class="promo-chip-texto">NOME DO PRODUTO</div>
             </div>
             <div class="promo-chip" data-elemento="loja" style="position:absolute; left:50%; top:95%; text-align:center;">
@@ -4092,7 +4092,7 @@ function textoLojaPromo() {
 
 function layoutPromoPadrao() {
   return {
-    nome: { xPct: 0.5, yPct: 0.05, escala: 1 },
+    nome: { xPct: 0.5, yPct: 0.12, escala: 0.85 },
     logoMersan: { xPct: 0.02, yPct: 0.02, escala: 1 },
     loja: { xPct: 0.5, yPct: 0.95, escala: 0.8 },
     preco: { xPct: 0.06, yPct: 0.78, escala: 1 },
@@ -4422,11 +4422,17 @@ function desenharArtePromo(img, orientacao = 1, layout = null) {
   ctx.fillStyle = corTextoPrincipal;
   ctx.fillText(textoPor, boxX + boxPad, textoY);
 
-  // Linha com bolinha, saindo da caixinha (efeito de etiqueta de preço).
+  // Linha com bolinha, saindo da caixinha e sempre apontando pro centro
+  // da imagem (onde o produto costuma estar), não numa direção fixa —
+  // assim funciona certo não importa pra onde a caixinha foi arrastada.
   const linhaX1 = boxX + boxPad * 1.2;
   const linhaY1 = boxY + boxAltura;
-  const linhaX2 = linhaX1 + base * 0.035;
-  const linhaY2 = linhaY1 + base * 0.03;
+  const direcaoX = (w / 2) - linhaX1;
+  const direcaoY = (h / 2) - linhaY1;
+  const distanciaCentro = Math.sqrt(direcaoX * direcaoX + direcaoY * direcaoY) || 1;
+  const comprimentoLinha = base * 0.06;
+  const linhaX2 = linhaX1 + (direcaoX / distanciaCentro) * comprimentoLinha;
+  const linhaY2 = linhaY1 + (direcaoY / distanciaCentro) * comprimentoLinha;
   ctx.strokeStyle = "#fff";
   ctx.lineWidth = Math.max(1.5, base * 0.0025);
   ctx.beginPath();
