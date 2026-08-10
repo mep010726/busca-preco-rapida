@@ -4088,16 +4088,17 @@ function desenharArtePromo(img, orientacao = 1) {
   const boxPad = Math.round(w * 0.03);
   const boxAltura = (temPromo ? boxAlturaLinha * 2 : boxAlturaLinha) + boxPad * 1.6;
 
-  ctx.font = `800 ${Math.round(boxAlturaLinha * 0.62)}px sans-serif`;
+  const tamanhoFontePor = Math.round(boxAlturaLinha * 0.72);
+  ctx.font = `800 ${tamanhoFontePor}px sans-serif`;
   const textoPor = (temPromo ? "POR: " : "") + fmtMoeda(promoItemAtual.precoFinal);
   const largTextoPor = ctx.measureText(textoPor).width;
-  ctx.font = `700 ${Math.round(boxAlturaLinha * 0.5)}px sans-serif`;
+  const tamanhoFonteDe = Math.round(boxAlturaLinha * 0.46);
+  ctx.font = `700 ${tamanhoFonteDe}px sans-serif`;
   const textoDe = temPromo ? "DE: " + fmtMoeda(promoItemAtual.precoOriginal) : "";
   const largTextoDe = temPromo ? ctx.measureText(textoDe).width : 0;
   const boxLargura = Math.round(Math.max(largTextoPor, largTextoDe) + boxPad * 2);
 
-  const rotuloGrade = promoItemAtual.corBipada ? `Numerações (${promoItemAtual.corBipada}): ` : "Numerações: ";
-  const textoGrade = rotuloGrade + promoItemAtual.tamanhos.join(" · ");
+  const textoGrade = "Numerações: " + promoItemAtual.tamanhos.join(" · ");
   const alturaAbaixoDoBox = mostrarGrade ? Math.round(w * 0.08) : Math.round(w * 0.058);
 
   const boxX = margemX;
@@ -4118,12 +4119,20 @@ function desenharArtePromo(img, orientacao = 1) {
   let textoY = boxY + boxPad;
   ctx.textBaseline = "top";
   if (temPromo) {
-    ctx.font = `700 ${Math.round(boxAlturaLinha * 0.5)}px sans-serif`;
+    ctx.font = `700 ${tamanhoFonteDe}px sans-serif`;
     ctx.fillStyle = corTextoSecundario;
     ctx.fillText(textoDe, boxX + boxPad, textoY);
+    // Risco no meio do preço antigo, indicando que não vale mais.
+    const meioDe = textoY + tamanhoFonteDe / 2;
+    ctx.strokeStyle = corTextoSecundario;
+    ctx.lineWidth = Math.max(1.5, w * 0.003);
+    ctx.beginPath();
+    ctx.moveTo(boxX + boxPad, meioDe);
+    ctx.lineTo(boxX + boxPad + largTextoDe, meioDe);
+    ctx.stroke();
     textoY += boxAlturaLinha;
   }
-  ctx.font = `800 ${Math.round(boxAlturaLinha * 0.62)}px sans-serif`;
+  ctx.font = `800 ${tamanhoFontePor}px sans-serif`;
   ctx.fillStyle = corTextoPrincipal;
   ctx.fillText(textoPor, boxX + boxPad, textoY);
 
