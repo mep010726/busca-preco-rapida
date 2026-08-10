@@ -153,6 +153,7 @@ const $promoChipLojaConteudo = document.getElementById("promoChipLojaConteudo");
 const $promoElementoSelecionado = document.getElementById("promoElementoSelecionado");
 const $btnPromoMenor = document.getElementById("btnPromoMenor");
 const $btnPromoMaior = document.getElementById("btnPromoMaior");
+const $btnPromoRemoverElemento = document.getElementById("btnPromoRemoverElemento");
 const $btnPromoConfirmarLayout = document.getElementById("btnPromoConfirmarLayout");
 const $btnPromoCancelarEdicao = document.getElementById("btnPromoCancelarEdicao");
 const $promoResultadoWrap = document.getElementById("promoResultadoWrap");
@@ -3365,11 +3366,11 @@ function textoLojaPromo() {
 
 function layoutPromoPadrao() {
   return {
-    nome: { xPct: 0.5, yPct: 0.12, escala: 0.85 },
-    logoMersan: { xPct: 0.02, yPct: 0.02, escala: 1 },
-    loja: { xPct: 0.5, yPct: 0.95, escala: 0.8 },
-    preco: { xPct: 0.06, yPct: 0.78, escala: 1 },
-    mep: { xPct: 0.80, yPct: 0.90, escala: 1 },
+    nome: { xPct: 0.5, yPct: 0.12, escala: 0.85, visivel: true },
+    logoMersan: { xPct: 0.02, yPct: 0.02, escala: 1, visivel: true },
+    loja: { xPct: 0.5, yPct: 0.95, escala: 0.8, visivel: true },
+    preco: { xPct: 0.06, yPct: 0.78, escala: 1, visivel: true },
+    mep: { xPct: 0.80, yPct: 0.90, escala: 1, visivel: true },
   };
 }
 
@@ -3430,6 +3431,9 @@ function aplicarPosicoesChips() {
       chip.style.top = (layout.yPct * 100) + "%";
       chip.style.transform = `scale(${layout.escala})`;
     }
+    // Elemento removido: continua visível (esmaecido) no editor pra dar pra
+    // selecionar e restaurar, mas some da arte final.
+    chip.classList.toggle("removido", layout.visivel === false);
   });
 }
 
@@ -3439,6 +3443,8 @@ function atualizarSelecaoChip() {
   });
   const nomes = { nome: "Nome", loja: "Loja", preco: "Preço", mep: "Selo do app", logoMersan: "Logo Mersan" };
   $promoElementoSelecionado.textContent = "Selecionado: " + nomes[promoElementoAtivo];
+  const escondido = promoLayoutEditavel[promoElementoAtivo].visivel === false;
+  $btnPromoRemoverElemento.textContent = escondido ? "Restaurar na arte" : "Remover da arte";
 }
 
 $promoEditorStage.querySelectorAll(".promo-chip").forEach(chip => {
@@ -3481,6 +3487,13 @@ $btnPromoMaior.addEventListener("click", () => {
   const layout = promoLayoutEditavel[promoElementoAtivo];
   layout.escala = Math.min(2.2, +(layout.escala + 0.1).toFixed(2));
   aplicarPosicoesChips();
+});
+
+$btnPromoRemoverElemento.addEventListener("click", () => {
+  const layout = promoLayoutEditavel[promoElementoAtivo];
+  layout.visivel = layout.visivel === false ? true : false;
+  aplicarPosicoesChips();
+  atualizarSelecaoChip();
 });
 
 $btnPromoCancelarEdicao.addEventListener("click", () => {
@@ -3598,42 +3611,29 @@ function desenharArtePromo(img, orientacao = 1, layout = null) {
   const mostrarGrade = $promoMostrarGrade.checked && promoItemAtual.tamanhos.length > 0;
 
   // ---- Nome do produto — sempre centralizado horizontalmente, em cima ----
-  const tamanhoFonteNome = Math.round(base * 0.05 * layout.nome.escala);
-  const alturaLinhaNome = Math.round(tamanhoFonteNome * 1.15);
-  ctx.font = `800 ${tamanhoFonteNome}px sans-serif`;
-  const nomeX = w / 2;
-  const linhasNome = quebrarTextoLinhas(ctx, (promoItemAtual.produto || "").toUpperCase(), w * 0.85, 3);
+  if (layout.nome.visivel !== false) {
+    const tamanhoFonteNome = Math.round(base * 0.05 * layout.nome.escala);
+    const alturaLinhaNome = Math.round(tamanhoFonteNome * 1.15);
+    ctx.font = `800 ${tamanhoFonteNome}px sans-serif`;
+    const nomeX = w / 2;
+    const linhasNome = quebrarTextoLinhas(ctx, (promoItemAtual.produto || "").toUpperCase(), w * 0.85, 3);
 
-  ctx.textAlign = "center";
-  ctx.textBaseline = "alphabetic";
-  ctx.fillStyle = "#fff";
-  ctx.shadowColor = "rgba(0,0,0,0.65)";
-  ctx.shadowBlur = base * 0.012;
-  ctx.shadowOffsetY = base * 0.004;
-  const nomeYBase = layout.nome.yPct * h;
-  linhasNome.forEach((linha, i) => ctx.fillText(linha, nomeX, nomeYBase + (i + 1) * alturaLinhaNome));
-  ctx.shadowColor = "transparent";
-  ctx.textAlign = "left";
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetY = 0;
-
-  // ---- Loja (nome + endereço, curto) — sempre centralizada, perto do rodapé ----
-  const textoLoja = textoLojaPromo();
-  if (textoLoja) {
-    const tamanhoFonteLoja = Math.round(base * 0.028 * layout.loja.escala);
-    ctx.font = `600 ${tamanhoFonteLoja}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
     ctx.fillStyle = "#fff";
     ctx.shadowColor = "rgba(0,0,0,0.65)";
-    ctx.shadowBlur = base * 0.008;
-    ctx.textAlign = "center";
-    ctx.fillText(textoLoja, w / 2, layout.loja.yPct * h);
-    ctx.textAlign = "left";
+    ctx.shadowBlur = base * 0.012;
+    ctx.shadowOffsetY = base * 0.004;
+    const nomeYBase = layout.nome.yPct * h;
+    linhasNome.forEach((linha, i) => ctx.fillText(linha, nomeX, nomeYBase + (i + 1) * alturaLinhaNome));
     ctx.shadowColor = "transparent";
+    ctx.textAlign = "left";
     ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
   }
 
   // ---- Logo da Mersan (posição/tamanho escolhidos no editor) ----
-  if (imgLogoMersan) {
+  if (imgLogoMersan && layout.logoMersan.visivel !== false) {
     const largLogo = Math.round(base * 0.16 * layout.logoMersan.escala);
     const altLogo = Math.round(largLogo * (imgLogoMersan.naturalHeight / imgLogoMersan.naturalWidth));
     ctx.save();
@@ -3643,88 +3643,117 @@ function desenharArtePromo(img, orientacao = 1, layout = null) {
     ctx.restore();
   }
 
-  // ---- Mede a caixinha DE / POR antes de desenhar ----
+  // ---- Caixinha DE / POR, seta e grade de numerações ----
+  const precoVisivel = layout.preco.visivel !== false;
   const boxAlturaLinha = Math.round(base * 0.058 * layout.preco.escala);
   const boxPad = Math.round(base * 0.03 * layout.preco.escala);
   const boxAltura = (temPromo ? boxAlturaLinha * 2 : boxAlturaLinha) + boxPad * 1.6;
-
-  const tamanhoFontePor = Math.round(boxAlturaLinha * 0.72);
-  ctx.font = `800 ${tamanhoFontePor}px sans-serif`;
-  const textoPor = (temPromo ? "POR: " : "") + fmtMoeda(promoItemAtual.precoFinal);
-  const largTextoPor = ctx.measureText(textoPor).width;
-  const tamanhoFonteDe = Math.round(boxAlturaLinha * 0.46);
-  ctx.font = `700 ${tamanhoFonteDe}px sans-serif`;
-  const textoDe = temPromo ? "DE: " + fmtMoeda(promoItemAtual.precoOriginal) : "";
-  const largTextoDe = temPromo ? ctx.measureText(textoDe).width : 0;
-  const boxLargura = Math.round(Math.max(largTextoPor, largTextoDe) + boxPad * 2);
-
-  const textoGrade = "Numerações: " + promoItemAtual.tamanhos.join(" · ");
-
   const boxX = Math.round(layout.preco.xPct * w);
   const boxY = Math.round(layout.preco.yPct * h);
+  const gradeVisivel = precoVisivel && mostrarGrade;
 
-  // Vermelho na promoção; preço normal usa a cor predominante da foto.
-  const corBox = temPromo ? { r: 200, g: 25, b: 30 } : corPredominante(img);
-  const corTextoRGB = corTextoContraste(corBox);
-  const corTextoPrincipal = `rgb(${corTextoRGB})`;
-  const corTextoSecundario = `rgba(${corTextoRGB},0.78)`;
-
-  ctx.fillStyle = `rgba(${corBox.r},${corBox.g},${corBox.b},0.93)`;
-  ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect(boxX, boxY, boxLargura, boxAltura, 10);
-  else ctx.rect(boxX, boxY, boxLargura, boxAltura);
-  ctx.fill();
-
-  let textoY = boxY + boxPad;
-  ctx.textBaseline = "top";
-  if (temPromo) {
+  if (precoVisivel) {
+    const tamanhoFontePor = Math.round(boxAlturaLinha * 0.72);
+    ctx.font = `800 ${tamanhoFontePor}px sans-serif`;
+    const textoPor = (temPromo ? "POR: " : "") + fmtMoeda(promoItemAtual.precoFinal);
+    const largTextoPor = ctx.measureText(textoPor).width;
+    const tamanhoFonteDe = Math.round(boxAlturaLinha * 0.46);
     ctx.font = `700 ${tamanhoFonteDe}px sans-serif`;
-    ctx.fillStyle = corTextoSecundario;
-    ctx.fillText(textoDe, boxX + boxPad, textoY);
-    // Risco no meio do preço antigo, indicando que não vale mais.
-    const meioDe = textoY + tamanhoFonteDe / 2;
-    ctx.strokeStyle = corTextoSecundario;
-    ctx.lineWidth = Math.max(1.5, base * 0.003);
+    const textoDe = temPromo ? "DE: " + fmtMoeda(promoItemAtual.precoOriginal) : "";
+    const largTextoDe = temPromo ? ctx.measureText(textoDe).width : 0;
+    const boxLargura = Math.round(Math.max(largTextoPor, largTextoDe) + boxPad * 2);
+
+    const textoGrade = "Numerações: " + promoItemAtual.tamanhos.join(" · ");
+
+    // Vermelho na promoção; preço normal usa a cor predominante da foto.
+    const corBox = temPromo ? { r: 200, g: 25, b: 30 } : corPredominante(img);
+    const corTextoRGB = corTextoContraste(corBox);
+    const corTextoPrincipal = `rgb(${corTextoRGB})`;
+    const corTextoSecundario = `rgba(${corTextoRGB},0.78)`;
+
+    ctx.fillStyle = `rgba(${corBox.r},${corBox.g},${corBox.b},0.93)`;
     ctx.beginPath();
-    ctx.moveTo(boxX + boxPad, meioDe);
-    ctx.lineTo(boxX + boxPad + largTextoDe, meioDe);
+    if (ctx.roundRect) ctx.roundRect(boxX, boxY, boxLargura, boxAltura, 10);
+    else ctx.rect(boxX, boxY, boxLargura, boxAltura);
+    ctx.fill();
+
+    let textoY = boxY + boxPad;
+    ctx.textBaseline = "top";
+    if (temPromo) {
+      ctx.font = `700 ${tamanhoFonteDe}px sans-serif`;
+      ctx.fillStyle = corTextoSecundario;
+      ctx.fillText(textoDe, boxX + boxPad, textoY);
+      // Risco no meio do preço antigo, indicando que não vale mais.
+      const meioDe = textoY + tamanhoFonteDe / 2;
+      ctx.strokeStyle = corTextoSecundario;
+      ctx.lineWidth = Math.max(1.5, base * 0.003);
+      ctx.beginPath();
+      ctx.moveTo(boxX + boxPad, meioDe);
+      ctx.lineTo(boxX + boxPad + largTextoDe, meioDe);
+      ctx.stroke();
+      textoY += boxAlturaLinha;
+    }
+    ctx.font = `800 ${tamanhoFontePor}px sans-serif`;
+    ctx.fillStyle = corTextoPrincipal;
+    ctx.fillText(textoPor, boxX + boxPad, textoY);
+
+    // Linha com bolinha, saindo da caixinha (efeito de etiqueta de preço).
+    const linhaX1 = boxX + boxPad * 1.2;
+    const linhaY1 = boxY + boxAltura;
+    const linhaX2 = linhaX1 + base * 0.035;
+    const linhaY2 = linhaY1 + base * 0.03;
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = Math.max(1.5, base * 0.0025);
+    ctx.beginPath();
+    ctx.moveTo(linhaX1, linhaY1);
+    ctx.lineTo(linhaX2, linhaY2);
     ctx.stroke();
-    textoY += boxAlturaLinha;
+    ctx.beginPath();
+    ctx.arc(linhaX2, linhaY2, Math.max(3, base * 0.0055), 0, Math.PI * 2);
+    ctx.fillStyle = "#fff";
+    ctx.fill();
+
+    // ---- Grade (numerações com estoque) ----
+    if (gradeVisivel) {
+      ctx.textBaseline = "alphabetic";
+      ctx.font = `600 ${Math.round(base * 0.032 * layout.preco.escala)}px sans-serif`;
+      ctx.fillStyle = "#fff";
+      ctx.shadowColor = "rgba(0,0,0,0.65)";
+      ctx.shadowBlur = base * 0.008;
+      ctx.fillText(textoGrade, boxX, boxY + boxAltura + Math.round(base * 0.06 * layout.preco.escala));
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+    }
   }
-  ctx.font = `800 ${tamanhoFontePor}px sans-serif`;
-  ctx.fillStyle = corTextoPrincipal;
-  ctx.fillText(textoPor, boxX + boxPad, textoY);
 
-  // Linha com bolinha, saindo da caixinha (efeito de etiqueta de preço).
-  const linhaX1 = boxX + boxPad * 1.2;
-  const linhaY1 = boxY + boxAltura;
-  const linhaX2 = linhaX1 + base * 0.035;
-  const linhaY2 = linhaY1 + base * 0.03;
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = Math.max(1.5, base * 0.0025);
-  ctx.beginPath();
-  ctx.moveTo(linhaX1, linhaY1);
-  ctx.lineTo(linhaX2, linhaY2);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(linhaX2, linhaY2, Math.max(3, base * 0.0055), 0, Math.PI * 2);
-  ctx.fillStyle = "#fff";
-  ctx.fill();
-
-  // ---- Grade (numerações com estoque) ----
-  if (mostrarGrade) {
-    ctx.textBaseline = "alphabetic";
-    ctx.font = `600 ${Math.round(base * 0.032 * layout.preco.escala)}px sans-serif`;
+  // ---- Loja (nome + endereço, curto) — sempre centralizada, perto do
+  // rodapé. Desenhada por último pra poder desviar da grade de numerações
+  // quando as duas acabam caindo na mesma altura (a grade é posicionada
+  // relativa à caixinha de preço, que pode ser arrastada pra qualquer lugar).
+  const textoLoja = textoLojaPromo();
+  if (textoLoja && layout.loja.visivel !== false) {
+    const tamanhoFonteLoja = Math.round(base * 0.028 * layout.loja.escala);
+    let lojaY = layout.loja.yPct * h;
+    if (gradeVisivel) {
+      const gradeY = boxY + boxAltura + Math.round(base * 0.06 * layout.preco.escala);
+      const margemMinima = tamanhoFonteLoja * 1.4;
+      if (lojaY < gradeY + margemMinima) {
+        lojaY = Math.min(h - tamanhoFonteLoja * 0.6, gradeY + margemMinima);
+      }
+    }
+    ctx.font = `600 ${tamanhoFonteLoja}px sans-serif`;
     ctx.fillStyle = "#fff";
     ctx.shadowColor = "rgba(0,0,0,0.65)";
     ctx.shadowBlur = base * 0.008;
-    ctx.fillText(textoGrade, boxX, boxY + boxAltura + Math.round(base * 0.06 * layout.preco.escala));
+    ctx.textAlign = "center";
+    ctx.fillText(textoLoja, w / 2, lojaY);
+    ctx.textAlign = "left";
     ctx.shadowColor = "transparent";
     ctx.shadowBlur = 0;
   }
 
   // ---- Selo do app (MEP), posição/tamanho escolhidos no editor ----
-  if (imgLogoMep) {
+  if (imgLogoMep && layout.mep.visivel !== false) {
     const lado = Math.round(base * 0.09 * layout.mep.escala);
     ctx.save();
     ctx.globalAlpha = 0.92;
