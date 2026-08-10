@@ -20,6 +20,8 @@ const TAMANHO_JANELA = Number(process.env.TAMANHO_JANELA || 20000);
 // importado em 2026-08-06). So e usado se ainda nao existir um ponteiro
 // reverso salvo no banco.
 const INICIO_PADRAO = 13003542;
+// Abaixo desse SKU nao vale mais a pena continuar (produtos antigos demais).
+const META_FINAL = 12500000;
 
 if (!SERVICE_ROLE_KEY) {
   console.error("Uso: SUPABASE_SERVICE_ROLE_KEY=xxx node varrer-skus-antigos.js");
@@ -93,8 +95,12 @@ async function upsertLote(linhas) {
 
 async function main() {
   const menorSkuAnterior = await lerEstadoReverso();
+  if (menorSkuAnterior <= META_FINAL) {
+    console.log(`Meta ja atingida (ponteiro=${menorSkuAnterior}, meta=${META_FINAL}). Nada a fazer.`);
+    return;
+  }
   const inicio = menorSkuAnterior - 1;
-  const fim = Math.max(1, inicio - TAMANHO_JANELA + 1);
+  const fim = Math.max(META_FINAL, inicio - TAMANHO_JANELA + 1);
   console.log(`Testando SKUs de ${inicio} ate ${fim} (janela de ${TAMANHO_JANELA}, andando pra tras)`);
 
   let processados = 0;

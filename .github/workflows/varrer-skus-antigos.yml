@@ -1,0 +1,23 @@
+name: Varredura de SKUs antigos
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # 03:00 (horario de Brasilia), todo dia
+  workflow_dispatch: {}
+
+jobs:
+  varrer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Rodar varredura reversa
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TAMANHO_JANELA: 20000
+        run: node scripts/varrer-skus-antigos.js
