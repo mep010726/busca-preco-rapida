@@ -619,11 +619,12 @@
             <button type="button" id="btnPromoMaior" class="secondary icon" style="flex:0 0 auto;">+</button>
           </div>
           <button id="btnPromoConfirmarLayout" class="full" style="margin-top:10px;">Confirmar e gerar imagem</button>
-          <button id="btnPromoCancelarEdicao" class="link-btn">Trocar foto</button>
+          <button id="btnPromoCancelarEdicao" class="link-btn">Cancelar</button>
         </div>
 
         <div id="promoResultadoWrap" class="hidden" style="margin-top:12px;">
           <canvas id="promoCanvas" style="width:100%; border-radius:8px; display:block;"></canvas>
+          <button id="btnPromoEditarPosicao" class="secondary full" style="margin-top:10px;">Editar posição dos elementos</button>
           <div class="row" style="margin-top:10px;">
             <button id="btnPromoBaixar" class="full secondary">Baixar imagem</button>
             <button id="btnPromoCompartilhar" class="full hidden">Compartilhar</button>
@@ -742,7 +743,7 @@
 
         <h3>19. Promoção</h3>
         <p>Na aba <strong>Promoção</strong>, escolha a loja e bipe (ou digite) o produto — o app já traz o preço (com o valor promocional, se tiver) e as numerações com estoque naquela loja. Toque em <strong>"Tirar foto do produto"</strong> (abre a câmera) ou <strong>"Enviar foto já tirada"</strong> (escolhe da galeria).</p>
-        <p>Depois da foto, abre uma tela de edição: toque numa etiqueta (nome, preço ou selo do app) pra selecionar, arraste pra onde quiser na foto, e use os botões "−"/"+" pra ajustar o tamanho dela. Quando estiver bom, toque em <strong>"Confirmar e gerar imagem"</strong> — o app monta a arte final do jeito que você organizou, pronta pra baixar ou compartilhar direto no WhatsApp/Instagram.</p>
+        <p>Depois da foto, a arte já sai pronta com o layout padrão (nome, preço e numerações), pra baixar ou compartilhar direto. Se quiser ajustar, toque em <strong>"Editar posição dos elementos"</strong>: toque numa etiqueta pra selecionar, arraste pra onde quiser na foto, e use os botões "−"/"+" pra mudar o tamanho. Toque em "Confirmar e gerar imagem" pra atualizar a arte com o novo layout.</p>
 
         <h3>Dúvidas ou problemas</h3>
         <p>Se algo não funcionar como esperado, use o campo de sugestão abaixo pra reportar.</p>
@@ -1030,6 +1031,7 @@ const $btnPromoConfirmarLayout = document.getElementById("btnPromoConfirmarLayou
 const $btnPromoCancelarEdicao = document.getElementById("btnPromoCancelarEdicao");
 const $promoResultadoWrap = document.getElementById("promoResultadoWrap");
 const $promoCanvas = document.getElementById("promoCanvas");
+const $btnPromoEditarPosicao = document.getElementById("btnPromoEditarPosicao");
 const $btnPromoBaixar = document.getElementById("btnPromoBaixar");
 const $btnPromoCompartilhar = document.getElementById("btnPromoCompartilhar");
 const $btnPromoNovaFoto = document.getElementById("btnPromoNovaFoto");
@@ -4009,14 +4011,20 @@ function processarFotoPromo(file) {
   const url = URL.createObjectURL(file);
   img.onload = async () => {
     const [orientacao] = await Promise.all([lerOrientacaoExif(file), logosPromoProntos]);
-    abrirEditorPromo(img, orientacao);
+    promoImgAtual = img;
+    promoOrientacaoAtual = orientacao;
+    promoLayoutEditavel = layoutPromoPadrao();
+    // Gera a arte direto com o layout padrão — editar é opcional, só quem
+    // quiser ajustar posição/tamanho toca em "Editar posição".
+    desenharArtePromo(img, orientacao, promoLayoutEditavel);
     URL.revokeObjectURL(url);
   };
   img.src = url;
 }
 
-// ---------- Editor: arrastar/redimensionar nome, preço e selo antes de
-// gerar a imagem final ----------
+// ---------- Editor: arrastar/redimensionar nome, preço e selo (opcional,
+// aberto a partir do botão "Editar posição" depois que a arte já foi
+// gerada com o layout padrão) ----------
 
 let promoImgAtual = null;
 let promoOrientacaoAtual = 1;
@@ -4032,24 +4040,22 @@ function layoutPromoPadrao() {
   };
 }
 
-function abrirEditorPromo(img, orientacao) {
-  promoImgAtual = img;
-  promoOrientacaoAtual = orientacao;
-  promoLayoutEditavel = layoutPromoPadrao();
+function abrirEditorPromo() {
+  if (!promoImgAtual) return;
   promoElementoAtivo = "nome";
 
   // Mostra a foto já corrigida (em pé) no editor, do mesmo jeito que sai
   // na arte final.
-  const girado = orientacao >= 5 && orientacao <= 8;
-  const larguraNatural = girado ? img.naturalHeight : img.naturalWidth;
-  const alturaNatural = girado ? img.naturalWidth : img.naturalHeight;
+  const girado = promoOrientacaoAtual >= 5 && promoOrientacaoAtual <= 8;
+  const larguraNatural = girado ? promoImgAtual.naturalHeight : promoImgAtual.naturalWidth;
+  const alturaNatural = girado ? promoImgAtual.naturalWidth : promoImgAtual.naturalHeight;
   const escalaPreview = Math.min(1, 700 / larguraNatural);
   const wPrev = Math.round(larguraNatural * escalaPreview);
   const hPrev = Math.round(alturaNatural * escalaPreview);
   const c = document.createElement("canvas");
   c.width = wPrev;
   c.height = hPrev;
-  desenharFotoOrientada(c.getContext("2d"), img, orientacao, wPrev, hPrev);
+  desenharFotoOrientada(c.getContext("2d"), promoImgAtual, promoOrientacaoAtual, wPrev, hPrev);
   $promoEditorImg.src = c.toDataURL();
 
   const nomeChip = $promoEditorStage.querySelector('[data-elemento="nome"] .promo-chip-texto');
@@ -4066,7 +4072,6 @@ function abrirEditorPromo(img, orientacao) {
   aplicarPosicoesChips();
   atualizarSelecaoChip();
 
-  $promoInfo.classList.add("hidden");
   $promoResultadoWrap.classList.add("hidden");
   $promoEditorWrap.classList.remove("hidden");
 }
@@ -4129,13 +4134,15 @@ $btnPromoMaior.addEventListener("click", () => {
 
 $btnPromoCancelarEdicao.addEventListener("click", () => {
   $promoEditorWrap.classList.add("hidden");
-  $promoInfo.classList.remove("hidden");
+  $promoResultadoWrap.classList.remove("hidden");
 });
 
 $btnPromoConfirmarLayout.addEventListener("click", () => {
   desenharArtePromo(promoImgAtual, promoOrientacaoAtual, promoLayoutEditavel);
   $promoEditorWrap.classList.add("hidden");
 });
+
+$btnPromoEditarPosicao.addEventListener("click", () => abrirEditorPromo());
 
 $promoFotoInput.addEventListener("change", () => {
   processarFotoPromo($promoFotoInput.files && $promoFotoInput.files[0]);
