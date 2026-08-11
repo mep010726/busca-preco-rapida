@@ -1370,7 +1370,11 @@ async function iniciarCamera(cameraIdOuConfig, videoConstraints) {
 
   const configuracao = {
     fps: 15,
-    aspectRatio: 1.7777778,
+    // Sem aspectRatio fixo: forçar 16:9 (paisagem) numa câmera de iPhone
+    // segurada em retrato (ex: vídeo 719x1280, bem mais alto que largo)
+    // faz a biblioteca cortar/distorcer o quadro antes de tentar ler,
+    // o que pode ser a causa de nunca conseguir ler nada nesse aparelho.
+    // Deixando undefined, usa a proporção real do stream de vídeo.
     disableFlip: false,
     // Sem qrbox: escaneia o quadro inteiro em vez de exigir que o código
     // fique alinhado numa caixinha pequena — mais tolerante, principalmente
