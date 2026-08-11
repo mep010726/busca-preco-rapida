@@ -850,21 +850,25 @@ async function salvarNoIndiceReferencias(item) {
   }, { onConflict: "codigo_barras" });
 }
 
-$btnBuscarReferencia.addEventListener("click", async () => {
-  const termo = $referenciaBusca.value.trim();
+let referenciaTermoAtual = "";
+
+async function buscarReferencia(pagina = 0) {
+  const termo = referenciaTermoAtual;
   if (!termo) return;
 
   $btnBuscarReferencia.disabled = true;
   $referenciaMsg.textContent = "Buscando...";
   $referenciaMsg.className = "msg";
-  $referenciaResultados.innerHTML = "";
 
-  const { data, error } = await sb
+  const from = pagina * PAGINA_TAMANHO;
+  const to = from + PAGINA_TAMANHO - 1;
+
+  const { data, error, count } = await sb
     .from("referencias_index")
-    .select("*")
+    .select("*", { count: "exact" })
     .or(`cd_referencia.ilike.%${termo}%,produto.ilike.%${termo}%`)
     .order("atualizado_em", { ascending: false })
-    .limit(20);
+    .range(from, to);
 
   $btnBuscarReferencia.disabled = false;
 
@@ -875,6 +879,8 @@ $btnBuscarReferencia.addEventListener("click", async () => {
   }
 
   if (!data || data.length === 0) {
+    $referenciaResultados.innerHTML = "";
+    renderPaginacao($referenciaResultados, 0, 1, () => {});
     $referenciaMsg.textContent = "Nenhum produto com essa referência foi escaneado ainda. Bipe o código de barras dele uma vez pra ele entrar no índice.";
     $referenciaMsg.className = "msg";
     return;
@@ -895,9 +901,20 @@ $btnBuscarReferencia.addEventListener("click", async () => {
       $codigo.value = el.dataset.codigo;
       $referenciaResultados.innerHTML = "";
       $referenciaBusca.value = "";
+      referenciaTermoAtual = "";
       buscar();
     });
   });
+
+  const totalPaginas = Math.max(1, Math.ceil((count || 0) / PAGINA_TAMANHO));
+  renderPaginacao($referenciaResultados, pagina, totalPaginas, (novaPagina) => buscarReferencia(novaPagina));
+}
+
+$btnBuscarReferencia.addEventListener("click", () => {
+  const termo = $referenciaBusca.value.trim();
+  if (!termo) return;
+  referenciaTermoAtual = termo;
+  buscarReferencia(0);
 });
 
 $referenciaBusca.addEventListener("keydown", e => {
@@ -1956,8 +1973,10 @@ $btnLimparBusca.addEventListener("click", () => {
 $btnLimparReferencia.addEventListener("click", () => {
   $referenciaBusca.value = "";
   $referenciaResultados.innerHTML = "";
+  renderPaginacao($referenciaResultados, 0, 1, () => {});
   $referenciaMsg.textContent = "";
   $referenciaMsg.className = "msg";
+  referenciaTermoAtual = "";
 });
 
 // ---------- VENDAS ----------
