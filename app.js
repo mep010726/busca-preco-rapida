@@ -3731,6 +3731,11 @@ function desenharArtePromo(img, orientacao = 1, layout = null) {
   const boxX = Math.round(layout.preco.xPct * w);
   const boxY = Math.round(layout.preco.yPct * h);
   const gradeVisivel = precoVisivel && mostrarGrade;
+  const tamanhoFonteGrade = Math.round(base * 0.034 * layout.preco.escala);
+  const gradePadX = Math.round(base * 0.02);
+  const gradePadY = Math.round(base * 0.013);
+  const gradeY = boxY + boxAltura + Math.round(base * 0.045 * layout.preco.escala);
+  const gradeAltura = tamanhoFonteGrade + gradePadY * 2;
 
   if (precoVisivel) {
     const tamanhoFontePor = Math.round(boxAlturaLinha * 0.72);
@@ -3793,16 +3798,20 @@ function desenharArtePromo(img, orientacao = 1, layout = null) {
     ctx.fillStyle = "#fff";
     ctx.fill();
 
-    // ---- Grade (numerações com estoque) ----
+    // ---- Grade (numerações com estoque) — em pílula com fundo, pra
+    // destacar mais em vez de só texto com sombra em cima da foto ----
     if (gradeVisivel) {
-      ctx.textBaseline = "alphabetic";
-      ctx.font = `600 ${Math.round(base * 0.032 * layout.preco.escala)}px sans-serif`;
-      ctx.fillStyle = "#fff";
-      ctx.shadowColor = "rgba(0,0,0,0.65)";
-      ctx.shadowBlur = base * 0.008;
-      ctx.fillText(textoGrade, boxX, boxY + boxAltura + Math.round(base * 0.06 * layout.preco.escala));
-      ctx.shadowColor = "transparent";
-      ctx.shadowBlur = 0;
+      ctx.font = `800 ${tamanhoFonteGrade}px sans-serif`;
+      const larguraGrade = Math.round(ctx.measureText(textoGrade).width + gradePadX * 2);
+      ctx.fillStyle = `rgba(${corBox.r},${corBox.g},${corBox.b},0.93)`;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(boxX, gradeY, larguraGrade, gradeAltura, 8);
+      else ctx.rect(boxX, gradeY, larguraGrade, gradeAltura);
+      ctx.fill();
+
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = corTextoPrincipal;
+      ctx.fillText(textoGrade, boxX + gradePadX, gradeY + gradeAltura / 2 + 1);
     }
   }
 
@@ -3815,10 +3824,10 @@ function desenharArtePromo(img, orientacao = 1, layout = null) {
     const tamanhoFonteLoja = Math.round(base * 0.028 * layout.loja.escala);
     let lojaY = layout.loja.yPct * h;
     if (gradeVisivel) {
-      const gradeY = boxY + boxAltura + Math.round(base * 0.06 * layout.preco.escala);
       const margemMinima = tamanhoFonteLoja * 1.4;
-      if (lojaY < gradeY + margemMinima) {
-        lojaY = Math.min(h - tamanhoFonteLoja * 0.6, gradeY + margemMinima);
+      const gradeBaixo = gradeY + gradeAltura;
+      if (lojaY < gradeBaixo + margemMinima) {
+        lojaY = Math.min(h - tamanhoFonteLoja * 0.6, gradeBaixo + margemMinima);
       }
     }
     ctx.font = `600 ${tamanhoFonteLoja}px sans-serif`;
