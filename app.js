@@ -3732,10 +3732,33 @@ function desenharArtePromo(img, orientacao = 1, layout = null) {
   const boxY = Math.round(layout.preco.yPct * h);
   const gradeVisivel = precoVisivel && mostrarGrade;
   const tamanhoFonteGrade = Math.round(base * 0.034 * layout.preco.escala);
-  const gradePadX = Math.round(base * 0.02);
-  const gradePadY = Math.round(base * 0.013);
+  const gradeEspaco = Math.round(base * 0.014);
+  const gradeAlturaBolinha = Math.round(tamanhoFonteGrade * 1.7);
   const gradeY = boxY + boxAltura + Math.round(base * 0.045 * layout.preco.escala);
-  const gradeAltura = tamanhoFonteGrade + gradePadY * 2;
+
+  // Calcula a posição de cada numeração como uma "bolinha" (pílula) própria,
+  // quebrando pra próxima linha quando não cabe mais na largura disponível
+  // — feito antes de desenhar pra já saber a altura total ocupada (usada
+  // depois pra desviar o endereço da loja de baixo).
+  let gradeItens = [];
+  let gradeAltura = 0;
+  if (gradeVisivel) {
+    ctx.font = `800 ${tamanhoFonteGrade}px sans-serif`;
+    const larguraMaxLinha = w - boxX - Math.round(base * 0.04);
+    let cx = boxX;
+    let cy = gradeY + gradeAlturaBolinha / 2;
+    promoItemAtual.tamanhos.forEach((tam) => {
+      const largTexto = ctx.measureText(tam).width;
+      const largBolinha = Math.max(gradeAlturaBolinha, largTexto + tamanhoFonteGrade * 0.9);
+      if (cx > boxX && cx + largBolinha > boxX + larguraMaxLinha) {
+        cx = boxX;
+        cy += gradeAlturaBolinha + gradeEspaco;
+      }
+      gradeItens.push({ texto: tam, x: cx, y: cy, largura: largBolinha });
+      cx += largBolinha + gradeEspaco;
+    });
+    gradeAltura = (cy + gradeAlturaBolinha / 2) - gradeY;
+  }
 
   if (precoVisivel) {
     const tamanhoFontePor = Math.round(boxAlturaLinha * 0.72);
@@ -3747,8 +3770,6 @@ function desenharArtePromo(img, orientacao = 1, layout = null) {
     const textoDe = temPromo ? "DE: " + fmtMoeda(promoItemAtual.precoOriginal) : "";
     const largTextoDe = temPromo ? ctx.measureText(textoDe).width : 0;
     const boxLargura = Math.round(Math.max(largTextoPor, largTextoDe) + boxPad * 2);
-
-    const textoGrade = "Numerações: " + promoItemAtual.tamanhos.join(" · ");
 
     // Vermelho na promoção; preço normal usa a cor predominante da foto.
     const corBox = temPromo ? { r: 200, g: 25, b: 30 } : corPredominante(img);
@@ -3798,20 +3819,23 @@ function desenharArtePromo(img, orientacao = 1, layout = null) {
     ctx.fillStyle = "#fff";
     ctx.fill();
 
-    // ---- Grade (numerações com estoque) — em pílula com fundo, pra
-    // destacar mais em vez de só texto com sombra em cima da foto ----
+    // ---- Grade (numerações com estoque) — cada tamanho na sua própria
+    // "bolinha" (pílula), pra destacar mais que um texto corrido só ----
     if (gradeVisivel) {
       ctx.font = `800 ${tamanhoFonteGrade}px sans-serif`;
-      const larguraGrade = Math.round(ctx.measureText(textoGrade).width + gradePadX * 2);
-      ctx.fillStyle = `rgba(${corBox.r},${corBox.g},${corBox.b},0.93)`;
-      ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(boxX, gradeY, larguraGrade, gradeAltura, 8);
-      else ctx.rect(boxX, gradeY, larguraGrade, gradeAltura);
-      ctx.fill();
-
+      ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillStyle = corTextoPrincipal;
-      ctx.fillText(textoGrade, boxX + gradePadX, gradeY + gradeAltura / 2 + 1);
+      gradeItens.forEach((item) => {
+        ctx.fillStyle = `rgba(${corBox.r},${corBox.g},${corBox.b},0.93)`;
+        ctx.beginPath();
+        const raio = gradeAlturaBolinha / 2;
+        if (ctx.roundRect) ctx.roundRect(item.x, item.y - raio, item.largura, gradeAlturaBolinha, raio);
+        else ctx.rect(item.x, item.y - raio, item.largura, gradeAlturaBolinha);
+        ctx.fill();
+        ctx.fillStyle = corTextoPrincipal;
+        ctx.fillText(item.texto, item.x + item.largura / 2, item.y + 1);
+      });
+      ctx.textAlign = "left";
     }
   }
 
