@@ -80,8 +80,14 @@ const $authEmail = document.getElementById("authEmail");
 const $authSenha = document.getElementById("authSenha");
 const $authMsg = document.getElementById("authMsg");
 const $btnEntrar = document.getElementById("btnEntrar");
-const $btnCriarConta = document.getElementById("btnCriarConta");
 const $linkEsqueciSenha = document.getElementById("linkEsqueciSenha");
+const $linkIrCadastro = document.getElementById("linkIrCadastro");
+const $cadastroCard = document.getElementById("cadastroCard");
+const $cadastroEmail = document.getElementById("cadastroEmail");
+const $cadastroSenha = document.getElementById("cadastroSenha");
+const $cadastroMsg = document.getElementById("cadastroMsg");
+const $btnCriarConta = document.getElementById("btnCriarConta");
+const $linkIrLogin = document.getElementById("linkIrLogin");
 
 const $recuperarCard = document.getElementById("recuperarCard");
 const $recuperarEmail = document.getElementById("recuperarEmail");
@@ -303,51 +309,56 @@ function setAuthMsg(txt, isErr) {
   $authMsg.className = "msg " + (isErr ? "err" : "");
 }
 
+function setCadastroMsg(txt, isErr) {
+  $cadastroMsg.textContent = txt || "";
+  $cadastroMsg.className = "msg " + (isErr ? "err" : "");
+}
+
 // ---------- Turnstile (verificação anti-robô) ----------
-let turnstileToken = null;
-let turnstileWidgetId = null;
+// Login e cadastro agora são telas separadas, cada uma com seu próprio
+// widget — essa fábrica evita duplicar a lógica de render/reset/token.
+function criarControleTurnstile(containerId) {
+  let token = null;
+  let widgetId = null;
 
-function onTurnstileSuccess(token) {
-  turnstileToken = token;
-}
-function onTurnstileExpired() {
-  turnstileToken = null;
-}
-window.onTurnstileSuccess = onTurnstileSuccess;
-window.onTurnstileExpired = onTurnstileExpired;
-
-function renderTurnstile() {
-  if (turnstileWidgetId !== null) return;
-  if (typeof turnstile === "undefined") {
-    setTimeout(renderTurnstile, 200); // script do Turnstile ainda carregando
-    return;
+  function render() {
+    if (widgetId !== null) return;
+    if (typeof turnstile === "undefined") {
+      setTimeout(render, 200); // script do Turnstile ainda carregando
+      return;
+    }
+    widgetId = turnstile.render(`#${containerId}`, {
+      sitekey: TURNSTILE_SITE_KEY,
+      callback: (t) => { token = t; },
+      "expired-callback": () => { token = null; },
+    });
   }
-  turnstileWidgetId = turnstile.render("#turnstileWidget", {
-    sitekey: TURNSTILE_SITE_KEY,
-    callback: "onTurnstileSuccess",
-    "expired-callback": "onTurnstileExpired",
-  });
+
+  function reset() {
+    token = null;
+    if (typeof turnstile !== "undefined" && widgetId !== null) {
+      turnstile.reset(widgetId);
+    }
+  }
+
+  // Lê o token direto do widget na hora do clique, em vez de confiar só no
+  // valor setado pelo callback (mais confiável contra corridas de timing).
+  function getToken() {
+    if (typeof turnstile !== "undefined" && widgetId !== null) {
+      const t = turnstile.getResponse(widgetId);
+      if (t) return t;
+    }
+    return token;
+  }
+
+  return { render, reset, getToken };
 }
 
-function resetTurnstile() {
-  turnstileToken = null;
-  if (typeof turnstile !== "undefined" && turnstileWidgetId !== null) {
-    turnstile.reset(turnstileWidgetId);
-  }
-}
-
-// Lê o token direto do widget na hora do clique, em vez de confiar só na
-// variável setada pelo callback (mais confiável contra corridas de timing).
-function getTurnstileToken() {
-  if (typeof turnstile !== "undefined" && turnstileWidgetId !== null) {
-    const t = turnstile.getResponse(turnstileWidgetId);
-    if (t) return t;
-  }
-  return turnstileToken;
-}
+const turnstileLogin = criarControleTurnstile("turnstileWidget");
+const turnstileCadastro = criarControleTurnstile("turnstileWidgetCadastro");
 
 $btnEntrar.addEventListener("click", async () => {
-  const token = getTurnstileToken();
+  const token = turnstileLogin.getToken();
   if (!token) {
     setAuthMsg("Complete a verificação de segurança antes de continuar.", true);
     return;
@@ -358,28 +369,44 @@ $btnEntrar.addEventListener("click", async () => {
     password: $authSenha.value,
     options: { captchaToken: token },
   });
-  resetTurnstile();
+  turnstileLogin.reset();
   if (error) setAuthMsg(error.message, true);
 });
 
 $btnCriarConta.addEventListener("click", async () => {
-  const token = getTurnstileToken();
+  const token = turnstileCadastro.getToken();
   if (!token) {
-    setAuthMsg("Complete a verificação de segurança antes de continuar.", true);
+    setCadastroMsg("Complete a verificação de segurança antes de continuar.", true);
     return;
   }
-  setAuthMsg("Criando conta...");
+  setCadastroMsg("Criando conta...");
   const { error } = await sb.auth.signUp({
-    email: $authEmail.value.trim(),
-    password: $authSenha.value,
+    email: $cadastroEmail.value.trim(),
+    password: $cadastroSenha.value,
     options: { captchaToken: token },
   });
-  resetTurnstile();
+  turnstileCadastro.reset();
   if (error) {
-    setAuthMsg(error.message, true);
+    setCadastroMsg(error.message, true);
   } else {
-    setAuthMsg("Conta criada! Verifique seu e-mail e clique no link de confirmação antes de entrar.");
+    setCadastroMsg("Conta criada! Verifique seu e-mail e clique no link de confirmação antes de entrar.");
   }
+});
+
+$linkIrCadastro.addEventListener("click", () => {
+  $authCard.classList.add("hidden");
+  $cadastroCard.classList.remove("hidden");
+  $cadastroEmail.value = $authEmail.value;
+  setCadastroMsg("");
+  turnstileCadastro.render();
+});
+
+$linkIrLogin.addEventListener("click", () => {
+  $cadastroCard.classList.add("hidden");
+  $authCard.classList.remove("hidden");
+  $authEmail.value = $cadastroEmail.value;
+  setAuthMsg("");
+  turnstileLogin.render();
 });
 
 $btnSair.addEventListener("click", () => sb.auth.signOut());
@@ -558,6 +585,7 @@ function mostrarAppLogado(user) {
   currentUser = user;
   $telaCarregando.classList.add("hidden");
   $authCard.classList.add("hidden");
+  $cadastroCard.classList.add("hidden");
   $recuperarCard.classList.add("hidden");
   $novaSenhaCard.classList.add("hidden");
   $app.classList.remove("hidden");
@@ -579,10 +607,11 @@ function mostrarTelaLogin() {
   currentUser = null;
   $telaCarregando.classList.add("hidden");
   $authCard.classList.remove("hidden");
+  $cadastroCard.classList.add("hidden");
   $recuperarCard.classList.add("hidden");
   $novaSenhaCard.classList.add("hidden");
   $app.classList.add("hidden");
-  renderTurnstile();
+  turnstileLogin.render();
 }
 
 // Enquanto o usuário está no meio da troca de senha, o app ignora eventos de
@@ -597,6 +626,7 @@ sb.auth.onAuthStateChange((event, session) => {
     emRecuperacaoDeSenha = true;
     $telaCarregando.classList.add("hidden");
     $authCard.classList.add("hidden");
+    $cadastroCard.classList.add("hidden");
     $recuperarCard.classList.add("hidden");
     $app.classList.add("hidden");
     $novaSenhaCard.classList.remove("hidden");

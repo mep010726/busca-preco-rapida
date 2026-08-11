@@ -47,11 +47,21 @@
     <input id="authSenha" type="password" placeholder="••••••••">
     <div id="turnstileWidget" style="margin-bottom:12px;"></div>
     <div id="authMsg" class="msg"></div>
-    <div class="row">
-      <button id="btnEntrar" class="full">Entrar</button>
-      <button id="btnCriarConta" class="full secondary">Criar conta</button>
-    </div>
+    <button id="btnEntrar" class="full">Entrar</button>
     <button id="linkEsqueciSenha" class="link-btn">Esqueci minha senha</button>
+    <button id="linkIrCadastro" class="link-btn">Ainda não tem conta? Crie aqui</button>
+  </div>
+
+  <!-- TELA DE CADASTRO (separada do login) -->
+  <div id="cadastroCard" class="card hidden">
+    <label for="cadastroEmail">E-mail</label>
+    <input id="cadastroEmail" type="email" placeholder="seu@email.com">
+    <label for="cadastroSenha">Senha</label>
+    <input id="cadastroSenha" type="password" placeholder="••••••••">
+    <div id="turnstileWidgetCadastro" style="margin-bottom:12px;"></div>
+    <div id="cadastroMsg" class="msg"></div>
+    <button id="btnCriarConta" class="full">Criar conta</button>
+    <button id="linkIrLogin" class="link-btn">Já tem conta? Entrar</button>
   </div>
 
   <!-- RECUPERAR SENHA: pede o e-mail e envia o link -->
