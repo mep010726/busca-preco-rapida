@@ -3433,6 +3433,17 @@ let promoElementoAtivo = "nome";
 let promoLayoutEditavel = null;
 let promoArrastando = null;
 
+// A descrição que vem da API é cheia de detalhe interno (referência, cor,
+// numeração) — ex: "SANDALIA PEGADA RF 219064-06 PRETO 39". Pra arte, só
+// interessa o nome do item + marca/modelo, então corta tudo a partir do
+// " RF " (padrão usado em toda a descrição dos produtos). Se não achar esse
+// padrão, usa a descrição inteira mesmo, sem cortar.
+function nomeCurtoPromo(produto) {
+  if (!produto) return "";
+  const idx = produto.toUpperCase().indexOf(" RF ");
+  return (idx === -1 ? produto : produto.slice(0, idx)).trim();
+}
+
 // Nome + endereço (sem cidade, pra não poluir) da loja escolhida na aba
 // Promoção — usado tanto no editor quanto na arte final.
 function textoLojaPromo() {
@@ -3472,7 +3483,7 @@ function abrirEditorPromo() {
   $promoEditorImg.src = c.toDataURL();
 
   const nomeChip = $promoEditorStage.querySelector('[data-elemento="nome"] .promo-chip-texto');
-  nomeChip.textContent = (promoItemAtual.produto || "").toUpperCase();
+  nomeChip.textContent = nomeCurtoPromo(promoItemAtual.produto).toUpperCase();
 
   $promoChipLojaConteudo.textContent = textoLojaPromo();
 
@@ -3696,7 +3707,7 @@ function desenharArtePromo(img, orientacao = 1, layout = null) {
     const alturaLinhaNome = Math.round(tamanhoFonteNome * 1.15);
     ctx.font = `800 ${tamanhoFonteNome}px sans-serif`;
     const nomeX = w / 2;
-    const linhasNome = quebrarTextoLinhas(ctx, (promoItemAtual.produto || "").toUpperCase(), w * 0.85, 3);
+    const linhasNome = quebrarTextoLinhas(ctx, nomeCurtoPromo(promoItemAtual.produto).toUpperCase(), w * 0.85, 3);
 
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
