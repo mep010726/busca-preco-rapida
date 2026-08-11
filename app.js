@@ -221,6 +221,7 @@ const $vendaObservacao = document.getElementById("vendaObservacao");
 const $btnFinalizarVenda = document.getElementById("btnFinalizarVenda");
 const $vendaMsg = document.getElementById("vendaMsg");
 const $vendasLista = document.getElementById("vendasLista");
+const $vendasDataFiltro = document.getElementById("vendasDataFiltro");
 const $vendaHistoricoModal = document.getElementById("vendaHistoricoModal");
 const $vendaHistoricoLista = document.getElementById("vendaHistoricoLista");
 const $btnFecharVendaHistorico = document.getElementById("btnFecharVendaHistorico");
@@ -2445,18 +2446,40 @@ $btnFinalizarVenda.addEventListener("click", async () => {
 
 let vendasPagina = 0;
 
+// "YYYY-MM-DD" (valor de <input type="date">) -> início/fim daquele dia no
+// fuso local, pra filtrar "criado_em" (timestamp UTC) corretamente.
+function limitesDoDia(dataStr) {
+  const [ano, mes, dia] = dataStr.split("-").map(Number);
+  return {
+    inicio: new Date(ano, mes - 1, dia),
+    fim: new Date(ano, mes - 1, dia + 1),
+  };
+}
+
+function dataAaaaMmDd(data) {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, "0");
+  const dia = String(data.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+}
+
 async function carregarVendas(pagina = 0) {
   if (!currentUser) return;
+  if (!$vendasDataFiltro.value) $vendasDataFiltro.value = dataAaaaMmDd(new Date());
+
   $vendasLista.innerHTML = `<div class="msg">Carregando vendas...</div>`;
   const antiga = $vendasLista.parentElement.querySelector(".h-paginacao");
   if (antiga) antiga.remove();
 
   const from = pagina * PAGINA_TAMANHO;
   const to = from + PAGINA_TAMANHO - 1;
+  const { inicio, fim } = limitesDoDia($vendasDataFiltro.value);
 
   const { data, error, count } = await sb
     .from("vendas")
     .select("*", { count: "exact" })
+    .gte("criado_em", inicio.toISOString())
+    .lt("criado_em", fim.toISOString())
     .order("criado_em", { ascending: false })
     .range(from, to);
 
@@ -2470,9 +2493,11 @@ async function carregarVendas(pagina = 0) {
   renderPaginacao($vendasLista, pagina, totalPaginas, (novaPagina) => carregarVendas(novaPagina));
 }
 
+$vendasDataFiltro.addEventListener("change", () => carregarVendas(0));
+
 function renderVendasLista(data) {
   if (!data || data.length === 0) {
-    $vendasLista.innerHTML = `<div class="msg">Nenhuma venda registrada ainda.</div>`;
+    $vendasLista.innerHTML = `<div class="msg">Nenhuma venda registrada nesse dia.</div>`;
     return;
   }
 
