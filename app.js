@@ -247,6 +247,7 @@ const $mensagemMotivacional = document.getElementById("mensagemMotivacional");
 const $metaBarra = document.getElementById("metaBarra");
 const $metaResumo = document.getElementById("metaResumo");
 const $btnConfigMetas = document.getElementById("btnConfigMetas");
+const $totalDiaTitulo = document.getElementById("totalDiaTitulo");
 const $totalHoje = document.getElementById("totalHoje");
 const $vendasHojeCount = document.getElementById("vendasHojeCount");
 const $totalMes = document.getElementById("totalMes");
@@ -2527,7 +2528,10 @@ async function carregarVendas(pagina = 0) {
   renderPaginacao($vendasLista, pagina, totalPaginas, (novaPagina) => carregarVendas(novaPagina));
 }
 
-$vendasDataFiltro.addEventListener("change", () => carregarVendas(0));
+$vendasDataFiltro.addEventListener("change", () => {
+  carregarVendas(0);
+  atualizarResumoVendas();
+});
 
 function renderVendasLista(data) {
   if (!data || data.length === 0) {
@@ -2872,35 +2876,44 @@ async function atualizarResumoVendas() {
   const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
   const fimMesExclusivo = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1);
 
-  const { data, error } = await sb
-    .from("vendas")
-    .select("total, criado_em")
-    .gte("criado_em", inicioMes.toISOString())
-    .lt("criado_em", fimMesExclusivo.toISOString());
+  // O card "Hoje" acompanha a data selecionada no histórico (pode ser um
+  // dia diferente do real), então busca à parte — o mês/quinzena/mensagem
+  // motivacional continuam sempre baseados no dia real de hoje.
+  const hojeChave = dataAaaaMmDd(hoje);
+  const dataSelecionada = $vendasDataFiltro.value || hojeChave;
+  const { inicio: inicioDia, fim: fimDiaExclusivo } = limitesDoDia(dataSelecionada);
 
-  if (error) {
+  const [resMes, resDia] = await Promise.all([
+    sb.from("vendas").select("total, criado_em").gte("criado_em", inicioMes.toISOString()).lt("criado_em", fimMesExclusivo.toISOString()),
+    sb.from("vendas").select("total").gte("criado_em", inicioDia.toISOString()).lt("criado_em", fimDiaExclusivo.toISOString()),
+  ]);
+
+  if (resMes.error || resDia.error) {
     $metaResumo.textContent = "Erro ao carregar resumo de vendas.";
     $metaResumo.className = "msg err";
     return;
   }
 
-  const hojeChave = chaveDia(hoje);
   const quinzena = quinzenaAtual(hoje);
   const fimQuinzenaFimDoDia = new Date(quinzena.fim.getFullYear(), quinzena.fim.getMonth(), quinzena.fim.getDate(), 23, 59, 59);
 
-  let totalHoje = 0, totalMes = 0, totalQuinzena = 0, vendasHoje = 0, vendasMes = 0;
+  let totalHojeReal = 0, totalMes = 0, totalQuinzena = 0, vendasMes = 0;
 
-  (data || []).forEach(v => {
+  (resMes.data || []).forEach(v => {
     const d = new Date(v.criado_em);
     const valor = Number(v.total);
     totalMes += valor;
     vendasMes++;
-    if (chaveDia(d) === hojeChave) { totalHoje += valor; vendasHoje++; }
+    if (chaveDia(d) === hojeChave) totalHojeReal += valor;
     if (d >= quinzena.inicio && d <= fimQuinzenaFimDoDia) totalQuinzena += valor;
   });
 
-  $totalHoje.textContent = fmtMoeda(totalHoje);
-  $vendasHojeCount.textContent = `${vendasHoje} venda${vendasHoje === 1 ? "" : "s"}`;
+  const totalDiaSelecionado = (resDia.data || []).reduce((soma, v) => soma + Number(v.total), 0);
+  const vendasDiaSelecionado = (resDia.data || []).length;
+
+  $totalDiaTitulo.textContent = dataSelecionada === hojeChave ? "Hoje" : dataSelecionada.split("-").reverse().join("/");
+  $totalHoje.textContent = fmtMoeda(totalDiaSelecionado);
+  $vendasHojeCount.textContent = `${vendasDiaSelecionado} venda${vendasDiaSelecionado === 1 ? "" : "s"}`;
   $totalMes.textContent = fmtMoeda(totalMes);
   $vendasMesCount.textContent = `${vendasMes} venda${vendasMes === 1 ? "" : "s"}`;
 
@@ -2910,7 +2923,7 @@ async function atualizarResumoVendas() {
     $metaBarra.style.width = "0%";
     $metaResumo.innerHTML = `Nenhuma meta definida pra ${quinzena.numero}ª quinzena ainda. Toque em "Configurar meta e folgas" pra definir.`;
     $metaResumo.className = "msg";
-    atualizarMensagemMotivacional(totalHoje, false);
+    atualizarMensagemMotivacional(totalHojeReal, false);
     return;
   }
 
@@ -2921,11 +2934,11 @@ async function atualizarResumoVendas() {
   if (restante <= 0) {
     $metaResumo.innerHTML = `<strong style="color:var(--accent);">Meta da ${quinzena.numero}ª quinzena batida! 🎉</strong> ${fmtMoeda(totalQuinzena)} de ${fmtMoeda(metaQuinzena)}.`;
     $metaResumo.className = "msg";
-    atualizarMensagemMotivacional(totalHoje, true);
+    atualizarMensagemMotivacional(totalHojeReal, true);
     return;
   }
 
-  atualizarMensagemMotivacional(totalHoje, false);
+  atualizarMensagemMotivacional(totalHojeReal, false);
 
   // Dias restantes da quinzena a partir de hoje (inclusive), sem contar folga.
   let diasRestantes = 0;
