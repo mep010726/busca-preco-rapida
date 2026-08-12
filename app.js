@@ -1518,6 +1518,11 @@ async function abrirCameraModal() {
       return;
     } catch (e) {
       console.error("Scanner nativo falhou, usando biblioteca de leitura:", e);
+      // Mostra o motivo na tela por alguns segundos — sem isso, o erro só
+      // ia pro console do navegador, invisível em celular sem um Mac
+      // conectado pra inspecionar. Assim dá pra ver o motivo real no print.
+      $camDebug.textContent = `Scanner nativo falhou: ${String(e && e.message || e).slice(0, 150)} — usando leitor alternativo...`;
+      await new Promise(r => setTimeout(r, 3000));
     }
   }
 
