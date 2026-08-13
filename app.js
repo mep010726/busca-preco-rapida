@@ -147,6 +147,8 @@ const $promoPrecoFinal = document.getElementById("promoPrecoFinal");
 const $promoGradeTitulo = document.getElementById("promoGradeTitulo");
 const $promoGradeLista = document.getElementById("promoGradeLista");
 const $promoMostrarGrade = document.getElementById("promoMostrarGrade");
+const $promoMostrarLogoMersan = document.getElementById("promoMostrarLogoMersan");
+const $promoMostrarSeloMep = document.getElementById("promoMostrarSeloMep");
 const $promoEfeitoRetrato = document.getElementById("promoEfeitoRetrato");
 const $promoRetratoIntensidadeWrap = document.getElementById("promoRetratoIntensidadeWrap");
 const $promoRetratoIntensidade = document.getElementById("promoRetratoIntensidade");
@@ -3605,9 +3607,13 @@ function aplicarPosicoesChips() {
       chip.style.top = (layout.yPct * 100) + "%";
       chip.style.transform = `scale(${layout.escala})`;
     }
-    // Elemento removido: continua visível (esmaecido) no editor pra dar pra
-    // selecionar e restaurar, mas some da arte final.
-    chip.classList.toggle("removido", layout.visivel === false);
+    // Elemento removido (ou desmarcado nas opções acima, no caso dos
+    // logos): continua visível (esmaecido) no editor pra dar pra selecionar
+    // e restaurar, mas some da arte final.
+    const desligadoPelaOpcao =
+      (elemento === "logoMersan" && !$promoMostrarLogoMersan.checked) ||
+      (elemento === "mep" && !$promoMostrarSeloMep.checked);
+    chip.classList.toggle("removido", layout.visivel === false || desligadoPelaOpcao);
   });
 }
 
@@ -3808,7 +3814,7 @@ function desenharArtePromo(img, orientacao = 1, layout = null) {
   }
 
   // ---- Logo da Mersan (posição/tamanho escolhidos no editor) ----
-  if (imgLogoMersan && layout.logoMersan.visivel !== false) {
+  if (imgLogoMersan && layout.logoMersan.visivel !== false && $promoMostrarLogoMersan.checked) {
     const largLogo = Math.round(base * 0.16 * layout.logoMersan.escala);
     const altLogo = Math.round(largLogo * (imgLogoMersan.naturalHeight / imgLogoMersan.naturalWidth));
     ctx.save();
@@ -3961,7 +3967,7 @@ function desenharArtePromo(img, orientacao = 1, layout = null) {
   }
 
   // ---- Selo do app (MEP), posição/tamanho escolhidos no editor ----
-  if (imgLogoMep && layout.mep.visivel !== false) {
+  if (imgLogoMep && layout.mep.visivel !== false && $promoMostrarSeloMep.checked) {
     const lado = Math.round(base * 0.09 * layout.mep.escala);
     ctx.save();
     ctx.globalAlpha = 0.92;
