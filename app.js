@@ -3395,51 +3395,6 @@ $btnPromoNovaFoto.addEventListener("click", () => {
   $promoFotoInput.click();
 });
 
-// Fotos tiradas com o celular "de lado" geralmente não vêm com os pixels
-// realmente girados — o celular só marca a rotação certa numa tag EXIF, e
-// o <canvas> ignora essa tag (diferente de abrir a foto num app comum).
-// Sem isso, a arte sairia deitada. Aqui a gente lê a tag na mão.
-function lerOrientacaoExif(file) {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const view = new DataView(e.target.result);
-        if (view.getUint16(0, false) !== 0xffd8) return resolve(1); // não é JPEG
-        const length = view.byteLength;
-        let offset = 2;
-        while (offset < length) {
-          const marker = view.getUint16(offset, false);
-          offset += 2;
-          if (marker === 0xffe1) {
-            if (view.getUint32(offset + 2, false) !== 0x45786966) return resolve(1);
-            const little = view.getUint16(offset + 8, false) === 0x4949;
-            const primeiroIFD = view.getUint32(offset + 8 + 4, little);
-            const dirOffset = offset + 8 + primeiroIFD;
-            const totalTags = view.getUint16(dirOffset, little);
-            for (let i = 0; i < totalTags; i++) {
-              const entrada = dirOffset + 2 + i * 12;
-              if (view.getUint16(entrada, little) === 0x0112) {
-                return resolve(view.getUint16(entrada + 8, little));
-              }
-            }
-            return resolve(1);
-          } else if ((marker & 0xff00) !== 0xff00) {
-            break;
-          } else {
-            offset += view.getUint16(offset, false);
-          }
-        }
-      } catch (e) {
-        // arquivo sem EXIF legível — segue sem corrigir rotação
-      }
-      resolve(1);
-    };
-    reader.onerror = () => resolve(1);
-    reader.readAsArrayBuffer(file.slice(0, 128 * 1024));
-  });
-}
-
 // Efeito retrato: desfoca o fundo, mantendo nítido um oval no centro (onde
 // o produto costuma estar nas fotos tiradas na loja). Não é uma segmentação
 // de verdade (isso exigiria IA/modelo de recorte) — é uma aproximação por
@@ -3501,22 +3456,55 @@ function desenharFotoOrientada(ctx, img, orientacao, destW, destH) {
   ctx.restore();
 }
 
+// Usa o decodificador nativo do navegador (que entende EXIF e HEIC
+// corretamente) pra já entregar a foto "em pé" — em vez de ler os bytes do
+// EXIF na mão como antes, que só reconhecia JPEG e falhava silenciosamente
+// em fotos HEIC (formato padrão de câmera do iPhone), deixando a foto de
+// lado sem avisar nada.
+function criarImagemCorrigida(file) {
+  return new Promise((resolve, reject) => {
+    const semCorrecao = () => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => { resolve(img); URL.revokeObjectURL(url); };
+      img.onerror = reject;
+      img.src = url;
+    };
+
+    if (typeof createImageBitmap !== "function") return semCorrecao();
+
+    createImageBitmap(file, { imageOrientation: "from-image" })
+      .then((bitmap) => {
+        const c = document.createElement("canvas");
+        c.width = bitmap.width;
+        c.height = bitmap.height;
+        c.getContext("2d").drawImage(bitmap, 0, 0);
+        bitmap.close();
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = c.toDataURL();
+      })
+      // Navegador não suporta a opção "imageOrientation" — segue sem
+      // corrigir em vez de travar a geração da arte.
+      .catch(semCorrecao);
+  });
+}
+
 function processarFotoPromo(file) {
   if (!file || !promoItemAtual) return;
 
-  const img = new Image();
-  const url = URL.createObjectURL(file);
-  img.onload = async () => {
-    const [orientacao] = await Promise.all([lerOrientacaoExif(file), logosPromoProntos]);
+  criarImagemCorrigida(file).then(async (img) => {
+    await logosPromoProntos;
     promoImgAtual = img;
-    promoOrientacaoAtual = orientacao;
+    // A imagem já sai corrigida (em pé) do createImageBitmap acima, então
+    // não precisa mais girar de novo na hora de desenhar.
+    promoOrientacaoAtual = 1;
     promoLayoutEditavel = layoutPromoPadrao();
     // Gera a arte direto com o layout padrão — editar é opcional, só quem
     // quiser ajustar posição/tamanho toca em "Editar posição".
-    desenharArtePromo(img, orientacao, promoLayoutEditavel);
-    URL.revokeObjectURL(url);
-  };
-  img.src = url;
+    desenharArtePromo(img, 1, promoLayoutEditavel);
+  });
 }
 
 // ---------- Editor: arrastar/redimensionar nome, preço e selo (opcional,
