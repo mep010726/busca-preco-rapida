@@ -1203,21 +1203,23 @@ async function carregarUsuariosAtivos() {
   if (!ehAdmin()) return;
   $usuariosAtivosLista.innerHTML = `<div class="msg">Carregando...</div>`;
 
-  // Junta a atividade de busca (historico) com a de vendas, pra dar uma
-  // ideia geral de quem usa o app e o quanto — não é só quem vende.
-  const [resHistorico, resVendas] = await Promise.all([
+  // Junta busca (historico), vendas e fotos de promoção, pra dar uma ideia
+  // geral de quem usa o app e o quanto — não é só quem vende.
+  const [resHistorico, resVendas, resFotos] = await Promise.all([
     sb.from("historico").select("email"),
     sb.from("vendas").select("vendedor_email"),
+    sb.from("promo_fotos").select("email"),
   ]);
 
-  if (resHistorico.error || resVendas.error) {
-    $usuariosAtivosLista.innerHTML = `<div class="msg err">Erro ao carregar: ${(resHistorico.error || resVendas.error).message}</div>`;
+  const erro = resHistorico.error || resVendas.error || resFotos.error;
+  if (erro) {
+    $usuariosAtivosLista.innerHTML = `<div class="msg err">Erro ao carregar: ${erro.message}</div>`;
     return;
   }
 
   const porUsuario = {};
   const garantirUsuario = (email) => {
-    if (!porUsuario[email]) porUsuario[email] = { buscas: 0, vendas: 0 };
+    if (!porUsuario[email]) porUsuario[email] = { buscas: 0, vendas: 0, fotos: 0 };
     return porUsuario[email];
   };
 
@@ -1227,23 +1229,29 @@ async function carregarUsuariosAtivos() {
   (resVendas.data || []).forEach(v => {
     if (v.vendedor_email) garantirUsuario(v.vendedor_email).vendas++;
   });
+  (resFotos.data || []).forEach(f => {
+    if (f.email) garantirUsuario(f.email).fotos++;
+  });
 
-  const ranking = Object.entries(porUsuario).sort((a, b) => (b[1].buscas + b[1].vendas) - (a[1].buscas + a[1].vendas));
+  const ranking = Object.entries(porUsuario).sort((a, b) =>
+    (b[1].buscas + b[1].vendas + b[1].fotos) - (a[1].buscas + a[1].vendas + a[1].fotos)
+  );
 
   if (ranking.length === 0) {
-    $usuariosAtivosLista.innerHTML = `<div class="msg">Nenhuma atividade registrada ainda. Buscas feitas antes dessa atualização não aparecem aqui (não tinham o e-mail salvo).</div>`;
+    $usuariosAtivosLista.innerHTML = `<div class="msg">Nenhuma atividade registrada ainda. Atividade de antes dessa atualização não aparece aqui (não tinha o e-mail salvo).</div>`;
     return;
   }
 
   $usuariosAtivosLista.innerHTML = `
     <table style="width:100%;">
-      <thead><tr><th>Usuário</th><th style="text-align:right;">Buscas</th><th style="text-align:right;">Vendas</th></tr></thead>
+      <thead><tr><th>Usuário</th><th style="text-align:right;">Buscas</th><th style="text-align:right;">Vendas</th><th style="text-align:right;">Fotos promo</th></tr></thead>
       <tbody>
         ${ranking.map(([email, r]) => `
           <tr>
             <td style="padding:6px 0;">${email}</td>
             <td style="padding:6px 0; text-align:right;">${r.buscas}</td>
             <td style="padding:6px 0; text-align:right; font-weight:700; color:var(--accent);">${r.vendas}</td>
+            <td style="padding:6px 0; text-align:right;">${r.fotos}</td>
           </tr>
         `).join("")}
       </tbody>
@@ -3561,7 +3569,15 @@ function processarFotoPromo(file) {
     // Gera a arte direto com o layout padrão — editar é opcional, só quem
     // quiser ajustar posição/tamanho toca em "Editar posição".
     desenharArtePromo(img, 1, promoLayoutEditavel);
+    registrarFotoPromo();
   });
+}
+
+// Só pra contar atividade no painel "Usuários mais ativos" do admin — não
+// guarda a foto em si, só que uma foi processada.
+function registrarFotoPromo() {
+  if (!currentUser) return;
+  sb.from("promo_fotos").insert({ user_id: currentUser.id, email: currentUser.email });
 }
 
 // ---------- Editor: arrastar/redimensionar nome, preço e selo (opcional,
