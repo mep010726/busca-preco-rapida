@@ -3797,7 +3797,16 @@ function corPredominante(img) {
   c.width = tam;
   c.height = tam;
   const cctx = c.getContext("2d");
-  cctx.drawImage(img, 0, 0, tam, tam);
+  // Amostra só o centro da foto (onde o produto costuma estar) — sem isso,
+  // a mão segurando o produto (que ocupa boa parte do quadro e costuma ter
+  // cor mais saturada que produtos claros/pastel) podia "ganhar" a votação
+  // de cor mais frequente.
+  const cropPct = 0.5;
+  const sx = img.naturalWidth * (1 - cropPct) / 2;
+  const sy = img.naturalHeight * (1 - cropPct) / 2;
+  const sw = img.naturalWidth * cropPct;
+  const sh = img.naturalHeight * cropPct;
+  cctx.drawImage(img, sx, sy, sw, sh, 0, 0, tam, tam);
 
   let dados;
   try {
