@@ -3788,6 +3788,20 @@ function quebrarTextoLinhas(ctx, texto, larguraMax, maxLinhas) {
   return linhas;
 }
 
+// Detecta tom de pele (regra clássica de detecção de pele em RGB) — usado
+// pra ignorar a mão segurando o produto na hora de escolher a cor
+// predominante, já que só recortar o centro da foto não é suficiente (a
+// mão frequentemente entra até o meio do quadro).
+function corPareceMao(r, g, b) {
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  return (
+    r > 95 && g > 40 && b > 20 &&
+    max - min > 15 &&
+    Math.abs(r - g) > 15 &&
+    r > g && r > b
+  );
+}
+
 // Acha a cor predominante "de verdade" do produto na foto: reduz a imagem,
 // ignora pixels sem saturação (parede, chão, sombra — geralmente cinza ou
 // muito claro/escuro) e conta qual cor colorida aparece mais.
@@ -3822,6 +3836,7 @@ function corPredominante(img) {
     const sat = max === 0 ? 0 : (max - min) / max;
     const luz = (max + min) / 2;
     if (sat < 0.18 || luz > 235 || luz < 20) continue; // ignora fundo/sombra
+    if (corPareceMao(r, g, b)) continue; // ignora tom de pele (mão segurando o produto)
     const chave = `${Math.round(r / 24) * 24},${Math.round(g / 24) * 24},${Math.round(b / 24) * 24}`;
     contagem[chave] = (contagem[chave] || 0) + 1;
   }
