@@ -191,6 +191,7 @@ const $btnSalvarComissaoConfig = document.getElementById("btnSalvarComissaoConfi
 const $comissaoConfigMsg = document.getElementById("comissaoConfigMsg");
 const $painelAjuda = document.getElementById("painelAjuda");
 const $resumoVendedoresLista = document.getElementById("resumoVendedoresLista");
+const $usuariosAtivosLista = document.getElementById("usuariosAtivosLista");
 const $btnModoVenda = document.getElementById("btnModoVenda");
 const $btnModoTroca = document.getElementById("btnModoTroca");
 const $tituloNovaVenda = document.getElementById("tituloNovaVenda");
@@ -709,6 +710,7 @@ $tabAdmin.addEventListener("click", () => {
   mostrarAba($tabAdmin);
   carregarStatsAdmin();
   carregarResumoVendedores();
+  carregarUsuariosAtivos();
   carregarPendentesMP();
   carregarSugestoes();
 });
@@ -862,6 +864,7 @@ async function salvarHistorico(item, lojasStr) {
   if (!currentUser) return;
   await sb.from("historico").insert({
     user_id: currentUser.id,
+    email: currentUser.email,
     codigo_barras: item.cdProduto,
     produto: item.dsProduto,
     preco: item.vlPrecoPromocao > 0 ? item.vlPrecoPromocao : item.vlPreco,
@@ -1189,6 +1192,58 @@ async function carregarResumoVendedores() {
             <td style="padding:6px 0;">${email}</td>
             <td style="padding:6px 0; text-align:right;">${r.vendas}</td>
             <td style="padding:6px 0; text-align:right; font-weight:700; color:var(--accent);">${fmtMoeda(r.total)}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+async function carregarUsuariosAtivos() {
+  if (!ehAdmin()) return;
+  $usuariosAtivosLista.innerHTML = `<div class="msg">Carregando...</div>`;
+
+  // Junta a atividade de busca (historico) com a de vendas, pra dar uma
+  // ideia geral de quem usa o app e o quanto — não é só quem vende.
+  const [resHistorico, resVendas] = await Promise.all([
+    sb.from("historico").select("email"),
+    sb.from("vendas").select("vendedor_email"),
+  ]);
+
+  if (resHistorico.error || resVendas.error) {
+    $usuariosAtivosLista.innerHTML = `<div class="msg err">Erro ao carregar: ${(resHistorico.error || resVendas.error).message}</div>`;
+    return;
+  }
+
+  const porUsuario = {};
+  const garantirUsuario = (email) => {
+    if (!porUsuario[email]) porUsuario[email] = { buscas: 0, vendas: 0 };
+    return porUsuario[email];
+  };
+
+  (resHistorico.data || []).forEach(h => {
+    if (h.email) garantirUsuario(h.email).buscas++;
+  });
+  (resVendas.data || []).forEach(v => {
+    if (v.vendedor_email) garantirUsuario(v.vendedor_email).vendas++;
+  });
+
+  const ranking = Object.entries(porUsuario).sort((a, b) => (b[1].buscas + b[1].vendas) - (a[1].buscas + a[1].vendas));
+
+  if (ranking.length === 0) {
+    $usuariosAtivosLista.innerHTML = `<div class="msg">Nenhuma atividade registrada ainda. Buscas feitas antes dessa atualização não aparecem aqui (não tinham o e-mail salvo).</div>`;
+    return;
+  }
+
+  $usuariosAtivosLista.innerHTML = `
+    <table style="width:100%;">
+      <thead><tr><th>Usuário</th><th style="text-align:right;">Buscas</th><th style="text-align:right;">Vendas</th></tr></thead>
+      <tbody>
+        ${ranking.map(([email, r]) => `
+          <tr>
+            <td style="padding:6px 0;">${email}</td>
+            <td style="padding:6px 0; text-align:right;">${r.buscas}</td>
+            <td style="padding:6px 0; text-align:right; font-weight:700; color:var(--accent);">${r.vendas}</td>
           </tr>
         `).join("")}
       </tbody>
