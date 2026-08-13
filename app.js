@@ -3866,7 +3866,7 @@ function desenharArtePromo(img, orientacao = 1, layout = null) {
     ctx.font = `800 ${tamanhoFontePor}px sans-serif`;
     const textoPor = (temPromo ? "POR: " : "") + fmtMoeda(promoItemAtual.precoFinal);
     const largTextoPor = ctx.measureText(textoPor).width;
-    const tamanhoFonteDe = Math.round(boxAlturaLinha * 0.46);
+    const tamanhoFonteDe = Math.round(boxAlturaLinha * 0.58);
     ctx.font = `700 ${tamanhoFonteDe}px sans-serif`;
     const textoDe = temPromo ? "DE: " + fmtMoeda(promoItemAtual.precoOriginal) : "";
     const largTextoDe = temPromo ? ctx.measureText(textoDe).width : 0;
