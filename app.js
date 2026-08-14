@@ -1711,11 +1711,7 @@ function fmtMoeda(v) {
 // Máscara de valor "tipo calculadora": os dígitos digitados entram pela
 // direita e os 2 últimos sempre são os centavos — digitar "3999" mostra
 // "39,99", não "3.999,00". Usada em todo campo que representa dinheiro.
-function formatarCentavosDigitados(digitos) {
-  const num = (Number(digitos) || 0) / 100;
-  return num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
+// (formatarCentavosDigitados vem do calc.js, carregado antes deste script)
 function aplicarMascaraMoeda(input) {
   input.setAttribute("inputmode", "numeric");
   input.addEventListener("input", () => {
@@ -1793,10 +1789,30 @@ function lerCachePreco(codigo) {
   }
 }
 
-async function buscarPreco(codigo, primeiraLoja, signal) {
-  const resp = await fetch(`${API_BASE}/${encodeURIComponent(codigo)}/${encodeURIComponent(primeiraLoja)}`, { signal });
-  const data = await resp.json();
-  return (data.precos || []).find(p => p.cdSKU && p.cdSKU !== 0) || null;
+// O site da Mersan às vezes fica instável (demora, erro 5xx, ou devolve uma
+// página de erro HTML em vez do JSON esperado) — tenta de novo uma vez
+// antes de desistir, e marca o erro final como "mersanIndisponivel" pra
+// quem chama poder mostrar uma mensagem diferente de "sem internet" (o
+// problema é do lado deles, não da conexão do usuário).
+async function buscarPreco(codigo, primeiraLoja, signal, tentativas = 2) {
+  let ultimoErro;
+  for (let i = 0; i < tentativas; i++) {
+    try {
+      const resp = await fetch(`${API_BASE}/${encodeURIComponent(codigo)}/${encodeURIComponent(primeiraLoja)}`, { signal });
+      if (!resp.ok) throw new Error(`Mersan respondeu HTTP ${resp.status}`);
+      const data = await resp.json();
+      return (data.precos || []).find(p => p.cdSKU && p.cdSKU !== 0) || null;
+    } catch (e) {
+      if (e.name === "AbortError") throw e;
+      // TypeError normalmente é falta de conexão do próprio usuário — não
+      // adianta tentar de novo na hora, deixa subir pro tratamento de "sem
+      // internet" que já existe em quem chama.
+      if (e instanceof TypeError) throw e;
+      ultimoErro = e;
+    }
+  }
+  ultimoErro.mersanIndisponivel = true;
+  throw ultimoErro;
 }
 
 // O site da Mersan às vezes demora muito ou devolve uma página de erro (HTML)
@@ -2039,6 +2055,9 @@ async function executarBusca(codigo, lojasStrRaw, multiplo) {
           executarBusca(codigo, lojasStrRaw, true);
         }, { once: true });
       }
+    } else if (e.mersanIndisponivel) {
+      setBuscaStatus("A Mersan está instável no momento (não é um problema da sua conexão) — tente de novo em alguns instantes.", true);
+      console.error(e);
     } else {
       setBuscaStatus("Erro ao buscar. Verifique a conexão.", true);
       console.error(e);
@@ -2166,20 +2185,10 @@ function atualizarTotaisVenda() {
   const subtotal = calcularSubtotalVenda();
   $vendaSubtotal.textContent = fmtMoeda(subtotal);
 
-  let totalFinal = subtotal;
-  let descontoValor = 0;
-  let descontoPct = 0;
-
-  if (modoDesconto === "percentual") {
-    descontoPct = Math.min(100, Math.max(0, Number($vendaDescontoPct.value) || 0));
-    descontoValor = subtotal * (descontoPct / 100);
-    totalFinal = subtotal - descontoValor;
-  } else {
-    const digitado = $vendaValorFinal.value === "" ? subtotal : valorMascarado($vendaValorFinal);
-    totalFinal = Math.max(0, Math.min(subtotal, digitado));
-    descontoValor = subtotal - totalFinal;
-    descontoPct = subtotal > 0 ? (descontoValor / subtotal) * 100 : 0;
-  }
+  // A conta em si (calcularTotaisVenda) é testada isolada em calc.test.js —
+  // aqui só lê os campos da tela e mostra o resultado.
+  const digitado = $vendaValorFinal.value === "" ? null : valorMascarado($vendaValorFinal);
+  const { totalFinal, descontoValor, descontoPct } = calcularTotaisVenda(subtotal, modoDesconto, $vendaDescontoPct.value, digitado);
 
   $vendaDescontoInfo.textContent = descontoValor > 0.001
     ? `Desconto: -${fmtMoeda(descontoValor)} (${descontoPct.toFixed(1)}%)`
@@ -2386,7 +2395,9 @@ async function adicionarProdutoNaVenda(codigo) {
     salvarCachePreco(codigo, item);
     $vendaMsgAdd.textContent = "";
   } catch (e) {
-    $vendaMsgAdd.textContent = "Erro ao buscar produto. Verifique a conexão.";
+    $vendaMsgAdd.textContent = e.mersanIndisponivel
+      ? "A Mersan está instável no momento — tente de novo em alguns instantes."
+      : "Erro ao buscar produto. Verifique a conexão.";
     $vendaMsgAdd.className = "msg err";
   }
 }
@@ -2829,7 +2840,9 @@ $btnEditarVendaAdicionar.addEventListener("click", async () => {
       preco_unit: item.vlPrecoPromocao > 0 ? item.vlPrecoPromocao : item.vlPreco,
     });
   } catch (e) {
-    $editarVendaMsg.textContent = "Erro ao buscar produto. Verifique a conexão.";
+    $editarVendaMsg.textContent = e.mersanIndisponivel
+      ? "A Mersan está instável no momento — tente de novo em alguns instantes."
+      : "Erro ao buscar produto. Verifique a conexão.";
     $editarVendaMsg.className = "msg err";
   }
 });
@@ -3187,12 +3200,9 @@ async function carregarComissao() {
 
   const metaQ1 = metaData ? Number(metaData.meta_quinzena_1 || 0) : 0;
   const metaQ2 = metaData ? Number(metaData.meta_quinzena_2 || 0) : 0;
-  const bateuQ1 = metaQ1 > 0 && totalQ1 >= metaQ1;
-  const bateuQ2 = metaQ2 > 0 && totalQ2 >= metaQ2;
-  const pctQ1 = bateuQ1 ? Number(config.pct_meta_batida) : Number(config.pct_meta_nao_batida);
-  const pctQ2 = bateuQ2 ? Number(config.pct_meta_batida) : Number(config.pct_meta_nao_batida);
-  const comissaoQ1 = totalQ1 * (pctQ1 / 100);
-  const comissaoQ2 = totalQ2 * (pctQ2 / 100);
+  // calcularComissaoQuinzena é testada isolada em calc.test.js.
+  const { bateu: bateuQ1, pct: pctQ1, comissao: comissaoQ1 } = calcularComissaoQuinzena(totalQ1, metaQ1, config.pct_meta_batida, config.pct_meta_nao_batida);
+  const { bateu: bateuQ2, pct: pctQ2, comissao: comissaoQ2 } = calcularComissaoQuinzena(totalQ2, metaQ2, config.pct_meta_batida, config.pct_meta_nao_batida);
   const comissaoTotal = comissaoQ1 + comissaoQ2;
 
   // Usado pelo simulador de colocação (que continua olhando o mês inteiro).
@@ -3449,7 +3459,9 @@ async function buscarProdutoPromo(codigo) {
     $promoInfo.classList.remove("hidden");
     $promoMsg.textContent = "";
   } catch (e) {
-    $promoMsg.textContent = "Erro ao buscar produto. Verifique a conexão.";
+    $promoMsg.textContent = e.mersanIndisponivel
+      ? "A Mersan está instável no momento — tente de novo em alguns instantes."
+      : "Erro ao buscar produto. Verifique a conexão.";
     $promoMsg.className = "msg err";
   }
 }

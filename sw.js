@@ -1,5 +1,5 @@
 const CACHE_NAME = "busca-preco-shell-v3";
-const SHELL_FILES = ["/", "/index.html", "/styles.css", "/app.js", "/manifest.json", "/icon-192.png", "/icon-512.png"];
+const SHELL_FILES = ["/", "/index.html", "/styles.css", "/calc.js", "/app.js", "/manifest.json", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
