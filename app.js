@@ -3729,15 +3729,16 @@ function processarFotoPromo(file) {
     // Gera a arte direto com o layout padrão — editar é opcional, só quem
     // quiser ajustar posição/tamanho toca em "Editar posição".
     desenharArtePromo(img, 1, promoLayoutEditavel);
-    registrarFotoPromo();
+    await registrarFotoPromo();
   });
 }
 
 // Só pra contar atividade no painel "Usuários mais ativos" do admin — não
 // guarda a foto em si, só que uma foi processada.
-function registrarFotoPromo() {
+async function registrarFotoPromo() {
   if (!currentUser) return;
-  sb.from("promo_fotos").insert({ user_id: currentUser.id, email: currentUser.email });
+  const { error } = await sb.from("promo_fotos").insert({ user_id: currentUser.id, email: currentUser.email });
+  if (error) console.error("Erro ao registrar foto de promoção:", error);
 }
 
 // ---------- Editor: arrastar/redimensionar nome, preço e selo (opcional,
