@@ -5,6 +5,18 @@ const SUPABASE_ANON_KEY = "sb_publishable_mRNqGL9jboRCjHfnq1kG0Q_paalFq0C";
 const TURNSTILE_SITE_KEY = "0x4AAAAAAEGYOswRL545WBG-";
 // ==========================================================
 
+// Escapa texto antes de inserir em innerHTML — essencial pra qualquer campo
+// que vem de fonte não-confiável (nome de produto digitado à mão, texto de
+// sugestão, referência escrita por qualquer usuário logado no índice
+// compartilhado, etc.). Sem isso, alguém poderia salvar um "produto" com
+// HTML/script no nome e ele rodaria na tela de quem visse a lista depois
+// (inclusive o admin, que vê os dados de todo mundo).
+function escapeHtml(texto) {
+  return String(texto ?? "").replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
 // Cadastro de lojas da rede: nome, endereço e cidade de cada uma, pra
 // mostrar onde fica quando o estoque de uma loja aparece na tela.
 const LOJAS_INFO = {
@@ -730,10 +742,10 @@ function renderListaItens(container, data, { vazio, mostrarSugerir }) {
   }
 
   container.innerHTML = data.map(h => `
-    <div class="historico-item" data-id="${h.id}" data-codigo="${h.codigo_barras}" data-lojas="${h.lojas || ""}" data-produto="${(h.produto || "").replace(/"/g, "&quot;")}" data-preco="${h.preco != null ? h.preco : ""}">
+    <div class="historico-item" data-id="${h.id}" data-codigo="${escapeHtml(h.codigo_barras)}" data-lojas="${escapeHtml(h.lojas || "")}" data-produto="${escapeHtml(h.produto || "")}" data-preco="${h.preco != null ? h.preco : ""}">
       <div class="h-conteudo">
-        <div class="h-produto">${h.produto || h.codigo_barras}</div>
-        <div class="h-meta">Lojas ${h.lojas || "-"} · ${new Date(h.criado_em).toLocaleString("pt-BR")}</div>
+        <div class="h-produto">${escapeHtml(h.produto || h.codigo_barras)}</div>
+        <div class="h-meta">Lojas ${escapeHtml(h.lojas || "-")} · ${new Date(h.criado_em).toLocaleString("pt-BR")}</div>
       </div>
       <div class="h-acoes">
         <span>${h.preco != null ? fmtMoeda(h.preco) : ""}</span>
@@ -925,10 +937,10 @@ async function buscarReferencia(pagina = 0) {
 
   $referenciaMsg.textContent = "";
   $referenciaResultados.innerHTML = data.map(r => `
-    <div class="historico-item" data-codigo="${r.codigo_barras}">
+    <div class="historico-item" data-codigo="${escapeHtml(r.codigo_barras)}">
       <div class="h-conteudo">
-        <div class="h-produto">${r.produto || r.codigo_barras}</div>
-        <div class="h-meta">Ref: ${r.cd_referencia}</div>
+        <div class="h-produto">${escapeHtml(r.produto || r.codigo_barras)}</div>
+        <div class="h-meta">Ref: ${escapeHtml(r.cd_referencia)}</div>
       </div>
     </div>
   `).join("");
@@ -990,10 +1002,10 @@ function renderListaMaisProcurados(container, data, { vazio, comRevisao }) {
   }
 
   container.innerHTML = data.map(h => `
-    <div class="historico-item" data-id="${h.id}" data-codigo="${h.codigo_barras}" data-lojas="${h.lojas || ""}">
+    <div class="historico-item" data-id="${h.id}" data-codigo="${escapeHtml(h.codigo_barras)}" data-lojas="${escapeHtml(h.lojas || "")}">
       <div class="h-conteudo">
-        <div class="h-produto">${h.produto || h.codigo_barras}</div>
-        <div class="h-meta">Lojas ${h.lojas || "-"} · sugerido em ${new Date(h.criado_em).toLocaleString("pt-BR")}</div>
+        <div class="h-produto">${escapeHtml(h.produto || h.codigo_barras)}</div>
+        <div class="h-meta">Lojas ${escapeHtml(h.lojas || "-")} · sugerido em ${new Date(h.criado_em).toLocaleString("pt-BR")}</div>
       </div>
       <div class="h-acoes">
         <span>${h.preco != null ? fmtMoeda(h.preco) : ""}</span>
@@ -1365,9 +1377,9 @@ async function carregarSugestoes() {
     return `
     <div class="historico-item" style="cursor:default; align-items:flex-start; flex-wrap:wrap;">
       <div class="h-conteudo">
-        <div class="h-produto">${s.email}</div>
+        <div class="h-produto">${escapeHtml(s.email)}</div>
         <div class="h-meta">${new Date(s.criado_em).toLocaleString("pt-BR")}</div>
-        <div style="margin-top:6px; font-size:0.9rem;">${s.texto.replace(/</g, "&lt;")}</div>
+        <div style="margin-top:6px; font-size:0.9rem;">${escapeHtml(s.texto)}</div>
         ${mutado ? `<div class="h-meta" style="color:var(--danger); margin-top:6px;">Mutado até ${new Date(mutadoAte).toLocaleString("pt-BR")}</div>` : ""}
         <div class="row" style="margin-top:8px; margin-bottom:0;">
           ${mutado
@@ -2121,7 +2133,7 @@ function renderItensVenda() {
     $vendaItensLista.innerHTML = itensVendaAtual.map((item, i) => `
       <div class="venda-item" data-i="${i}">
         <div class="vi-info">
-          <div class="vi-produto">${item.produto || item.codigo_barras}</div>
+          <div class="vi-produto">${escapeHtml(item.produto || item.codigo_barras)}</div>
           <div class="vi-preco">${fmtMoeda(item.preco_unit)} cada</div>
         </div>
         <div class="vi-qtd-stepper">
@@ -2259,7 +2271,7 @@ function renderListaDeItens(container, lista) {
   container.innerHTML = lista.map((item, i) => `
     <div class="venda-item" data-i="${i}">
       <div class="vi-info">
-        <div class="vi-produto">${item.produto || item.codigo_barras}</div>
+        <div class="vi-produto">${escapeHtml(item.produto || item.codigo_barras)}</div>
         <div class="vi-preco">${fmtMoeda(item.preco_unit)} cada</div>
       </div>
       <div class="vi-qtd-stepper">
@@ -2432,7 +2444,7 @@ $btnVendaHistorico.addEventListener("click", async () => {
   $vendaHistoricoLista.innerHTML = data.map((h, i) => `
     <div class="historico-item" data-i="${i}">
       <div class="h-conteudo">
-        <div class="h-produto">${h.produto || h.codigo_barras}</div>
+        <div class="h-produto">${escapeHtml(h.produto || h.codigo_barras)}</div>
         <div class="h-meta">${h.preco != null ? fmtMoeda(h.preco) : "sem preço salvo"} · ${new Date(h.criado_em).toLocaleString("pt-BR")}</div>
       </div>
     </div>
@@ -2614,7 +2626,7 @@ function renderVendasLista(data) {
   $vendasLista.innerHTML = data.map(v => {
     const info = LOJAS_INFO[v.loja];
     const lojaTexto = info ? `Loja ${v.loja} - ${info.nome}` : `Loja ${v.loja}`;
-    const vendedorTexto = souAdmin && v.vendedor_email ? ` · ${v.vendedor_email}` : "";
+    const vendedorTexto = souAdmin && v.vendedor_email ? ` · ${escapeHtml(v.vendedor_email)}` : "";
     const ehTroca = v.tipo === "troca";
     const tituloLinha = ehTroca ? `🔁 Troca — ${lojaTexto}` : lojaTexto;
     return `
@@ -2622,7 +2634,7 @@ function renderVendasLista(data) {
       <div class="h-conteudo">
         <div class="h-produto">${tituloLinha}</div>
         <div class="h-meta">${new Date(v.criado_em).toLocaleString("pt-BR")}${vendedorTexto}</div>
-        ${v.observacao ? `<div class="h-meta">${v.observacao.replace(/</g, "&lt;")}</div>` : ""}
+        ${v.observacao ? `<div class="h-meta">${escapeHtml(v.observacao)}</div>` : ""}
         <div class="venda-detalhe hidden" style="margin-top:8px;"></div>
       </div>
       <div class="h-acoes">
@@ -2671,7 +2683,7 @@ function renderVendasLista(data) {
 
       const linhaItem = it => `
         <div style="display:flex; justify-content:space-between; font-size:0.82rem; padding:3px 0;">
-          <span>${it.quantidade}x ${it.produto || it.codigo_barras}</span>
+          <span>${it.quantidade}x ${escapeHtml(it.produto || it.codigo_barras)}</span>
           <span>${fmtMoeda(it.subtotal)}</span>
         </div>`;
 
@@ -2744,7 +2756,7 @@ async function carregarItensEditorVenda() {
 
   $editarVendaItensLista.innerHTML = itens.map(it => `
     <div style="display:flex; justify-content:space-between; font-size:0.82rem; padding:4px 0; border-bottom:1px solid var(--border);">
-      <span>${it.quantidade}x ${(it.produto || it.codigo_barras || "").replace(/</g, "&lt;")}</span>
+      <span>${it.quantidade}x ${escapeHtml(it.produto || it.codigo_barras)}</span>
       <span>${fmtMoeda(it.subtotal)}</span>
     </div>
   `).join("");
