@@ -77,6 +77,7 @@ const ICONE_LIXEIRA = `<svg viewBox="0 0 24 24" width="16" height="16" fill="non
 const ICONE_CHECK = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
 const ICONE_X = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 const ICONE_LAPIS = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>`;
+const ICONE_COMPROVANTE = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2H7a2 2 0 0 0-2 2v16l3-2 2 2 2-2 2 2 2-2 3 2V4a2 2 0 0 0-2-2z"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/></svg>`;
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 function aplicarTema(tema) {
@@ -245,6 +246,7 @@ const $btnFinalizarVenda = document.getElementById("btnFinalizarVenda");
 const $vendaMsg = document.getElementById("vendaMsg");
 const $vendasLista = document.getElementById("vendasLista");
 const $vendasDataFiltro = document.getElementById("vendasDataFiltro");
+const $btnExportarVendasCsv = document.getElementById("btnExportarVendasCsv");
 const $vendaHistoricoModal = document.getElementById("vendaHistoricoModal");
 const $vendaHistoricoLista = document.getElementById("vendaHistoricoLista");
 const $btnFecharVendaHistorico = document.getElementById("btnFecharVendaHistorico");
@@ -2628,6 +2630,131 @@ $vendasDataFiltro.addEventListener("change", () => {
   atualizarResumoVendas();
 });
 
+function csvEscape(valor) {
+  const s = String(valor ?? "");
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// Exporta todas as vendas do dia selecionado (não só a página atual da
+// tela) num CSV, uma linha por venda, itens resumidos numa coluna só.
+$btnExportarVendasCsv.addEventListener("click", async () => {
+  if (!currentUser) return;
+  const dataFiltro = $vendasDataFiltro.value || dataAaaaMmDd(new Date());
+  const { inicio, fim } = limitesDoDia(dataFiltro);
+
+  $btnExportarVendasCsv.disabled = true;
+  $btnExportarVendasCsv.textContent = "Exportando...";
+
+  const { data, error } = await sb
+    .from("vendas")
+    .select("*, venda_itens(*)")
+    .gte("criado_em", inicio.toISOString())
+    .lt("criado_em", fim.toISOString())
+    .order("criado_em", { ascending: true });
+
+  $btnExportarVendasCsv.disabled = false;
+  $btnExportarVendasCsv.textContent = "Exportar CSV";
+
+  if (error) {
+    alert("Erro ao exportar: " + error.message);
+    return;
+  }
+  if (!data || data.length === 0) {
+    alert("Nenhuma venda nesse dia pra exportar.");
+    return;
+  }
+
+  const cabecalho = ["Data/Hora", "Loja", "Vendedor", "Tipo", "Itens", "Subtotal", "Desconto", "Total", "Observação"];
+  const linhas = data.map(v => {
+    const info = LOJAS_INFO[v.loja];
+    const lojaTexto = info ? `Loja ${v.loja} - ${info.nome}` : `Loja ${v.loja}`;
+    const itensTexto = (v.venda_itens || [])
+      .map(it => `${it.quantidade}x ${it.produto || it.codigo_barras}`)
+      .join("; ");
+    return [
+      new Date(v.criado_em).toLocaleString("pt-BR"),
+      lojaTexto,
+      v.vendedor_email || "",
+      v.tipo === "troca" ? "Troca" : "Venda",
+      itensTexto,
+      fmtMoeda(v.subtotal || 0),
+      fmtMoeda(v.desconto_valor || 0),
+      fmtMoeda(v.total),
+      v.observacao || "",
+    ];
+  });
+
+  const csv = [cabecalho, ...linhas].map(linha => linha.map(csvEscape).join(",")).join("\r\n");
+  // BOM no início pra o Excel reconhecer UTF-8 e mostrar acento certinho.
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `vendas-${dataFiltro}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+// Monta o texto do comprovante — funciona pra venda normal e pra troca.
+function gerarTextoComprovante(v, itens) {
+  const info = LOJAS_INFO[v.loja];
+  const lojaTexto = info ? `Loja ${v.loja} - ${info.nome}` : `Loja ${v.loja}`;
+  const dataTexto = new Date(v.criado_em).toLocaleString("pt-BR");
+  const linhaItem = it => `${it.quantidade}x ${it.produto || it.codigo_barras} — ${fmtMoeda(it.subtotal)}`;
+
+  if (v.tipo === "troca") {
+    const devolvidos = itens.filter(it => it.devolvido);
+    const novos = itens.filter(it => !it.devolvido);
+    return [
+      `🔁 Comprovante de troca — ${lojaTexto}`,
+      dataTexto,
+      "",
+      "Devolvido:",
+      devolvidos.length ? devolvidos.map(linhaItem).join("\n") : "Nenhum",
+      "",
+      "Novo:",
+      novos.length ? novos.map(linhaItem).join("\n") : "Nenhum",
+      "",
+      `Diferença: ${fmtMoeda(v.total)}`,
+      "",
+      "Obrigado pela preferência!",
+    ].join("\n");
+  }
+
+  const linhas = [
+    `🧾 Comprovante de venda — ${lojaTexto}`,
+    dataTexto,
+    "",
+    itens.map(linhaItem).join("\n"),
+  ];
+  if (v.desconto_valor > 0) {
+    linhas.push("", `Subtotal: ${fmtMoeda(v.subtotal)}`, `Desconto (${Number(v.desconto_percentual).toFixed(1)}%): -${fmtMoeda(v.desconto_valor)}`);
+  }
+  linhas.push(`Total: ${fmtMoeda(v.total)}`, "", "Obrigado pela preferência!");
+  return linhas.join("\n");
+}
+
+// Usa o compartilhamento nativo (abre o WhatsApp direto se disponível no
+// aparelho); sem suporte (a maioria dos navegadores de desktop), abre o
+// wa.me com o texto pronto pra colar num contato.
+async function compartilharComprovante(venda) {
+  const { data: itens, error } = await sb.from("venda_itens").select("*").eq("venda_id", venda.id);
+  if (error) {
+    alert("Erro ao carregar itens da venda: " + error.message);
+    return;
+  }
+  const texto = gerarTextoComprovante(venda, itens || []);
+  if (navigator.share) {
+    try {
+      await navigator.share({ text: texto });
+    } catch (e) {
+      // usuário cancelou o compartilhamento — não é erro
+    }
+  } else {
+    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank");
+  }
+}
+
 function renderVendasLista(data) {
   if (!data || data.length === 0) {
     $vendasLista.innerHTML = `<div class="msg">Nenhuma venda registrada nesse dia.</div>`;
@@ -2652,6 +2779,7 @@ function renderVendasLista(data) {
       </div>
       <div class="h-acoes">
         <span style="${v.total < 0 ? "color:var(--danger);" : ""}">${fmtMoeda(v.total)}</span>
+        <button class="h-btn comprovante" title="Comprovante">${ICONE_COMPROVANTE}</button>
         ${!ehTroca ? `<button class="h-btn editar" title="Adicionar itens">${ICONE_LAPIS}</button>` : ""}
         <button class="h-btn apagar" title="Apagar">${ICONE_LIXEIRA}</button>
       </div>
@@ -2670,6 +2798,12 @@ function renderVendasLista(data) {
         if (v) abrirEditorVenda(v);
       });
     }
+
+    el.querySelector(".comprovante").addEventListener("click", (e) => {
+      e.stopPropagation();
+      const v = data.find(x => x.id === id);
+      if (v) compartilharComprovante(v);
+    });
 
     el.querySelector(".h-conteudo").addEventListener("click", async () => {
       const $detalhe = el.querySelector(".venda-detalhe");
