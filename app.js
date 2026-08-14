@@ -180,6 +180,8 @@ const $promoElementoSelecionado = document.getElementById("promoElementoSelecion
 const $btnPromoMenor = document.getElementById("btnPromoMenor");
 const $btnPromoMaior = document.getElementById("btnPromoMaior");
 const $btnPromoRemoverElemento = document.getElementById("btnPromoRemoverElemento");
+const $btnPromoSalvarPadrao = document.getElementById("btnPromoSalvarPadrao");
+const $promoSalvarPadraoMsg = document.getElementById("promoSalvarPadraoMsg");
 const $btnPromoConfirmarLayout = document.getElementById("btnPromoConfirmarLayout");
 const $btnPromoCancelarEdicao = document.getElementById("btnPromoCancelarEdicao");
 const $promoResultadoWrap = document.getElementById("promoResultadoWrap");
@@ -3621,7 +3623,7 @@ function textoLojaPromo() {
   return `${info.nome} - ${info.endereco}`;
 }
 
-function layoutPromoPadrao() {
+function layoutPromoPadraoFabrica() {
   return {
     nome: { xPct: 0.5, yPct: 0.12, escala: 0.85, visivel: true },
     logoMersan: { xPct: 0.02, yPct: 0.02, escala: 1, visivel: true },
@@ -3631,9 +3633,25 @@ function layoutPromoPadrao() {
   };
 }
 
+// Se o usuário já salvou um layout como padrão (fica no perfil, sincroniza
+// entre dispositivos — igual às lojas favoritas), usa ele. Mescla com o de
+// fábrica pra cobrir qualquer elemento que o layout salvo não tenha (ex: se
+// um elemento novo for adicionado no app depois do usuário ter salvado).
+function layoutPromoPadrao() {
+  const fabrica = layoutPromoPadraoFabrica();
+  const salvo = currentUser && currentUser.user_metadata && currentUser.user_metadata.promo_layout_padrao;
+  if (!salvo) return fabrica;
+  const layout = {};
+  for (const elemento in fabrica) {
+    layout[elemento] = { ...fabrica[elemento], ...(salvo[elemento] || {}) };
+  }
+  return layout;
+}
+
 function abrirEditorPromo() {
   if (!promoImgAtual) return;
   promoElementoAtivo = "nome";
+  $promoSalvarPadraoMsg.textContent = "";
 
   // Mostra a foto já corrigida (em pé) no editor, do mesmo jeito que sai
   // na arte final.
@@ -3757,6 +3775,23 @@ $btnPromoRemoverElemento.addEventListener("click", () => {
   layout.visivel = layout.visivel === false ? true : false;
   aplicarPosicoesChips();
   atualizarSelecaoChip();
+});
+
+$btnPromoSalvarPadrao.addEventListener("click", async () => {
+  if (!currentUser) return;
+  $promoSalvarPadraoMsg.textContent = "Salvando...";
+  $promoSalvarPadraoMsg.className = "msg";
+  const { error } = await sb.auth.updateUser({ data: { promo_layout_padrao: promoLayoutEditavel } });
+  if (error) {
+    $promoSalvarPadraoMsg.textContent = "Erro ao salvar: " + error.message;
+    $promoSalvarPadraoMsg.className = "msg err";
+    return;
+  }
+  // updateUser não atualiza sozinho o currentUser local — sem isso, a
+  // próxima foto ainda usaria o padrão antigo até relogar.
+  currentUser.user_metadata.promo_layout_padrao = promoLayoutEditavel;
+  $promoSalvarPadraoMsg.textContent = "Salvo! Esse layout agora é o padrão nas próximas fotos.";
+  $promoSalvarPadraoMsg.className = "msg";
 });
 
 $btnPromoCancelarEdicao.addEventListener("click", () => {
