@@ -160,6 +160,7 @@ const $promoPrecoFinal = document.getElementById("promoPrecoFinal");
 const $promoGradeTitulo = document.getElementById("promoGradeTitulo");
 const $promoGradeLista = document.getElementById("promoGradeLista");
 const $promoMostrarGrade = document.getElementById("promoMostrarGrade");
+const $promoMostrarParcelamento = document.getElementById("promoMostrarParcelamento");
 const $promoMostrarLogoMersan = document.getElementById("promoMostrarLogoMersan");
 const $promoMostrarSeloMep = document.getElementById("promoMostrarSeloMep");
 const $promoEfeitoRetrato = document.getElementById("promoEfeitoRetrato");
@@ -4117,7 +4118,20 @@ function desenharArtePromo(img, orientacao = 1, layout = null) {
   const precoVisivel = layout.preco.visivel !== false;
   const boxAlturaLinha = Math.round(base * 0.058 * layout.preco.escala);
   const boxPad = Math.round(base * 0.03 * layout.preco.escala);
-  const boxAltura = (temPromo ? boxAlturaLinha * 2 : boxAlturaLinha) + boxPad * 1.6;
+  const tamanhoFontePor = Math.round(boxAlturaLinha * 0.72);
+  const tamanhoFonteDe = Math.round(boxAlturaLinha * 0.58);
+  const tamanhoFonteParcelamento = Math.round(boxAlturaLinha * 0.42);
+  const passoParcelamento = Math.round(tamanhoFontePor * 0.95);
+
+  // Parcelamento sem juros: número de parcelas calculado sozinho (nunca
+  // deixa a parcela abaixo de R$ 40, até 10x) — calcularParcelamento vem do
+  // calc.js e é testada isolada em calc.test.js.
+  const parcelamentoInfo = calcularParcelamento(promoItemAtual.precoFinal);
+  const parcelamentoVisivel = precoVisivel && $promoMostrarParcelamento.checked && parcelamentoInfo.parcelas >= 2;
+
+  const boxAltura = (temPromo ? boxAlturaLinha * 2 : boxAlturaLinha)
+    + (parcelamentoVisivel ? passoParcelamento : 0)
+    + boxPad * 1.6;
   const boxX = Math.round(layout.preco.xPct * w);
   const boxY = Math.round(layout.preco.yPct * h);
   const gradeVisivel = precoVisivel && mostrarGrade;
@@ -4151,15 +4165,18 @@ function desenharArtePromo(img, orientacao = 1, layout = null) {
   }
 
   if (precoVisivel) {
-    const tamanhoFontePor = Math.round(boxAlturaLinha * 0.72);
     ctx.font = `800 ${tamanhoFontePor}px sans-serif`;
     const textoPor = (temPromo ? "POR: " : "") + fmtMoeda(promoItemAtual.precoFinal);
     const largTextoPor = ctx.measureText(textoPor).width;
-    const tamanhoFonteDe = Math.round(boxAlturaLinha * 0.58);
     ctx.font = `700 ${tamanhoFonteDe}px sans-serif`;
     const textoDe = temPromo ? "DE: " + fmtMoeda(promoItemAtual.precoOriginal) : "";
     const largTextoDe = temPromo ? ctx.measureText(textoDe).width : 0;
-    const boxLargura = Math.round(Math.max(largTextoPor, largTextoDe) + boxPad * 2);
+    const textoParcelamento = parcelamentoVisivel
+      ? `${parcelamentoInfo.parcelas}x de ${fmtMoeda(parcelamentoInfo.valorParcela)} sem juros`
+      : "";
+    ctx.font = `700 ${tamanhoFonteParcelamento}px sans-serif`;
+    const largTextoParcelamento = parcelamentoVisivel ? ctx.measureText(textoParcelamento).width : 0;
+    const boxLargura = Math.round(Math.max(largTextoPor, largTextoDe, largTextoParcelamento) + boxPad * 2);
 
     // Vermelho na promoção; preço normal usa a cor predominante da foto.
     const corBox = temPromo ? { r: 200, g: 25, b: 30 } : corPredominante(img);
@@ -4192,6 +4209,13 @@ function desenharArtePromo(img, orientacao = 1, layout = null) {
     ctx.font = `800 ${tamanhoFontePor}px sans-serif`;
     ctx.fillStyle = corTextoPrincipal;
     ctx.fillText(textoPor, boxX + boxPad, textoY);
+
+    if (parcelamentoVisivel) {
+      textoY += passoParcelamento;
+      ctx.font = `700 ${tamanhoFonteParcelamento}px sans-serif`;
+      ctx.fillStyle = corTextoSecundario;
+      ctx.fillText(textoParcelamento, boxX + boxPad, textoY);
+    }
 
     // Linha com bolinha, saindo da caixinha (efeito de etiqueta de preço).
     const linhaX1 = boxX + boxPad * 1.2;

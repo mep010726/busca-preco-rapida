@@ -7,7 +7,7 @@
 
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
-const { formatarCentavosDigitados, calcularTotaisVenda, calcularComissaoQuinzena } = require("./calc.js");
+const { formatarCentavosDigitados, calcularTotaisVenda, calcularComissaoQuinzena, calcularParcelamento } = require("./calc.js");
 
 describe("formatarCentavosDigitados", () => {
   test("string vazia/zero vira 0,00", () => {
@@ -115,5 +115,43 @@ describe("calcularComissaoQuinzena", () => {
   test("bater a meta exatamente no limite conta como batida", () => {
     const r = calcularComissaoQuinzena(1000, 1000, 10, 3);
     assert.equal(r.bateu, true);
+  });
+});
+
+describe("calcularParcelamento", () => {
+  test("R$ 599,99 dá 10x (bate com o exemplo real)", () => {
+    const r = calcularParcelamento(599.99);
+    assert.equal(r.parcelas, 10);
+    assert.equal(Math.round(r.valorParcela * 100) / 100, 60);
+  });
+
+  test("nunca passa do teto de 10 parcelas, mesmo com preço bem alto", () => {
+    const r = calcularParcelamento(10000);
+    assert.equal(r.parcelas, 10);
+    assert.equal(r.valorParcela, 1000);
+  });
+
+  test("respeita a parcela mínima de R$ 40 (não deixa parcela menor que isso)", () => {
+    const r = calcularParcelamento(100);
+    assert.equal(r.parcelas, 2);
+    assert.equal(r.valorParcela, 50);
+  });
+
+  test("parcela exatamente no mínimo (R$ 80 / 40 = 2x de 40) é permitida", () => {
+    const r = calcularParcelamento(80);
+    assert.equal(r.parcelas, 2);
+    assert.equal(r.valorParcela, 40);
+  });
+
+  test("preço abaixo do mínimo cai pra 1 parcela (não dá pra parcelar)", () => {
+    const r = calcularParcelamento(39);
+    assert.equal(r.parcelas, 1);
+    assert.equal(r.valorParcela, 39);
+  });
+
+  test("aceita mínimo e teto customizados", () => {
+    const r = calcularParcelamento(1000, 40, 5);
+    assert.equal(r.parcelas, 5);
+    assert.equal(r.valorParcela, 200);
   });
 });

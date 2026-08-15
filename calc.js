@@ -44,6 +44,15 @@ function calcularComissaoQuinzena(totalVendido, meta, pctMetaBatida, pctMetaNaoB
   return { bateu, pct, comissao };
 }
 
+// Parcelamento sem juros pra arte de promoção: o número de parcelas nunca
+// deixa a parcela ficar abaixo do mínimo (padrão R$ 40), até um teto (10x).
+// Se o preço não permitir nem 2x dentro da regra, cai pra 1 parcela — quem
+// chama decide se vale a pena mostrar "1x" (geralmente não).
+function calcularParcelamento(preco, parcelaMinima = 40, maxParcelas = 10) {
+  const parcelas = Math.max(1, Math.min(maxParcelas, Math.floor(preco / parcelaMinima)));
+  return { parcelas, valorParcela: preco / parcelas };
+}
+
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { formatarCentavosDigitados, calcularTotaisVenda, calcularComissaoQuinzena };
+  module.exports = { formatarCentavosDigitados, calcularTotaisVenda, calcularComissaoQuinzena, calcularParcelamento };
 }
