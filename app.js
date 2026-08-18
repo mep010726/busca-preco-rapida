@@ -823,9 +823,13 @@ async function carregarHistorico(pagina = 0) {
   const from = pagina * PAGINA_TAMANHO;
   const to = from + PAGINA_TAMANHO - 1;
 
+  // Filtra pelo próprio usuário explicitamente — o admin tem permissão no
+  // banco pra ver o histórico de todo mundo (usado só no painel de
+  // estatísticas), mas essa tela pessoal deve mostrar sempre só o dele.
   const { data, error, count } = await sb
     .from("historico")
     .select("*", { count: "exact" })
+    .eq("user_id", currentUser.id)
     .order("criado_em", { ascending: false })
     .range(from, to);
 
@@ -851,6 +855,7 @@ async function carregarFavoritos(pagina = 0) {
   const { data, error, count } = await sb
     .from("historico")
     .select("*", { count: "exact" })
+    .eq("user_id", currentUser.id)
     .eq("favorito", true)
     .order("criado_em", { ascending: false })
     .range(from, to);
@@ -2450,6 +2455,7 @@ $btnVendaHistorico.addEventListener("click", async () => {
   const { data, error } = await sb
     .from("historico")
     .select("*")
+    .eq("user_id", currentUser.id)
     .order("criado_em", { ascending: false })
     .limit(30);
 
