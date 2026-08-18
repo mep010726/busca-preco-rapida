@@ -64,9 +64,6 @@ function infoLoja(loja) {
 // Todas as lojas da rede (usadas pela opção "ver em toda rede")
 const TODAS_AS_LOJAS = Object.keys(LOJAS_INFO).map(Number);
 
-// Único e-mail com permissão de aprovar/rejeitar sugestões de Mais Procurados
-const ADMIN_EMAIL = "lucasfsa1998@hotmail.com";
-
 const API_BASE = "https://credito.mersan.co/api/v1/buscapreco";
 
 // Ícones em SVG (flat, sem emoji) usados nos botões de ação das listas
@@ -602,7 +599,7 @@ $btnSalvarNovaSenha.addEventListener("click", async () => {
   if (data.session) mostrarAppLogado(data.session.user);
 });
 
-function mostrarAppLogado(user) {
+async function mostrarAppLogado(user) {
   currentUser = user;
   $telaCarregando.classList.add("hidden");
   $authCard.classList.add("hidden");
@@ -617,6 +614,8 @@ function mostrarAppLogado(user) {
   const lojasSalvas = currentUser.user_metadata && currentUser.user_metadata.lojas_favoritas;
   if (lojasSalvas) $lojas.value = lojasSalvas;
 
+  const { data: souAdmin } = await sb.rpc("sou_admin");
+  souAdminCache = !!souAdmin;
   $tabAdmin.classList.toggle("hidden", !ehAdmin());
 
   carregarHistorico();
@@ -626,6 +625,7 @@ function mostrarAppLogado(user) {
 
 function mostrarTelaLogin() {
   currentUser = null;
+  souAdminCache = false;
   $telaCarregando.classList.add("hidden");
   $authCard.classList.remove("hidden");
   $cadastroCard.classList.add("hidden");
@@ -977,8 +977,13 @@ $referenciaBusca.addEventListener("keydown", e => {
 
 // ---------- MAIS PROCURADOS ----------
 
+// A checagem de verdade roda no banco (função sou_admin(), via RPC) — o
+// cliente nunca fica sabendo qual é o e-mail do admin, só recebe um
+// true/false. O resultado é cacheado aqui (atualizado no login) porque
+// ehAdmin() é chamada de forma síncrona em vários lugares da tela.
+let souAdminCache = false;
 function ehAdmin() {
-  return currentUser && currentUser.email === ADMIN_EMAIL;
+  return souAdminCache;
 }
 
 async function sugerirMaisProcurado(item, $botao) {
