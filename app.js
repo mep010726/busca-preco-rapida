@@ -1216,7 +1216,7 @@ async function carregarResumoVendedores() {
       <tbody>
         ${ranking.map(([email, r]) => `
           <tr>
-            <td style="padding:6px 0;">${email}</td>
+            <td style="padding:6px 0;">${escapeHtml(email)}</td>
             <td style="padding:6px 0; text-align:right;">${r.vendas}</td>
             <td style="padding:6px 0; text-align:right; font-weight:700; color:var(--accent);">${fmtMoeda(r.total)}</td>
           </tr>
@@ -1275,7 +1275,7 @@ async function carregarUsuariosAtivos() {
       <tbody>
         ${ranking.map(([email, r]) => `
           <tr>
-            <td style="padding:6px 0;">${email}</td>
+            <td style="padding:6px 0;">${escapeHtml(email)}</td>
             <td style="padding:6px 0; text-align:right;">${r.buscas}</td>
             <td style="padding:6px 0; text-align:right; font-weight:700; color:var(--accent);">${r.vendas}</td>
             <td style="padding:6px 0; text-align:right;">${r.fotos}</td>

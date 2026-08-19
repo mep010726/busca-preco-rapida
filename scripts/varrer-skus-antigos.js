@@ -20,8 +20,10 @@ const TAMANHO_JANELA = Number(process.env.TAMANHO_JANELA || 20000);
 // importado em 2026-08-06). So e usado se ainda nao existir um ponteiro
 // reverso salvo no banco.
 const INICIO_PADRAO = 13003542;
-// Abaixo desse SKU nao vale mais a pena continuar (produtos antigos demais).
-const META_FINAL = 12500000;
+// Abaixo desse SKU nao vale mais a pena continuar. 1 = varrer ate o comeco
+// de verdade (a parada automatica por "janelas vazias" no loop.sh normalmente
+// encerra antes disso, quando os SKUs ficam antigos demais pra existir).
+const META_FINAL = 1;
 
 if (!SERVICE_ROLE_KEY) {
   console.error("Uso: SUPABASE_SERVICE_ROLE_KEY=xxx node varrer-skus-antigos.js");
@@ -170,6 +172,9 @@ async function main() {
   console.log(`Faixa escaneada: ${inicio} ate ${fim}`);
   console.log(`Produtos antigos encontrados: ${encontrados}`);
   console.log(`Erros: ${erros}`);
+  // Linha em formato fixo pro loop.sh conseguir ler quantos foram achados
+  // nesta janela, pra decidir se para por "nao encontrou mais nada".
+  console.log(`ENCONTRADOS_NESTA_JANELA=${encontrados}`);
 }
 
 main().catch(e => {
