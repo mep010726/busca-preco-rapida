@@ -2914,11 +2914,67 @@ async function carregarItensEditorVenda() {
   }
 
   $editarVendaItensLista.innerHTML = itens.map(it => `
-    <div style="display:flex; justify-content:space-between; font-size:0.82rem; padding:4px 0; border-bottom:1px solid var(--border);">
+    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.82rem; padding:4px 0; border-bottom:1px solid var(--border);">
       <span>${it.quantidade}x ${escapeHtml(it.produto || it.codigo_barras)}</span>
-      <span>${fmtMoeda(it.subtotal)}</span>
+      <span style="display:flex; align-items:center; gap:8px;">
+        ${fmtMoeda(it.subtotal)}
+        <button class="h-btn remover-item-editor" data-id="${it.id}" title="Remover">${ICONE_LIXEIRA}</button>
+      </span>
     </div>
   `).join("");
+
+  $editarVendaItensLista.querySelectorAll(".remover-item-editor").forEach(btn => {
+    btn.addEventListener("click", () => removerItemDoEditorVenda(btn.dataset.id));
+  });
+}
+
+async function removerItemDoEditorVenda(itemId) {
+  if (!vendaEditando) return;
+  $editarVendaMsg.textContent = "Removendo...";
+  $editarVendaMsg.className = "msg";
+
+  const { data: item, error: errBusca } = await sb
+    .from("venda_itens")
+    .select("subtotal")
+    .eq("id", itemId)
+    .single();
+
+  if (errBusca) {
+    $editarVendaMsg.textContent = "Erro ao remover item: " + errBusca.message;
+    $editarVendaMsg.className = "msg err";
+    return;
+  }
+
+  const { error: errDelete } = await sb.from("venda_itens").delete().eq("id", itemId);
+  if (errDelete) {
+    $editarVendaMsg.textContent = "Erro ao remover item: " + errDelete.message;
+    $editarVendaMsg.className = "msg err";
+    return;
+  }
+
+  const novoSubtotal = Math.max(0, Number(vendaEditando.subtotal || 0) - Number(item.subtotal || 0));
+  const descontoPct = Number(vendaEditando.desconto_percentual || 0);
+  const descontoValor = descontoPct > 0 ? novoSubtotal * (descontoPct / 100) : Number(vendaEditando.desconto_valor || 0);
+  const novoTotal = novoSubtotal - descontoValor;
+
+  const { error: errVenda } = await sb.from("vendas").update({
+    subtotal: novoSubtotal,
+    desconto_valor: descontoValor,
+    total: novoTotal,
+  }).eq("id", vendaEditando.id);
+
+  if (errVenda) {
+    $editarVendaMsg.textContent = "Item removido, mas houve erro ao atualizar o total: " + errVenda.message;
+    $editarVendaMsg.className = "msg err";
+  } else {
+    vendaEditando.subtotal = novoSubtotal;
+    vendaEditando.desconto_valor = descontoValor;
+    vendaEditando.total = novoTotal;
+    $editarVendaMsg.textContent = "Item removido!";
+    $editarVendaMsg.className = "msg";
+  }
+
+  await carregarItensEditorVenda();
 }
 
 async function adicionarItemAEditorVenda({ codigo_barras, produto, preco_unit }) {
