@@ -68,6 +68,13 @@
     <input id="cadastroEmail" type="email" placeholder="seu@email.com">
     <label for="cadastroSenha">Senha</label>
     <input id="cadastroSenha" type="password" placeholder="••••••••">
+    <!-- Campo isca (honeypot): invisível pra gente, mas bots que preenchem
+         tudo automaticamente costumam cair nele. Ninguém deveria digitar
+         nada aqui — se vier preenchido, é sinal de cadastro automatizado. -->
+    <div style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true">
+      <label for="cadastroEmpresaWeb">Empresa</label>
+      <input id="cadastroEmpresaWeb" type="text" tabindex="-1" autocomplete="off">
+    </div>
     <div id="turnstileWidgetCadastro" style="margin-bottom:12px;"></div>
     <div id="cadastroMsg" class="msg"></div>
     <button id="btnCriarConta" class="full">Criar conta</button>

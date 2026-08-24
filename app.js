@@ -95,6 +95,7 @@ const $linkIrCadastro = document.getElementById("linkIrCadastro");
 const $cadastroCard = document.getElementById("cadastroCard");
 const $cadastroEmail = document.getElementById("cadastroEmail");
 const $cadastroSenha = document.getElementById("cadastroSenha");
+const $cadastroEmpresaWeb = document.getElementById("cadastroEmpresaWeb");
 const $cadastroMsg = document.getElementById("cadastroMsg");
 const $btnCriarConta = document.getElementById("btnCriarConta");
 const $linkIrLogin = document.getElementById("linkIrLogin");
@@ -392,6 +393,14 @@ $btnEntrar.addEventListener("click", async () => {
 });
 
 $btnCriarConta.addEventListener("click", async () => {
+  // Honeypot: campo invisível que só um bot preencheria. Se veio
+  // preenchido, finge que deu certo (não avisa o bot que foi barrado) e
+  // não gasta o e-mail/senha nem a cota de cadastro de verdade.
+  if ($cadastroEmpresaWeb.value.trim() !== "") {
+    setCadastroMsg("Conta criada! Verifique seu e-mail e clique no link de confirmação antes de entrar.");
+    return;
+  }
+
   const token = turnstileCadastro.getToken();
   if (!token) {
     setCadastroMsg("Complete a verificação de segurança antes de continuar.", true);
