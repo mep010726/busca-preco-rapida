@@ -69,7 +69,10 @@ async function salvarEstadoReverso(novoValor) {
 
 async function buscarProduto(sku, tentativas = 8) {
   for (let i = 0; i < tentativas; i++) {
-    const resp = await fetch(`${MERSAN_API}/${sku}/${LOJA_PARA_CONSULTA}`);
+    // Sem timeout, uma requisicao que trava sem responder (nem erro, nem
+    // sucesso) prende o worker pra sempre e o loop inteiro para de avancar
+    // sem nenhum erro visivel. 15s e bem mais que o normal pra essa API.
+    const resp = await fetch(`${MERSAN_API}/${sku}/${LOJA_PARA_CONSULTA}`, { signal: AbortSignal.timeout(15000) });
     if (resp.status === 429) {
       await dormir(2000 * (i + 1));
       continue;
