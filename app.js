@@ -1264,7 +1264,11 @@ function hexValido(hex) {
   return /^#[0-9a-fA-F]{6}$/.test(hex);
 }
 
-function aplicarTema({ cor_destaque, cor_fundo, formato_botao, tamanho_fonte }) {
+// Nome diferente de aplicarTema() (que já existe pra claro/escuro) de
+// propósito — tinha uma função com o mesmo nome aqui antes, que sobrescrevia
+// silenciosamente a de claro/escuro e quebrava o botão de tema.
+function aplicarTemaCustom(config) {
+  const { cor_destaque, cor_fundo, formato_botao, tamanho_fonte } = config;
   const raiz = document.documentElement.style;
   if (cor_destaque && hexValido(cor_destaque)) {
     raiz.setProperty("--accent", cor_destaque);
@@ -1273,6 +1277,12 @@ function aplicarTema({ cor_destaque, cor_fundo, formato_botao, tamanho_fonte }) 
   if (cor_fundo && hexValido(cor_fundo)) raiz.setProperty("--bg", cor_fundo);
   if (formato_botao && RAIO_POR_FORMATO[formato_botao]) raiz.setProperty("--radius-btn", RAIO_POR_FORMATO[formato_botao]);
   document.documentElement.style.fontSize = tamanho_fonte === "grande" ? "112%" : "100%";
+
+  // Guarda a última versão aplicada num cache local: o script no <head>
+  // do index.html lê isso ANTES da página renderizar, pra já nascer com a
+  // cor certa em vez de mostrar o padrão do CSS e só depois trocar.
+  const cacheAtual = JSON.parse(localStorage.getItem("temaCustom") || "{}");
+  localStorage.setItem("temaCustom", JSON.stringify({ ...cacheAtual, ...config }));
 }
 
 // Chamado no login de qualquer usuario (nao so admin), pra todo mundo ver
@@ -1280,7 +1290,7 @@ function aplicarTema({ cor_destaque, cor_fundo, formato_botao, tamanho_fonte }) 
 async function aplicarTemaCustomSalvo() {
   const { data, error } = await sb.from("config_layout").select("*").eq("id", 1).single();
   if (error || !data) return;
-  aplicarTema(data);
+  aplicarTemaCustom(data);
 }
 
 async function carregarLayoutAdmin() {
@@ -1299,19 +1309,19 @@ async function carregarLayoutAdmin() {
 function sincronizarCorEPreview(picker, textoHex, chave) {
   picker.addEventListener("input", () => {
     textoHex.value = picker.value;
-    aplicarTema({ [chave]: picker.value });
+    aplicarTemaCustom({ [chave]: picker.value });
   });
   textoHex.addEventListener("input", () => {
     if (!hexValido(textoHex.value)) return;
     picker.value = textoHex.value;
-    aplicarTema({ [chave]: textoHex.value });
+    aplicarTemaCustom({ [chave]: textoHex.value });
   });
 }
 sincronizarCorEPreview($layoutCorDestaque, $layoutCorDestaqueHex, "cor_destaque");
 sincronizarCorEPreview($layoutCorFundo, $layoutCorFundoHex, "cor_fundo");
 
-$layoutFormatoBotao.addEventListener("change", () => aplicarTema({ formato_botao: $layoutFormatoBotao.value }));
-$layoutTamanhoFonte.addEventListener("change", () => aplicarTema({ tamanho_fonte: $layoutTamanhoFonte.value }));
+$layoutFormatoBotao.addEventListener("change", () => aplicarTemaCustom({ formato_botao: $layoutFormatoBotao.value }));
+$layoutTamanhoFonte.addEventListener("change", () => aplicarTemaCustom({ tamanho_fonte: $layoutTamanhoFonte.value }));
 
 $btnSalvarLayout.addEventListener("click", async () => {
   if (!hexValido($layoutCorDestaqueHex.value) || !hexValido($layoutCorFundoHex.value)) {
@@ -1333,7 +1343,7 @@ $btnSalvarLayout.addEventListener("click", async () => {
     $layoutMsg.textContent = "Erro ao salvar: " + error.message;
     $layoutMsg.className = "msg err";
   } else {
-    aplicarTema(config);
+    aplicarTemaCustom(config);
     $layoutMsg.textContent = "Layout salvo! Todo mundo vai ver o novo tema no próximo login.";
     $layoutMsg.className = "msg";
   }
@@ -1347,7 +1357,7 @@ $btnRestaurarLayout.addEventListener("click", async () => {
   $layoutCorFundoHex.value = padrao.cor_fundo;
   $layoutFormatoBotao.value = padrao.formato_botao;
   $layoutTamanhoFonte.value = padrao.tamanho_fonte;
-  aplicarTema(padrao);
+  aplicarTemaCustom(padrao);
   $layoutMsg.textContent = "Padrão aplicado na tela. Toque em \"Salvar layout\" pra valer pra todo mundo.";
   $layoutMsg.className = "msg";
 });

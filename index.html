@@ -21,6 +21,24 @@
     var tema = localStorage.getItem("tema") || "dark";
     document.documentElement.setAttribute("data-theme", tema);
   })();
+
+  // Mesma lógica pro layout customizado (cor, formato de botão, fonte):
+  // usa a última versão salva em cache local até a busca no Supabase (que
+  // só roda depois do login) confirmar/atualizar. Sem isso, a tela sempre
+  // nascia com a cor padrão do CSS e só trocava pra cor salva um instante
+  // depois, dando a impressão de "carregar errado e depois mudar".
+  (function () {
+    try {
+      var salvo = JSON.parse(localStorage.getItem("temaCustom") || "null");
+      if (!salvo) return;
+      var raizStyle = document.documentElement.style;
+      var raioPorFormato = { pilula: "999px", arredondado: "14px", quadrado: "6px" };
+      if (/^#[0-9a-fA-F]{6}$/.test(salvo.cor_destaque || "")) raizStyle.setProperty("--accent", salvo.cor_destaque);
+      if (/^#[0-9a-fA-F]{6}$/.test(salvo.cor_fundo || "")) raizStyle.setProperty("--bg", salvo.cor_fundo);
+      if (raioPorFormato[salvo.formato_botao]) raizStyle.setProperty("--radius-btn", raioPorFormato[salvo.formato_botao]);
+      document.documentElement.style.fontSize = salvo.tamanho_fonte === "grande" ? "112%" : "100%";
+    } catch (e) {}
+  })();
 </script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
