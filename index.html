@@ -556,6 +556,36 @@
 
     <div id="painelAdmin" class="hidden">
       <div class="card">
+        <div class="loja-titulo" style="margin-bottom:10px;">Layout do app</div>
+        <label for="layoutCorDestaque">Cor de destaque</label>
+        <div class="row">
+          <input id="layoutCorDestaque" type="color" value="#ff7a45" style="flex:0 0 60px; padding:4px; height:44px;">
+          <input id="layoutCorDestaqueHex" type="text" placeholder="#ff7a45" style="flex:1;">
+        </div>
+        <label for="layoutCorFundo">Cor de fundo</label>
+        <div class="row">
+          <input id="layoutCorFundo" type="color" value="#0b1120" style="flex:0 0 60px; padding:4px; height:44px;">
+          <input id="layoutCorFundoHex" type="text" placeholder="#0b1120" style="flex:1;">
+        </div>
+        <label for="layoutFormatoBotao">Formato dos botões</label>
+        <select id="layoutFormatoBotao">
+          <option value="pilula">Pílula (arredondado total)</option>
+          <option value="arredondado">Arredondado</option>
+          <option value="quadrado">Quadrado</option>
+        </select>
+        <label for="layoutTamanhoFonte">Tamanho da fonte</label>
+        <select id="layoutTamanhoFonte">
+          <option value="normal">Normal</option>
+          <option value="grande">Grande</option>
+        </select>
+        <div id="layoutMsg" class="msg"></div>
+        <div class="row">
+          <button id="btnSalvarLayout" class="full">Salvar layout pra todo mundo</button>
+          <button id="btnRestaurarLayout" class="full secondary">Restaurar padrão</button>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="loja-titulo" style="margin-bottom:10px;">Estatísticas</div>
         <div id="statsAdminLista"></div>
       </div>

@@ -71,7 +71,7 @@
     font-size: 1.05rem;
     font-weight: 600;
     border: none;
-    border-radius: 999px;
+    border-radius: var(--radius-btn, 999px);
     background: var(--accent);
     color: var(--accent-text);
     cursor: pointer;
@@ -91,11 +91,11 @@
     display: flex; align-items: center; justify-content: center;
   }
   button.ghost-icon {
-    background: none; border: 1px solid transparent; color: var(--muted);
+    background: none; border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); color: var(--muted);
     padding: 8px 10px;
   }
   button.ghost-icon:hover, button.ghost-icon:active {
-    background: var(--card); color: var(--danger); border-color: var(--border);
+    background: var(--card); color: var(--danger); border-color: var(--danger);
   }
   .badge {
     position: absolute; top: 3px; right: 3px;

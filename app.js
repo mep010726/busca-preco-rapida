@@ -290,6 +290,15 @@ const $sugestaoMsg = document.getElementById("sugestaoMsg");
 const $btnEnviarSugestao = document.getElementById("btnEnviarSugestao");
 const $statsAdminLista = document.getElementById("statsAdminLista");
 const $sugestoesLista = document.getElementById("sugestoesLista");
+const $layoutCorDestaque = document.getElementById("layoutCorDestaque");
+const $layoutCorDestaqueHex = document.getElementById("layoutCorDestaqueHex");
+const $layoutCorFundo = document.getElementById("layoutCorFundo");
+const $layoutCorFundoHex = document.getElementById("layoutCorFundoHex");
+const $layoutFormatoBotao = document.getElementById("layoutFormatoBotao");
+const $layoutTamanhoFonte = document.getElementById("layoutTamanhoFonte");
+const $layoutMsg = document.getElementById("layoutMsg");
+const $btnSalvarLayout = document.getElementById("btnSalvarLayout");
+const $btnRestaurarLayout = document.getElementById("btnRestaurarLayout");
 
 const $codigo = document.getElementById("codigo");
 const $lojas = document.getElementById("lojas");
@@ -630,6 +639,7 @@ async function mostrarAppLogado(user) {
   carregarHistorico();
   atualizarBadgeAdmin();
   talvezFocarCodigo();
+  aplicarTemaCustomSalvo();
 }
 
 function mostrarTelaLogin() {
@@ -739,6 +749,7 @@ $tabAdmin.addEventListener("click", () => {
   carregarUsuariosAtivos();
   carregarPendentesMP();
   carregarSugestoes();
+  carregarLayoutAdmin();
 });
 $tabAjuda.addEventListener("click", () => {
   mostrarAba($tabAjuda);
@@ -1234,6 +1245,112 @@ async function carregarResumoVendedores() {
     </table>
   `;
 }
+
+// ---------- LAYOUT CUSTOM (TEMA CONFIGURAVEL PELO ADMIN) ----------
+
+const RAIO_POR_FORMATO = { pilula: "999px", arredondado: "14px", quadrado: "6px" };
+
+// Escurece um hex tipo #ff7a45 em ~15%, pra derivar a cor do botao no
+// estado "pressionado" sem precisar de um segundo seletor de cor.
+function escurecerHex(hex, pct = 0.15) {
+  const n = parseInt(hex.replace("#", ""), 16);
+  const r = Math.max(0, Math.round(((n >> 16) & 255) * (1 - pct)));
+  const g = Math.max(0, Math.round(((n >> 8) & 255) * (1 - pct)));
+  const b = Math.max(0, Math.round((n & 255) * (1 - pct)));
+  return "#" + [r, g, b].map(v => v.toString(16).padStart(2, "0")).join("");
+}
+
+function hexValido(hex) {
+  return /^#[0-9a-fA-F]{6}$/.test(hex);
+}
+
+function aplicarTema({ cor_destaque, cor_fundo, formato_botao, tamanho_fonte }) {
+  const raiz = document.documentElement.style;
+  if (cor_destaque && hexValido(cor_destaque)) {
+    raiz.setProperty("--accent", cor_destaque);
+    raiz.setProperty("--accent-dim", escurecerHex(cor_destaque));
+  }
+  if (cor_fundo && hexValido(cor_fundo)) raiz.setProperty("--bg", cor_fundo);
+  if (formato_botao && RAIO_POR_FORMATO[formato_botao]) raiz.setProperty("--radius-btn", RAIO_POR_FORMATO[formato_botao]);
+  document.documentElement.style.fontSize = tamanho_fonte === "grande" ? "112%" : "100%";
+}
+
+// Chamado no login de qualquer usuario (nao so admin), pra todo mundo ver
+// o mesmo tema que o admin configurou.
+async function aplicarTemaCustomSalvo() {
+  const { data, error } = await sb.from("config_layout").select("*").eq("id", 1).single();
+  if (error || !data) return;
+  aplicarTema(data);
+}
+
+async function carregarLayoutAdmin() {
+  const { data, error } = await sb.from("config_layout").select("*").eq("id", 1).single();
+  if (error || !data) return;
+  $layoutCorDestaque.value = data.cor_destaque;
+  $layoutCorDestaqueHex.value = data.cor_destaque;
+  $layoutCorFundo.value = data.cor_fundo;
+  $layoutCorFundoHex.value = data.cor_fundo;
+  $layoutFormatoBotao.value = data.formato_botao;
+  $layoutTamanhoFonte.value = data.tamanho_fonte;
+}
+
+// Mantem o picker de cor e o campo de texto hexadecimal sincronizados, e
+// ja aplica na hora (preview ao vivo) antes mesmo de salvar.
+function sincronizarCorEPreview(picker, textoHex, chave) {
+  picker.addEventListener("input", () => {
+    textoHex.value = picker.value;
+    aplicarTema({ [chave]: picker.value });
+  });
+  textoHex.addEventListener("input", () => {
+    if (!hexValido(textoHex.value)) return;
+    picker.value = textoHex.value;
+    aplicarTema({ [chave]: textoHex.value });
+  });
+}
+sincronizarCorEPreview($layoutCorDestaque, $layoutCorDestaqueHex, "cor_destaque");
+sincronizarCorEPreview($layoutCorFundo, $layoutCorFundoHex, "cor_fundo");
+
+$layoutFormatoBotao.addEventListener("change", () => aplicarTema({ formato_botao: $layoutFormatoBotao.value }));
+$layoutTamanhoFonte.addEventListener("change", () => aplicarTema({ tamanho_fonte: $layoutTamanhoFonte.value }));
+
+$btnSalvarLayout.addEventListener("click", async () => {
+  if (!hexValido($layoutCorDestaqueHex.value) || !hexValido($layoutCorFundoHex.value)) {
+    $layoutMsg.textContent = "Cor inválida — use o formato #rrggbb.";
+    $layoutMsg.className = "msg err";
+    return;
+  }
+  $layoutMsg.textContent = "Salvando...";
+  $layoutMsg.className = "msg";
+  const config = {
+    cor_destaque: $layoutCorDestaqueHex.value,
+    cor_fundo: $layoutCorFundoHex.value,
+    formato_botao: $layoutFormatoBotao.value,
+    tamanho_fonte: $layoutTamanhoFonte.value,
+    atualizado_em: new Date().toISOString(),
+  };
+  const { error } = await sb.from("config_layout").update(config).eq("id", 1);
+  if (error) {
+    $layoutMsg.textContent = "Erro ao salvar: " + error.message;
+    $layoutMsg.className = "msg err";
+  } else {
+    aplicarTema(config);
+    $layoutMsg.textContent = "Layout salvo! Todo mundo vai ver o novo tema no próximo login.";
+    $layoutMsg.className = "msg";
+  }
+});
+
+$btnRestaurarLayout.addEventListener("click", async () => {
+  const padrao = { cor_destaque: "#ff7a45", cor_fundo: "#0b1120", formato_botao: "pilula", tamanho_fonte: "normal" };
+  $layoutCorDestaque.value = padrao.cor_destaque;
+  $layoutCorDestaqueHex.value = padrao.cor_destaque;
+  $layoutCorFundo.value = padrao.cor_fundo;
+  $layoutCorFundoHex.value = padrao.cor_fundo;
+  $layoutFormatoBotao.value = padrao.formato_botao;
+  $layoutTamanhoFonte.value = padrao.tamanho_fonte;
+  aplicarTema(padrao);
+  $layoutMsg.textContent = "Padrão aplicado na tela. Toque em \"Salvar layout\" pra valer pra todo mundo.";
+  $layoutMsg.className = "msg";
+});
 
 async function carregarUsuariosAtivos() {
   if (!ehAdmin()) return;
