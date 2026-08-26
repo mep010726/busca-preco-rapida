@@ -289,6 +289,7 @@ const $sugestaoTexto = document.getElementById("sugestaoTexto");
 const $sugestaoMsg = document.getElementById("sugestaoMsg");
 const $btnEnviarSugestao = document.getElementById("btnEnviarSugestao");
 const $statsAdminLista = document.getElementById("statsAdminLista");
+const $tentativasBotLista = document.getElementById("tentativasBotLista");
 const $sugestoesLista = document.getElementById("sugestoesLista");
 const $layoutCorDestaque = document.getElementById("layoutCorDestaque");
 const $layoutCorDestaqueHex = document.getElementById("layoutCorDestaqueHex");
@@ -407,6 +408,9 @@ $btnCriarConta.addEventListener("click", async () => {
   // não gasta o e-mail/senha nem a cota de cadastro de verdade.
   if ($cadastroEmpresaWeb.value.trim() !== "") {
     setCadastroMsg("Conta criada! Verifique seu e-mail e clique no link de confirmação antes de entrar.");
+    // Registra a tentativa pro admin acompanhar - dispara sem travar a
+    // resposta falsa de "sucesso" pro bot, e sem quebrar nada se falhar.
+    sb.from("tentativas_bot").insert({}).then(() => {}, () => {});
     return;
   }
 
@@ -750,6 +754,7 @@ $tabAdmin.addEventListener("click", () => {
   carregarPendentesMP();
   carregarSugestoes();
   carregarLayoutAdmin();
+  carregarTentativasBot();
 });
 $tabAjuda.addEventListener("click", () => {
   mostrarAba($tabAjuda);
@@ -1184,6 +1189,40 @@ async function carregarStatsAdmin() {
   ];
 
   $statsAdminLista.innerHTML = `
+    <table style="width:100%;">
+      <tbody>
+        ${linhas.map(([nome, valor]) => `
+          <tr>
+            <td style="padding:6px 0; color:var(--muted);">${nome}</td>
+            <td style="padding:6px 0; text-align:right; font-weight:700;">${valor != null ? valor : "-"}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+async function carregarTentativasBot() {
+  if (!ehAdmin()) return;
+  $tentativasBotLista.innerHTML = `<div class="msg">Carregando...</div>`;
+
+  const ha24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const [totalGeral, total24h] = await Promise.all([
+    sb.from("tentativas_bot").select("*", { count: "exact", head: true }),
+    sb.from("tentativas_bot").select("*", { count: "exact", head: true }).gte("criado_em", ha24h),
+  ]);
+
+  if (totalGeral.error) {
+    $tentativasBotLista.innerHTML = `<div class="msg err">Erro ao carregar: ${totalGeral.error.message}</div>`;
+    return;
+  }
+
+  const linhas = [
+    ["Últimas 24h", total24h.count],
+    ["Total desde sempre", totalGeral.count],
+  ];
+
+  $tentativasBotLista.innerHTML = `
     <table style="width:100%;">
       <tbody>
         ${linhas.map(([nome, valor]) => `
