@@ -33,7 +33,27 @@
       if (!salvo) return;
       var raizStyle = document.documentElement.style;
       var raioPorFormato = { pilula: "999px", arredondado: "14px", quadrado: "6px" };
-      if (/^#[0-9a-fA-F]{6}$/.test(salvo.cor_destaque || "")) raizStyle.setProperty("--accent", salvo.cor_destaque);
+      if (/^#[0-9a-fA-F]{6}$/.test(salvo.cor_destaque || "")) {
+        raizStyle.setProperty("--accent", salvo.cor_destaque);
+        // Mesmo calculo de contraste (WCAG) que o app.js usa depois do
+        // login, pra ja nascer com texto legivel em cima da cor de
+        // destaque salva, sem esperar o Supabase confirmar.
+        var luminancia = function (hex) {
+          var n = parseInt(hex.replace("#", ""), 16);
+          var canais = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(function (c) {
+            var s = c / 255;
+            return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+          });
+          return 0.2126 * canais[0] + 0.7152 * canais[1] + 0.0722 * canais[2];
+        };
+        var contrasteCom = function (hexA, hexB) {
+          var lA = luminancia(hexA), lB = luminancia(hexB);
+          var clara = Math.max(lA, lB), escura = Math.min(lA, lB);
+          return (clara + 0.05) / (escura + 0.05);
+        };
+        var preto = "#1a0f08", branco = "#ffffff";
+        raizStyle.setProperty("--accent-text", contrasteCom(salvo.cor_destaque, preto) >= contrasteCom(salvo.cor_destaque, branco) ? preto : branco);
+      }
       if (/^#[0-9a-fA-F]{6}$/.test(salvo.cor_fundo || "")) raizStyle.setProperty("--bg", salvo.cor_fundo);
       if (raioPorFormato[salvo.formato_botao]) raizStyle.setProperty("--radius-btn", raioPorFormato[salvo.formato_botao]);
       document.documentElement.style.fontSize = salvo.tamanho_fonte === "grande" ? "112%" : "100%";
@@ -580,6 +600,7 @@
           <input id="layoutCorDestaque" type="color" value="#ff7a45" style="flex:0 0 60px; padding:4px; height:44px;">
           <input id="layoutCorDestaqueHex" type="text" placeholder="#ff7a45" style="flex:1;">
         </div>
+        <div id="layoutContrasteAviso" class="msg" style="margin-top:-4px;"></div>
         <label for="layoutCorFundo">Cor de fundo</label>
         <div class="row">
           <input id="layoutCorFundo" type="color" value="#0b1120" style="flex:0 0 60px; padding:4px; height:44px;">
@@ -611,6 +632,11 @@
       <div class="card">
         <div class="loja-titulo" style="margin-bottom:10px;">Cadastros automatizados bloqueados (honeypot)</div>
         <div id="tentativasBotLista"></div>
+      </div>
+
+      <div class="card">
+        <div class="loja-titulo" style="margin-bottom:10px;">Migrations aplicadas no banco</div>
+        <div id="migrationsLista"></div>
       </div>
 
       <div class="card">

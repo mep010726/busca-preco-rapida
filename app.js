@@ -290,9 +290,11 @@ const $sugestaoMsg = document.getElementById("sugestaoMsg");
 const $btnEnviarSugestao = document.getElementById("btnEnviarSugestao");
 const $statsAdminLista = document.getElementById("statsAdminLista");
 const $tentativasBotLista = document.getElementById("tentativasBotLista");
+const $migrationsLista = document.getElementById("migrationsLista");
 const $sugestoesLista = document.getElementById("sugestoesLista");
 const $layoutCorDestaque = document.getElementById("layoutCorDestaque");
 const $layoutCorDestaqueHex = document.getElementById("layoutCorDestaqueHex");
+const $layoutContrasteAviso = document.getElementById("layoutContrasteAviso");
 const $layoutCorFundo = document.getElementById("layoutCorFundo");
 const $layoutCorFundoHex = document.getElementById("layoutCorFundoHex");
 const $layoutFormatoBotao = document.getElementById("layoutFormatoBotao");
@@ -755,7 +757,35 @@ $tabAdmin.addEventListener("click", () => {
   carregarSugestoes();
   carregarLayoutAdmin();
   carregarTentativasBot();
+  carregarStatusMigrations();
 });
+
+async function carregarStatusMigrations() {
+  if (!ehAdmin()) return;
+  $migrationsLista.innerHTML = `<div class="msg">Carregando...</div>`;
+
+  const { data, error } = await sb.rpc("status_migrations");
+  if (error) {
+    $migrationsLista.innerHTML = `<div class="msg">Ainda não rodou a migration do rastreador (migration-rastreador-migrations.sql) — rode ela primeiro pra essa lista funcionar.</div>`;
+    return;
+  }
+
+  const pendentes = (data || []).filter(m => !m.aplicada);
+
+  $migrationsLista.innerHTML = `
+    ${pendentes.length > 0 ? `<div class="msg err" style="margin-bottom:8px;">${pendentes.length} migration(s) pendente(s).</div>` : `<div class="msg" style="margin-bottom:8px;">Tudo em dia!</div>`}
+    <table style="width:100%;">
+      <tbody>
+        ${(data || []).map(m => `
+          <tr>
+            <td style="padding:6px 0; color:var(--muted); font-family:monospace; font-size:0.78rem;">${escapeHtml(m.nome)}</td>
+            <td style="padding:6px 0; text-align:right; font-weight:700; color:${m.aplicada ? "var(--accent)" : "var(--danger)"};">${m.aplicada ? "✓ aplicada" : "✗ pendente"}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
 $tabAjuda.addEventListener("click", () => {
   mostrarAba($tabAjuda);
   checarMutePropio();
@@ -1303,6 +1333,37 @@ function hexValido(hex) {
   return /^#[0-9a-fA-F]{6}$/.test(hex);
 }
 
+// Luminância relativa e contraste seguindo a fórmula do WCAG 2.x, pra
+// conseguir escolher automaticamente texto preto ou branco em cima de
+// qualquer cor de destaque que o admin escolher (e avisar se nenhuma das
+// duas opções ficar legível o suficiente).
+function luminanciaRelativa(hex) {
+  const n = parseInt(hex.replace("#", ""), 16);
+  const canais = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(c => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * canais[0] + 0.7152 * canais[1] + 0.0722 * canais[2];
+}
+
+function contraste(hexA, hexB) {
+  const lA = luminanciaRelativa(hexA);
+  const lB = luminanciaRelativa(hexB);
+  const clara = Math.max(lA, lB), escura = Math.min(lA, lB);
+  return (clara + 0.05) / (escura + 0.05);
+}
+
+const PRETO_TEXTO = "#1a0f08";
+const BRANCO_TEXTO = "#ffffff";
+
+// Escolhe preto ou branco pro texto em cima da cor de fundo dada, o que
+// tiver o contraste maior — não sempre acerta o mínimo do WCAG (algumas
+// cores de destaque simplesmente não têm nenhuma opção boa), mas sempre
+// acerta a MELHOR opção disponível entre as duas.
+function melhorCorDeTexto(corFundo) {
+  return contraste(corFundo, PRETO_TEXTO) >= contraste(corFundo, BRANCO_TEXTO) ? PRETO_TEXTO : BRANCO_TEXTO;
+}
+
 // Nome diferente de aplicarTema() (que já existe pra claro/escuro) de
 // propósito — tinha uma função com o mesmo nome aqui antes, que sobrescrevia
 // silenciosamente a de claro/escuro e quebrava o botão de tema.
@@ -1312,6 +1373,7 @@ function aplicarTemaCustom(config) {
   if (cor_destaque && hexValido(cor_destaque)) {
     raiz.setProperty("--accent", cor_destaque);
     raiz.setProperty("--accent-dim", escurecerHex(cor_destaque));
+    raiz.setProperty("--accent-text", melhorCorDeTexto(cor_destaque));
   }
   if (cor_fundo && hexValido(cor_fundo)) raiz.setProperty("--bg", cor_fundo);
   if (formato_botao && RAIO_POR_FORMATO[formato_botao]) raiz.setProperty("--radius-btn", RAIO_POR_FORMATO[formato_botao]);
@@ -1341,6 +1403,27 @@ async function carregarLayoutAdmin() {
   $layoutCorFundoHex.value = data.cor_fundo;
   $layoutFormatoBotao.value = data.formato_botao;
   $layoutTamanhoFonte.value = data.tamanho_fonte;
+  mostrarAvisoContraste();
+}
+
+// Mostra o contraste (WCAG) que o texto vai ter em cima da cor de destaque
+// escolhida, com a melhor opção de preto/branco já calculada — assim o
+// admin não precisa saber o que é "contraste 3:1" pra evitar escolher uma
+// cor em que ninguém consegue ler o texto dos botões.
+function mostrarAvisoContraste() {
+  if (!hexValido($layoutCorDestaqueHex.value)) return;
+  const razao = contraste($layoutCorDestaqueHex.value, melhorCorDeTexto($layoutCorDestaqueHex.value));
+  const razaoFmt = razao.toFixed(1);
+  if (razao >= 4.5) {
+    $layoutContrasteAviso.textContent = `Contraste do texto: ${razaoFmt}:1 — ótimo (passa até pra texto pequeno).`;
+    $layoutContrasteAviso.className = "msg";
+  } else if (razao >= 3) {
+    $layoutContrasteAviso.textContent = `Contraste do texto: ${razaoFmt}:1 — ok pra botões/texto grande, mas apertado.`;
+    $layoutContrasteAviso.className = "msg";
+  } else {
+    $layoutContrasteAviso.textContent = `Contraste do texto: ${razaoFmt}:1 — baixo demais, vai ficar difícil de ler pra muita gente. Tente uma cor mais escura ou mais saturada.`;
+    $layoutContrasteAviso.className = "msg err";
+  }
 }
 
 // Mantem o picker de cor e o campo de texto hexadecimal sincronizados, e
@@ -1358,6 +1441,8 @@ function sincronizarCorEPreview(picker, textoHex, chave) {
 }
 sincronizarCorEPreview($layoutCorDestaque, $layoutCorDestaqueHex, "cor_destaque");
 sincronizarCorEPreview($layoutCorFundo, $layoutCorFundoHex, "cor_fundo");
+$layoutCorDestaque.addEventListener("input", mostrarAvisoContraste);
+$layoutCorDestaqueHex.addEventListener("input", mostrarAvisoContraste);
 
 $layoutFormatoBotao.addEventListener("change", () => aplicarTemaCustom({ formato_botao: $layoutFormatoBotao.value }));
 $layoutTamanhoFonte.addEventListener("change", () => aplicarTemaCustom({ tamanho_fonte: $layoutTamanhoFonte.value }));

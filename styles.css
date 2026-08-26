@@ -3,7 +3,11 @@
     --card: #171f33;
     --accent: #ff7a45;
     --accent-dim: #e5632f;
-    --accent-text: #ffffff;
+    /* Preto quase puro, não branco: texto branco em cima do laranja dá
+       contraste ~2.6:1, abaixo do mínimo de acessibilidade (WCAG AA pede
+       3:1 pra texto grande/ícone, 4.5:1 pra texto normal). Com essa cor
+       escura o contraste sobe pra ~8:1. */
+    --accent-text: #1a0f08;
     --danger: #ef4444;
     --text: #e2e8f0;
     --muted: #94a3b8;
@@ -14,7 +18,7 @@
     --card: #ffffff;
     --accent: #16a34a;
     --accent-dim: #15803d;
-    --accent-text: #ffffff;
+    --accent-text: #04220f;
     --danger: #dc2626;
     --text: #0f172a;
     --muted: #64748b;
