@@ -317,6 +317,10 @@ const $referenciaBusca = document.getElementById("referenciaBusca");
 const $btnBuscarReferencia = document.getElementById("btnBuscarReferencia");
 const $referenciaMsg = document.getElementById("referenciaMsg");
 const $referenciaResultados = document.getElementById("referenciaResultados");
+const $promoNomeBusca = document.getElementById("promoNomeBusca");
+const $btnBuscarPromoPorNome = document.getElementById("btnBuscarPromoPorNome");
+const $promoPorNomeMsg = document.getElementById("promoPorNomeMsg");
+const $promoPorNomeResultados = document.getElementById("promoPorNomeResultados");
 const $btnLimparReferencia = document.getElementById("btnLimparReferencia");
 
 const $btnCamera = document.getElementById("btnCamera");
@@ -998,6 +1002,104 @@ $btnBuscarReferencia.addEventListener("click", () => {
 
 $referenciaBusca.addEventListener("keydown", e => {
   if (e.key === "Enter") $btnBuscarReferencia.click();
+});
+
+// ---------- BUSCAR PROMOÇÕES POR NOME ----------
+
+// Só checa promoção nas primeiras N referências que baterem o nome
+// (deduplicadas, uma por referência) pra não estourar o limite de
+// requisições nem deixar a busca lenta demais — a Mersan não tem uma
+// API de "busca por nome com promoção", então isso é feito checando
+// item por item em cima do índice local (referencias_index).
+const LIMITE_REFERENCIAS_PROMO_POR_NOME = 20;
+
+async function buscarPromocoesPorNome() {
+  const termo = $promoNomeBusca.value.trim();
+  if (!termo) return;
+
+  const loja = ($lojas.value.split(",")[0] || "1").trim() || "1";
+
+  $btnBuscarPromoPorNome.disabled = true;
+  $promoPorNomeResultados.innerHTML = "";
+  $promoPorNomeMsg.textContent = "Procurando no índice local...";
+  $promoPorNomeMsg.className = "msg";
+
+  const { data, error } = await sb
+    .from("referencias_index")
+    .select("cd_referencia, produto, codigo_barras")
+    .ilike("produto", `%${termo}%`)
+    .order("atualizado_em", { ascending: false })
+    .limit(200);
+
+  if (error) {
+    $btnBuscarPromoPorNome.disabled = false;
+    $promoPorNomeMsg.textContent = error.message;
+    $promoPorNomeMsg.className = "msg err";
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    $btnBuscarPromoPorNome.disabled = false;
+    $promoPorNomeMsg.textContent = "Nenhum produto com esse nome foi escaneado ainda (a busca usa o índice de produtos já consultados no app, não o catálogo completo da Mersan).";
+    $promoPorNomeMsg.className = "msg";
+    return;
+  }
+
+  const referenciasUnicas = [];
+  const vistas = new Set();
+  for (const r of data) {
+    if (vistas.has(r.cd_referencia)) continue;
+    vistas.add(r.cd_referencia);
+    referenciasUnicas.push(r);
+    if (referenciasUnicas.length >= LIMITE_REFERENCIAS_PROMO_POR_NOME) break;
+  }
+
+  $promoPorNomeMsg.textContent = `Checando promoção na loja ${loja} em ${referenciasUnicas.length} referência(s)...`;
+
+  const emPromocao = [];
+  for (const r of referenciasUnicas) {
+    try {
+      const item = await buscarPreco(r.codigo_barras, loja);
+      if (item && item.vlPrecoPromocao > 0 && item.vlPrecoPromocao !== item.vlPreco) {
+        emPromocao.push({ ...r, precoOriginal: item.vlPreco, precoPromo: item.vlPrecoPromocao });
+      }
+    } catch (e) {
+      // Ignora falha pontual num item e segue checando os outros.
+    }
+  }
+
+  $btnBuscarPromoPorNome.disabled = false;
+
+  if (emPromocao.length === 0) {
+    $promoPorNomeMsg.textContent = `Nenhuma promoção encontrada na loja ${loja}, entre as ${referenciasUnicas.length} referência(s) com "${termo}" no índice (de ${data.length} encontradas — só as primeiras ${LIMITE_REFERENCIAS_PROMO_POR_NOME} são checadas).`;
+    $promoPorNomeMsg.className = "msg";
+    return;
+  }
+
+  $promoPorNomeMsg.textContent = `${emPromocao.length} em promoção na loja ${loja}:`;
+  $promoPorNomeResultados.innerHTML = emPromocao.map(r => `
+    <div class="historico-item" data-codigo="${escapeHtml(r.codigo_barras)}">
+      <div class="h-conteudo">
+        <div class="h-produto">${escapeHtml(r.produto || r.codigo_barras)}</div>
+        <div class="h-meta">Ref: ${escapeHtml(r.cd_referencia)} · <span style="text-decoration:line-through;">${fmtMoeda(r.precoOriginal)}</span> → <strong style="color:var(--accent);">${fmtMoeda(r.precoPromo)}</strong></div>
+      </div>
+    </div>
+  `).join("");
+
+  $promoPorNomeResultados.querySelectorAll(".historico-item").forEach(el => {
+    el.addEventListener("click", () => {
+      $codigo.value = el.dataset.codigo;
+      $promoPorNomeResultados.innerHTML = "";
+      $promoNomeBusca.value = "";
+      $promoPorNomeMsg.textContent = "";
+      buscar();
+    });
+  });
+}
+
+$btnBuscarPromoPorNome.addEventListener("click", buscarPromocoesPorNome);
+$promoNomeBusca.addEventListener("keydown", e => {
+  if (e.key === "Enter") buscarPromocoesPorNome();
 });
 
 // ---------- MAIS PROCURADOS ----------
