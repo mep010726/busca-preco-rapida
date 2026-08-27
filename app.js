@@ -116,6 +116,15 @@ const $app = document.getElementById("app");
 const $userEmail = document.getElementById("userEmail");
 const $btnSair = document.getElementById("btnSair");
 
+const $btnAlertasEstoque = document.getElementById("btnAlertasEstoque");
+const $alertasBadge = document.getElementById("alertasBadge");
+const $alertasEstoqueModal = document.getElementById("alertasEstoqueModal");
+const $alertaTermo = document.getElementById("alertaTermo");
+const $alertaLoja = document.getElementById("alertaLoja");
+const $alertaMsg = document.getElementById("alertaMsg");
+const $btnCriarAlerta = document.getElementById("btnCriarAlerta");
+const $alertasLista = document.getElementById("alertasLista");
+const $btnFecharAlertasEstoque = document.getElementById("btnFecharAlertasEstoque");
 const $btnConfig = document.getElementById("btnConfig");
 const $configModal = document.getElementById("configModal");
 const $btnFecharConfig = document.getElementById("btnFecharConfig");
@@ -644,6 +653,7 @@ async function mostrarAppLogado(user) {
 
   carregarHistorico();
   atualizarBadgeAdmin();
+  atualizarBadgeAlertas();
   talvezFocarCodigo();
   aplicarTemaCustomSalvo();
 }
@@ -1180,6 +1190,116 @@ async function atualizarBadgeAdmin() {
     $ajudaBadge.classList.add("hidden");
   }
 }
+
+// ---------- AVISOS DE ESTOQUE ----------
+// Um script separado (scripts/checar-alertas-estoque.js), rodando em loop,
+// confere periodicamente se o produto observado apareceu com estoque na
+// loja escolhida. Aqui só criamos o pedido de observação e mostramos os
+// que já foram encontrados (sininho no topbar).
+
+async function atualizarBadgeAlertas() {
+  if (!currentUser) return;
+  const { count } = await sb
+    .from("estoque_alertas")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", currentUser.id)
+    .not("notificado_em", "is", null)
+    .eq("visto", false);
+
+  if (count > 0) {
+    $alertasBadge.textContent = count > 99 ? "99+" : String(count);
+    $alertasBadge.classList.remove("hidden");
+  } else {
+    $alertasBadge.classList.add("hidden");
+  }
+}
+
+async function carregarAlertas() {
+  $alertasLista.innerHTML = `<div class="msg">Carregando...</div>`;
+  const { data, error } = await sb
+    .from("estoque_alertas")
+    .select("*")
+    .eq("user_id", currentUser.id)
+    .order("criado_em", { ascending: false });
+
+  if (error) {
+    $alertasLista.innerHTML = `<div class="msg err">Erro ao carregar: ${error.message}</div>`;
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    $alertasLista.innerHTML = `<div class="msg">Nenhum aviso criado ainda.</div>`;
+    return;
+  }
+
+  $alertasLista.innerHTML = data.map(a => {
+    const status = a.notificado_em
+      ? `<span style="color:var(--accent); font-weight:700;">🔔 Chegou: ${escapeHtml(a.encontrado_produto || "")} (${a.encontrado_qtd} un.)</span>`
+      : `<span style="color:var(--muted);">Observando...</span>`;
+    return `
+    <div class="historico-item" data-id="${a.id}" style="cursor:default;">
+      <div class="h-conteudo">
+        <div class="h-produto">${escapeHtml(a.termo)} · loja ${escapeHtml(a.loja)}</div>
+        <div class="h-meta">${status}</div>
+      </div>
+      <div class="h-acoes">
+        <button class="h-btn apagar-alerta" title="Apagar">${ICONE_LIXEIRA}</button>
+      </div>
+    </div>
+  `;
+  }).join("");
+
+  $alertasLista.querySelectorAll(".apagar-alerta").forEach(el => {
+    el.addEventListener("click", async () => {
+      const id = el.closest(".historico-item").dataset.id;
+      await sb.from("estoque_alertas").delete().eq("id", id);
+      carregarAlertas();
+      atualizarBadgeAlertas();
+    });
+  });
+
+  // Marca os que já foram notificados como "vistos" ao abrir a lista,
+  // pra sumir do contador do sino.
+  const idsNaoVistos = data.filter(a => a.notificado_em && !a.visto).map(a => a.id);
+  if (idsNaoVistos.length > 0) {
+    await sb.from("estoque_alertas").update({ visto: true }).in("id", idsNaoVistos);
+    atualizarBadgeAlertas();
+  }
+}
+
+$btnAlertasEstoque.addEventListener("click", () => {
+  $alertasEstoqueModal.classList.remove("hidden");
+  $alertaTermo.value = "";
+  $alertaMsg.textContent = "";
+  carregarAlertas();
+});
+
+$btnFecharAlertasEstoque.addEventListener("click", () => $alertasEstoqueModal.classList.add("hidden"));
+
+$btnCriarAlerta.addEventListener("click", async () => {
+  const termo = $alertaTermo.value.trim();
+  const loja = $alertaLoja.value.trim();
+  if (!termo || !loja) {
+    $alertaMsg.textContent = "Preencha o nome do produto e a loja.";
+    $alertaMsg.className = "msg err";
+    return;
+  }
+
+  $alertaMsg.textContent = "Criando...";
+  $alertaMsg.className = "msg";
+
+  const { error } = await sb.from("estoque_alertas").insert({ user_id: currentUser.id, termo, loja });
+  if (error) {
+    $alertaMsg.textContent = "Erro: " + error.message;
+    $alertaMsg.className = "msg err";
+    return;
+  }
+
+  $alertaTermo.value = "";
+  $alertaMsg.textContent = "Aviso criado! Você vai ver aqui quando o estoque aparecer.";
+  $alertaMsg.className = "msg";
+  carregarAlertas();
+});
 
 async function carregarStatsAdmin() {
   if (!ehAdmin()) return;
