@@ -1014,6 +1014,7 @@ async function buscarReferencia(pagina = 0) {
     el.addEventListener("click", () => {
       $codigo.value = el.dataset.codigo;
       $referenciaResultados.innerHTML = "";
+      renderPaginacao($referenciaResultados, 0, 1, () => {});
       $referenciaBusca.value = "";
       referenciaTermoAtual = "";
       buscar();
