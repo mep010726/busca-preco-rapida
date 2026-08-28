@@ -279,9 +279,10 @@ const $totalHoje = document.getElementById("totalHoje");
 const $vendasHojeCount = document.getElementById("vendasHojeCount");
 const $totalMes = document.getElementById("totalMes");
 const $vendasMesCount = document.getElementById("vendasMesCount");
-const $totalQuinzenaTitulo = document.getElementById("totalQuinzenaTitulo");
-const $totalQuinzenaValor = document.getElementById("totalQuinzenaValor");
-const $vendasQuinzenaCount = document.getElementById("vendasQuinzenaCount");
+const $totalQuinzena1Valor = document.getElementById("totalQuinzena1Valor");
+const $vendasQuinzena1Count = document.getElementById("vendasQuinzena1Count");
+const $totalQuinzena2Valor = document.getElementById("totalQuinzena2Valor");
+const $vendasQuinzena2Count = document.getElementById("vendasQuinzena2Count");
 const $metasModal = document.getElementById("metasModal");
 const $metaQuinzena1 = document.getElementById("metaQuinzena1");
 aplicarMascaraMoeda($metaQuinzena1);
@@ -3578,9 +3579,9 @@ async function atualizarResumoVendas() {
   }
 
   const quinzena = quinzenaAtual(hoje);
-  const fimQuinzenaFimDoDia = new Date(quinzena.fim.getFullYear(), quinzena.fim.getMonth(), quinzena.fim.getDate(), 23, 59, 59);
 
-  let totalHojeReal = 0, totalMes = 0, totalQuinzena = 0, vendasMes = 0, vendasQuinzena = 0;
+  let totalHojeReal = 0, totalMes = 0, vendasMes = 0;
+  let totalQ1 = 0, vendasQ1 = 0, totalQ2 = 0, vendasQ2 = 0;
 
   (resMes.data || []).forEach(v => {
     const d = new Date(v.criado_em);
@@ -3588,11 +3589,18 @@ async function atualizarResumoVendas() {
     totalMes += valor;
     vendasMes++;
     if (chaveDia(d) === hojeChave) totalHojeReal += valor;
-    if (d >= quinzena.inicio && d <= fimQuinzenaFimDoDia) {
-      totalQuinzena += valor;
-      vendasQuinzena++;
+    if (d.getDate() <= 15) {
+      totalQ1 += valor;
+      vendasQ1++;
+    } else {
+      totalQ2 += valor;
+      vendasQ2++;
     }
   });
+
+  // A quinzena "atual" (pra barra de meta) continua sendo só uma das duas,
+  // mas os cards de baixo mostram o total das duas, lado a lado.
+  const totalQuinzena = quinzena.numero === 1 ? totalQ1 : totalQ2;
 
   const totalDiaSelecionado = (resDia.data || []).reduce((soma, v) => soma + Number(v.total), 0);
   const vendasDiaSelecionado = (resDia.data || []).length;
@@ -3602,12 +3610,13 @@ async function atualizarResumoVendas() {
   $vendasHojeCount.textContent = `${vendasDiaSelecionado} venda${vendasDiaSelecionado === 1 ? "" : "s"}`;
   $totalMes.textContent = fmtMoeda(totalMes);
   $vendasMesCount.textContent = `${vendasMes} venda${vendasMes === 1 ? "" : "s"}`;
-  // Mostra o total da quinzena sempre, independente de ter meta configurada
-  // (antes só aparecia embutido no texto de progresso da meta, e sumia de
-  // vez se não tivesse nenhuma meta definida).
-  $totalQuinzenaTitulo.textContent = `${quinzena.numero}ª quinzena`;
-  $totalQuinzenaValor.textContent = fmtMoeda(totalQuinzena);
-  $vendasQuinzenaCount.textContent = `${vendasQuinzena} venda${vendasQuinzena === 1 ? "" : "s"}`;
+  // Mostra as duas quinzenas lado a lado, sempre, independente de ter meta
+  // configurada (antes só aparecia embutido no texto de progresso da meta,
+  // e sumia de vez se não tivesse nenhuma meta definida).
+  $totalQuinzena1Valor.textContent = fmtMoeda(totalQ1);
+  $vendasQuinzena1Count.textContent = `${vendasQ1} venda${vendasQ1 === 1 ? "" : "s"}`;
+  $totalQuinzena2Valor.textContent = fmtMoeda(totalQ2);
+  $vendasQuinzena2Count.textContent = `${vendasQ2} venda${vendasQ2 === 1 ? "" : "s"}`;
 
   const metaQuinzena = Number(quinzena.numero === 1 ? metaAtual.meta_quinzena_1 : metaAtual.meta_quinzena_2) || 0;
 
