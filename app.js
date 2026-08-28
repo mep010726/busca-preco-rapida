@@ -279,6 +279,9 @@ const $totalHoje = document.getElementById("totalHoje");
 const $vendasHojeCount = document.getElementById("vendasHojeCount");
 const $totalMes = document.getElementById("totalMes");
 const $vendasMesCount = document.getElementById("vendasMesCount");
+const $totalQuinzenaTitulo = document.getElementById("totalQuinzenaTitulo");
+const $totalQuinzenaValor = document.getElementById("totalQuinzenaValor");
+const $vendasQuinzenaCount = document.getElementById("vendasQuinzenaCount");
 const $metasModal = document.getElementById("metasModal");
 const $metaQuinzena1 = document.getElementById("metaQuinzena1");
 aplicarMascaraMoeda($metaQuinzena1);
@@ -3577,7 +3580,7 @@ async function atualizarResumoVendas() {
   const quinzena = quinzenaAtual(hoje);
   const fimQuinzenaFimDoDia = new Date(quinzena.fim.getFullYear(), quinzena.fim.getMonth(), quinzena.fim.getDate(), 23, 59, 59);
 
-  let totalHojeReal = 0, totalMes = 0, totalQuinzena = 0, vendasMes = 0;
+  let totalHojeReal = 0, totalMes = 0, totalQuinzena = 0, vendasMes = 0, vendasQuinzena = 0;
 
   (resMes.data || []).forEach(v => {
     const d = new Date(v.criado_em);
@@ -3585,7 +3588,10 @@ async function atualizarResumoVendas() {
     totalMes += valor;
     vendasMes++;
     if (chaveDia(d) === hojeChave) totalHojeReal += valor;
-    if (d >= quinzena.inicio && d <= fimQuinzenaFimDoDia) totalQuinzena += valor;
+    if (d >= quinzena.inicio && d <= fimQuinzenaFimDoDia) {
+      totalQuinzena += valor;
+      vendasQuinzena++;
+    }
   });
 
   const totalDiaSelecionado = (resDia.data || []).reduce((soma, v) => soma + Number(v.total), 0);
@@ -3596,6 +3602,12 @@ async function atualizarResumoVendas() {
   $vendasHojeCount.textContent = `${vendasDiaSelecionado} venda${vendasDiaSelecionado === 1 ? "" : "s"}`;
   $totalMes.textContent = fmtMoeda(totalMes);
   $vendasMesCount.textContent = `${vendasMes} venda${vendasMes === 1 ? "" : "s"}`;
+  // Mostra o total da quinzena sempre, independente de ter meta configurada
+  // (antes só aparecia embutido no texto de progresso da meta, e sumia de
+  // vez se não tivesse nenhuma meta definida).
+  $totalQuinzenaTitulo.textContent = `${quinzena.numero}ª quinzena`;
+  $totalQuinzenaValor.textContent = fmtMoeda(totalQuinzena);
+  $vendasQuinzenaCount.textContent = `${vendasQuinzena} venda${vendasQuinzena === 1 ? "" : "s"}`;
 
   const metaQuinzena = Number(quinzena.numero === 1 ? metaAtual.meta_quinzena_1 : metaAtual.meta_quinzena_2) || 0;
 
