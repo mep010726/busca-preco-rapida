@@ -3624,7 +3624,7 @@ async function atualizarResumoVendas() {
   $metaBarra.style.width = pct + "%";
 
   if (restante <= 0) {
-    $metaResumo.innerHTML = `<strong style="color:var(--accent);">Meta da ${quinzena.numero}ª quinzena batida! 🎉</strong> ${fmtMoeda(totalQuinzena)} de ${fmtMoeda(metaQuinzena)}.`;
+    $metaResumo.innerHTML = `<strong style="color:var(--accent);">Meta da ${quinzena.numero}ª quinzena batida! 🎉</strong> A meta era ${fmtMoeda(metaQuinzena)}.`;
     $metaResumo.className = "msg";
     atualizarMensagemMotivacional(totalHojeReal, true);
     return;
@@ -3643,7 +3643,7 @@ async function atualizarResumoVendas() {
 
   const metaDiaria = diasRestantes > 0 ? restante / diasRestantes : restante;
   $metaResumo.innerHTML = `
-    ${fmtMoeda(totalQuinzena)} de ${fmtMoeda(metaQuinzena)} (${quinzena.numero}ª quinzena) · faltam ${fmtMoeda(restante)}<br>
+    Faltam ${fmtMoeda(restante)} pra bater a meta da ${quinzena.numero}ª quinzena (${fmtMoeda(metaQuinzena)})<br>
     Meta de hoje: <strong>${fmtMoeda(metaDiaria)}</strong> (${diasRestantes} dia${diasRestantes === 1 ? "" : "s"} restantes, sem contar folga)
   `;
   $metaResumo.className = "msg";
