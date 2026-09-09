@@ -1952,17 +1952,37 @@ async function iniciarCameraNativa() {
     $nativeVideo.srcObject = null;
   };
 
+  // O polyfill do BarcodeDetector (usado no Safari/iPhone, que não tem a
+  // API nativa) às vezes entra num estado quebrado — "Cannot stop, scanner
+  // is not running or paused" — e a partir daí nunca mais detecta nada,
+  // mesmo com o código de barras bem visível. Se isso se repetir várias
+  // vezes seguidas, é sinal de que travou de verdade (não é só 1 quadro
+  // ruim), então troca sozinho pro leitor alternativo em vez de deixar o
+  // usuário travado numa câmera que nunca vai funcionar.
+  let errosSeguidos = 0;
+  const LIMITE_ERROS_SEGUIDOS = 8;
+
   (async function loop() {
     while (ativo) {
       try {
         const codes = await detector.detect($nativeVideo);
         tentativasNativo++;
+        errosSeguidos = 0;
         if (codes.length > 0) {
           aoDetectarCodigo(codes[0].rawValue);
           return;
         }
       } catch (e) {
         ultimoErroNativo = String(e).slice(0, 80);
+        errosSeguidos++;
+        if (errosSeguidos >= LIMITE_ERROS_SEGUIDOS) {
+          console.error(`Scanner nativo travou (${errosSeguidos} erros seguidos), trocando pro leitor alternativo:`, e);
+          $camDebug.textContent = "Scanner nativo travou — trocando pro leitor alternativo...";
+          pararScanNativo();
+          pararScanNativo = null;
+          await iniciarLeitorAlternativo();
+          return;
+        }
       }
       await new Promise(r => setTimeout(r, 80));
     }
@@ -1986,27 +2006,11 @@ function aoDetectarCodigo(codigo) {
   }
 }
 
-async function abrirCameraModal() {
-  $camModal.classList.remove("hidden");
-
-  if ("BarcodeDetector" in window) {
-    try {
-      await iniciarCameraNativa();
-      return;
-    } catch (e) {
-      console.error("Scanner nativo falhou, usando biblioteca de leitura:", e);
-      // Mostra o motivo na tela por alguns segundos — sem isso, o erro só
-      // ia pro console do navegador, invisível em celular sem um Mac
-      // conectado pra inspecionar. Assim dá pra ver o motivo real no print.
-      $camDebug.textContent = `Scanner nativo falhou: ${String(e && e.message || e).slice(0, 150)} — usando leitor alternativo...`;
-      await new Promise(r => setTimeout(r, 3000));
-    }
-  }
-
-  // Monta uma lista de tentativas, da melhor pra mais simples, e usa a
-  // primeira que funcionar. O ponto principal é o "focusMode: continuous":
-  // sem isso, em vários iPhones a câmera foca uma vez ao abrir e nunca
-  // reajusta, deixando tudo borrado quando o celular chega perto do código.
+// Monta uma lista de tentativas, da melhor pra mais simples, e usa a
+// primeira que funcionar. O ponto principal é o "focusMode: continuous":
+// sem isso, em vários iPhones a câmera foca uma vez ao abrir e nunca
+// reajusta, deixando tudo borrado quando o celular chega perto do código.
+async function iniciarLeitorAlternativo() {
   const comFocoContinuo = (base) => ({
     ...base,
     width: { ideal: 1280 },
@@ -2050,6 +2054,26 @@ async function abrirCameraModal() {
     $camModal.classList.add("hidden");
     setStatus("Não foi possível acessar a câmera.", true);
   }
+}
+
+async function abrirCameraModal() {
+  $camModal.classList.remove("hidden");
+
+  if ("BarcodeDetector" in window) {
+    try {
+      await iniciarCameraNativa();
+      return;
+    } catch (e) {
+      console.error("Scanner nativo falhou, usando biblioteca de leitura:", e);
+      // Mostra o motivo na tela por alguns segundos — sem isso, o erro só
+      // ia pro console do navegador, invisível em celular sem um Mac
+      // conectado pra inspecionar. Assim dá pra ver o motivo real no print.
+      $camDebug.textContent = `Scanner nativo falhou: ${String(e && e.message || e).slice(0, 150)} — usando leitor alternativo...`;
+      await new Promise(r => setTimeout(r, 3000));
+    }
+  }
+
+  await iniciarLeitorAlternativo();
 }
 
 $btnCamera.addEventListener("click", () => {
