@@ -2393,6 +2393,12 @@ async function executarBusca(codigo, lojasStrRaw, multiplo) {
       controller.abort();
     });
   } else {
+    // Se já tinha uma busca rodando (ex: bipou outro produto antes da
+    // anterior terminar), cancela a antiga — ela mesma vai perceber, no
+    // catch/finally dela, que não é mais "dona" do estado (checa
+    // controladorBuscaAtual === controller antes de mexer em algo), então
+    // não atropela a busca nova que está começando agora.
+    if (controladorBuscaAtual) controladorBuscaAtual.abort();
     controladorBuscaAtual = controller;
     setBotaoBuscarParar(true);
     $resumoCard.classList.remove("show");
@@ -2450,7 +2456,13 @@ async function executarBusca(codigo, lojasStrRaw, multiplo) {
     setBuscaStatus("");
   } catch (e) {
     if (e.name === "AbortError") {
-      setBuscaStatus("Busca interrompida.");
+      // Se não for mais o dono do estado global (ex: essa busca foi
+      // cancelada porque bipou outro produto por cima, não porque clicou
+      // em "Parar busca"), não escreve nada — evita apagar o "Buscando
+      // preço..." da busca nova que já está rodando no lugar dela.
+      if (multiplo || controladorBuscaAtual === controller) {
+        setBuscaStatus("Busca interrompida.");
+      }
     } else if (!navigator.onLine || e instanceof TypeError) {
       // Sem internet: se já vimos esse código antes, mostra o último preço
       // salvo no aparelho (sem estoque, que é sempre dado ao vivo).
@@ -2489,7 +2501,10 @@ async function executarBusca(codigo, lojasStrRaw, multiplo) {
       const bloco = gridEl.closest(".busca-multipla");
       const $btnParar = bloco && bloco.querySelector(".btn-parar-busca");
       if ($btnParar) $btnParar.textContent = "Remover";
-    } else {
+    } else if (controladorBuscaAtual === controller) {
+      // Só limpa se ainda for o "dono" do estado global — se uma busca
+      // nova já assumiu (outro código bipado por cima), é ela quem cuida
+      // de zerar isso quando terminar, não esta que já ficou pra trás.
       controladorBuscaAtual = null;
       setBotaoBuscarParar(false);
     }
@@ -2497,12 +2512,13 @@ async function executarBusca(codigo, lojasStrRaw, multiplo) {
   }
 }
 
+// Sempre inicia uma busca nova pro código atual do campo — se já tinha uma
+// rodando (ex: bipou um produto novo antes da anterior terminar), cancela a
+// antiga e já entra com a nova (é o executarBusca, dono de verdade do
+// controlador, quem faz esse abort — ver comentário lá). Cancelar SEM
+// substituir por nada é só o clique direto no botão "Parar busca", tratado
+// à parte logo abaixo.
 function buscar() {
-  if (controladorBuscaAtual) {
-    controladorBuscaAtual.abort();
-    return;
-  }
-
   const codigo = $codigo.value.trim();
   const lojasStr = $lojas.value;
   const multiplo = $modoMultiplo.checked;
@@ -2513,7 +2529,16 @@ function buscar() {
   executarBusca(codigo, lojasStr, multiplo);
 }
 
-$buscar.addEventListener("click", buscar);
+$buscar.addEventListener("click", () => {
+  // Enquanto uma busca tá rodando, o botão vira "Parar busca" — clicar
+  // nele diretamente (sem ter bipado/digitado nada novo) significa
+  // cancelar mesmo, não substituir por outra.
+  if (controladorBuscaAtual) {
+    controladorBuscaAtual.abort();
+    return;
+  }
+  buscar();
+});
 $codigo.addEventListener("keydown", e => { if (e.key === "Enter") buscar(); });
 
 // Limpa tudo da busca por código de barras, sem precisar recarregar a
