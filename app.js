@@ -3056,6 +3056,7 @@ async function carregarVendas(pagina = 0) {
   const { data, error, count } = await sb
     .from("vendas")
     .select("*", { count: "exact" })
+    .eq("user_id", currentUser.id)
     .gte("criado_em", inicio.toISOString())
     .lt("criado_em", fim.toISOString())
     .order("criado_em", { ascending: false })
@@ -3094,6 +3095,7 @@ $btnExportarVendasCsv.addEventListener("click", async () => {
   const { data, error } = await sb
     .from("vendas")
     .select("*, venda_itens(*)")
+    .eq("user_id", currentUser.id)
     .gte("criado_em", inicio.toISOString())
     .lt("criado_em", fim.toISOString())
     .order("criado_em", { ascending: true });
@@ -3544,6 +3546,7 @@ async function carregarMetaEFolgas() {
   const { data: metaData } = await sb
     .from("metas")
     .select("*")
+    .eq("user_id", currentUser.id)
     .eq("ano_mes", anoMesAtual())
     .maybeSingle();
   metaAtual = metaData || { meta_quinzena_1: 0, meta_quinzena_2: 0 };
@@ -3555,6 +3558,7 @@ async function carregarMetaEFolgas() {
   const { data: folgasData } = await sb
     .from("folgas")
     .select("data")
+    .eq("user_id", currentUser.id)
     .gte("data", chaveDia(inicioMes))
     .lte("data", chaveDia(fimMes));
   folgasDoMes = new Set((folgasData || []).map(f => f.data));
@@ -3617,8 +3621,8 @@ async function atualizarResumoVendas() {
   const { inicio: inicioDia, fim: fimDiaExclusivo } = limitesDoDia(dataSelecionada);
 
   const [resMes, resDia] = await Promise.all([
-    sb.from("vendas").select("total, criado_em").gte("criado_em", inicioMes.toISOString()).lt("criado_em", fimMesExclusivo.toISOString()),
-    sb.from("vendas").select("total").gte("criado_em", inicioDia.toISOString()).lt("criado_em", fimDiaExclusivo.toISOString()),
+    sb.from("vendas").select("total, criado_em").eq("user_id", currentUser.id).gte("criado_em", inicioMes.toISOString()).lt("criado_em", fimMesExclusivo.toISOString()),
+    sb.from("vendas").select("total").eq("user_id", currentUser.id).gte("criado_em", inicioDia.toISOString()).lt("criado_em", fimDiaExclusivo.toISOString()),
   ]);
 
   if (resMes.error || resDia.error) {
@@ -3814,8 +3818,8 @@ async function carregarComissao() {
 
   const [{ data: config, error: errConfig }, { data: vendasMes, error: errVendas }, { data: metaData }] = await Promise.all([
     sb.from("config_comissao").select("*").eq("id", 1).maybeSingle(),
-    sb.from("vendas").select("total, criado_em").gte("criado_em", inicioMes.toISOString()).lt("criado_em", fimMesExclusivo.toISOString()),
-    sb.from("metas").select("*").eq("ano_mes", anoMesAtual()).maybeSingle(),
+    sb.from("vendas").select("total, criado_em").eq("user_id", currentUser.id).gte("criado_em", inicioMes.toISOString()).lt("criado_em", fimMesExclusivo.toISOString()),
+    sb.from("metas").select("*").eq("user_id", currentUser.id).eq("ano_mes", anoMesAtual()).maybeSingle(),
   ]);
 
   if (errConfig || errVendas) {
