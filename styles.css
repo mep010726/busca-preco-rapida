@@ -317,6 +317,7 @@
   .modal-box {
     background: var(--card); border: 1px solid var(--border); border-radius: 12px;
     padding: 16px; width: 100%; max-width: 420px;
+    max-height: 85vh; overflow-y: auto;
   }
   #camReader { width: 100%; border-radius: 8px; overflow: hidden; }
 
