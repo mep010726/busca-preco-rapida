@@ -1395,14 +1395,12 @@ async function carregarResumoVendedores() {
   if (!ehAdmin()) return;
   $resumoVendedoresLista.innerHTML = `<div class="msg">Carregando...</div>`;
 
-  const inicioMes = new Date();
-  inicioMes.setDate(1);
-  inicioMes.setHours(0, 0, 0, 0);
-
-  const { data, error } = await sb
-    .from("vendas")
-    .select("vendedor_email, total")
-    .gte("criado_em", inicioMes.toISOString());
+  // Contagem feita no banco (função resumo_vendedores_mes), não buscando a
+  // tabela "vendas" inteira pro navegador — sem isso, uma vez que a tabela
+  // passasse de 1000 linhas, o limite padrão do Supabase faria essa lista
+  // ficar incompleta sem nenhum aviso (foi o que já aconteceu com a tela
+  // de "Usuários mais ativos", que buscava "historico" do mesmo jeito).
+  const { data, error } = await sb.rpc("resumo_vendedores_mes");
 
   if (error) {
     $resumoVendedoresLista.innerHTML = `<div class="msg err">Erro ao carregar: ${error.message}</div>`;
@@ -1414,15 +1412,7 @@ async function carregarResumoVendedores() {
     return;
   }
 
-  const porVendedor = {};
-  data.forEach(v => {
-    const chave = v.vendedor_email || "desconhecido";
-    if (!porVendedor[chave]) porVendedor[chave] = { total: 0, vendas: 0 };
-    porVendedor[chave].total += Number(v.total);
-    porVendedor[chave].vendas += 1;
-  });
-
-  const ranking = Object.entries(porVendedor).sort((a, b) => b[1].total - a[1].total);
+  const ranking = data.map(v => [v.vendedor_email || "desconhecido", { total: Number(v.total_valor), vendas: Number(v.total_vendas) }]);
 
   $resumoVendedoresLista.innerHTML = `
     <table style="width:100%;">
@@ -1615,41 +1605,19 @@ async function carregarUsuariosAtivos() {
   if (!ehAdmin()) return;
   $usuariosAtivosLista.innerHTML = `<div class="msg">Carregando...</div>`;
 
-  // Junta busca (historico), vendas e fotos de promoção, pra dar uma ideia
-  // geral de quem usa o app e o quanto — não é só quem vende.
-  const [resHistorico, resVendas, resFotos] = await Promise.all([
-    sb.from("historico").select("email"),
-    sb.from("vendas").select("vendedor_email"),
-    sb.from("promo_fotos").select("email"),
-  ]);
+  // Contagem feita no banco (função usuarios_ativos_stats), não buscando
+  // as 3 tabelas inteiras pro navegador — o "historico" sozinho já passa
+  // de 1000 linhas, e o Supabase corta consultas sem paginação nesse
+  // limite por padrão. Isso fazia atividade recente (ex: alguém que
+  // acabou de buscar um produto) sumir da lista sem nenhum erro visível.
+  const { data, error } = await sb.rpc("usuarios_ativos_stats");
 
-  const erro = resHistorico.error || resVendas.error || resFotos.error;
-  if (erro) {
-    $usuariosAtivosLista.innerHTML = `<div class="msg err">Erro ao carregar: ${erro.message}</div>`;
+  if (error) {
+    $usuariosAtivosLista.innerHTML = `<div class="msg err">Erro ao carregar: ${error.message}</div>`;
     return;
   }
 
-  const porUsuario = {};
-  const garantirUsuario = (email) => {
-    if (!porUsuario[email]) porUsuario[email] = { buscas: 0, vendas: 0, fotos: 0 };
-    return porUsuario[email];
-  };
-
-  (resHistorico.data || []).forEach(h => {
-    if (h.email) garantirUsuario(h.email).buscas++;
-  });
-  (resVendas.data || []).forEach(v => {
-    if (v.vendedor_email) garantirUsuario(v.vendedor_email).vendas++;
-  });
-  (resFotos.data || []).forEach(f => {
-    if (f.email) garantirUsuario(f.email).fotos++;
-  });
-
-  const ranking = Object.entries(porUsuario).sort((a, b) =>
-    (b[1].buscas + b[1].vendas + b[1].fotos) - (a[1].buscas + a[1].vendas + a[1].fotos)
-  );
-
-  if (ranking.length === 0) {
+  if (!data || data.length === 0) {
     $usuariosAtivosLista.innerHTML = `<div class="msg">Nenhuma atividade registrada ainda. Atividade de antes dessa atualização não aparece aqui (não tinha o e-mail salvo).</div>`;
     return;
   }
@@ -1658,9 +1626,9 @@ async function carregarUsuariosAtivos() {
     <table style="width:100%;">
       <thead><tr><th>Usuário</th><th style="text-align:right;">Buscas</th><th style="text-align:right;">Vendas</th><th style="text-align:right;">Fotos promo</th></tr></thead>
       <tbody>
-        ${ranking.map(([email, r]) => `
+        ${data.map(r => `
           <tr>
-            <td style="padding:6px 0;">${escapeHtml(email)}</td>
+            <td style="padding:6px 0;">${escapeHtml(r.email)}</td>
             <td style="padding:6px 0; text-align:right;">${r.buscas}</td>
             <td style="padding:6px 0; text-align:right; font-weight:700; color:var(--accent);">${r.vendas}</td>
             <td style="padding:6px 0; text-align:right;">${r.fotos}</td>
