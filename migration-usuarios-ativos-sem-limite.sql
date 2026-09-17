@@ -13,6 +13,7 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+#variable_conflict use_column
 begin
   if auth.jwt() ->> 'email' != 'lucasfsa1998@hotmail.com' then
     return;
