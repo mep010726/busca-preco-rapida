@@ -1881,8 +1881,26 @@ async function iniciarCameraNativa() {
   ]);
   const detector = new BarcodeDetector({ formats: formatos });
 
+  // Só pedir facingMode:"environment" deixa o Safari escolher a lente
+  // sozinho — em iPhones com 3 câmeras traseiras (Pro/Pro Max), às vezes
+  // ele escolhe a ultra grande angular em vez da principal, o que deixa
+  // tudo pequeno demais pra focar no código de barras. Reaproveita a
+  // mesma lista/heurística (lente principal = primeira câmera traseira
+  // da lista) que o leitor alternativo já usa com sucesso.
+  let videoConstraints = { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } };
+  try {
+    const cameras = await Html5Qrcode.getCameras();
+    if (cameras && cameras.length > 0) {
+      const traseiras = cameras.filter(c => /back|tras|rear/i.test(c.label || ""));
+      const principal = (traseiras[0] || cameras[0]).id;
+      videoConstraints = { deviceId: { exact: principal }, width: { ideal: 1280 }, height: { ideal: 720 } };
+    }
+  } catch (e) {
+    console.error("Não consegui listar câmeras pro scanner nativo, seguindo com facingMode:", e);
+  }
+
   const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+    video: videoConstraints,
     audio: false,
   });
 
