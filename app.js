@@ -46,6 +46,7 @@ const LOJAS_INFO = {
   231: { nome: "Levi's",          endereco: "Av Tancredo Neves, 2915",                    cidade: "Salvador - BA" },
   241: { nome: "Mersan Criança",  endereco: "Av João Durval Carneiro, 3665",              cidade: "Feira de Santana - BA" },
   251: { nome: "Mersan",          endereco: "Avenida Aziz Maron, S/N",                    cidade: "Itabuna - BA" },
+  252: { nome: "Mersan",          endereco: "Endereço não informado",                    cidade: "Camaçari - BA" },
   261: { nome: "Mersan",          endereco: "Rua Ramiro Pimentel, 65",                    cidade: "Itaberaba - BA" },
   271: { nome: "M Martan",        endereco: "Av João Durval Carneiro, 3665",              cidade: "Feira de Santana - BA" },
   281: { nome: "Arezzo",          endereco: "Pç Rui Barbosa, 152",                        cidade: "Alagoinhas - BA" },
@@ -53,6 +54,7 @@ const LOJAS_INFO = {
   311: { nome: "Mersan",          endereco: "R Sales Barbosa, 138",                       cidade: "Feira de Santana - BA" },
   312: { nome: "Mersan",          endereco: "R Marechal Deodoro, 41",                     cidade: "Feira de Santana - BA" },
   321: { nome: "Mersan",          endereco: "Av Tancredo Neves, 2915",                    cidade: "Salvador - BA" },
+  322: { nome: "Mersan",          endereco: "Endereço não informado",                    cidade: "Cidade não informada" },
   361: { nome: "Arezzo",          endereco: "R. Roberto Santos, 96",                      cidade: "Santo Antônio de Jesus - BA" },
 };
 
