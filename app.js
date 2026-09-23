@@ -2211,7 +2211,16 @@ async function buscarPreco(codigo, primeiraLoja, signal, tentativas = 2) {
       const resp = await fetch(`${API_BASE}/${encodeURIComponent(codigo)}/${encodeURIComponent(primeiraLoja)}`, { signal });
       if (!resp.ok) throw new Error(`Mersan respondeu HTTP ${resp.status}`);
       const data = await resp.json();
-      return (data.precos || []).find(p => p.cdSKU && p.cdSKU !== 0) || null;
+      const itens = data.precos || [];
+      // O endpoint de estoque devolve todas as lojas de uma vez (por isso o
+      // app já filtra por cd_empresa lá) — esse aqui pode fazer o mesmo,
+      // principalmente quando alguma loja tem promoção temporária que as
+      // outras não têm. Sem filtrar pela loja pedida, o primeiro item da
+      // lista podia ser de outra loja, com preço/promoção que não é o da
+      // loja que o usuário realmente está vendo.
+      const lojaNum = Number(primeiraLoja);
+      const itemDaLoja = itens.find(p => p.cdSKU && p.cdSKU !== 0 && Number(p.cdEmpresa) === lojaNum);
+      return itemDaLoja || itens.find(p => p.cdSKU && p.cdSKU !== 0) || null;
     } catch (e) {
       if (e.name === "AbortError") throw e;
       // TypeError normalmente é falta de conexão do próprio usuário — não
