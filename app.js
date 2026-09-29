@@ -2212,15 +2212,15 @@ async function buscarPreco(codigo, primeiraLoja, signal, tentativas = 2) {
       if (!resp.ok) throw new Error(`Mersan respondeu HTTP ${resp.status}`);
       const data = await resp.json();
       const itens = data.precos || [];
-      // O endpoint de estoque devolve todas as lojas de uma vez (por isso o
-      // app já filtra por cd_empresa lá) — esse aqui pode fazer o mesmo,
-      // principalmente quando alguma loja tem promoção temporária que as
-      // outras não têm. Sem filtrar pela loja pedida, o primeiro item da
-      // lista podia ser de outra loja, com preço/promoção que não é o da
-      // loja que o usuário realmente está vendo.
-      const lojaNum = Number(primeiraLoja);
-      const itemDaLoja = itens.find(p => p.cdSKU && p.cdSKU !== 0 && Number(p.cdEmpresa) === lojaNum);
-      return itemDaLoja || itens.find(p => p.cdSKU && p.cdSKU !== 0) || null;
+      // Testado e confirmado: o próprio site oficial da Mersan mostra
+      // sempre o preço/promoção do registro "mestre" (loja 1, que é o
+      // primeiro item da lista), mesmo com outra loja selecionada — só o
+      // ESTOQUE (endpoint separado) varia de verdade por loja. Filtrar
+      // preço pela loja pedida (como este código fazia antes) deixava o
+      // app mostrando "sem promoção" pra lojas com promoção válida mas sem
+      // essa promoção replicada no cadastro delas, diferente do que o
+      // sistema oficial (e a loja física) mostram.
+      return itens.find(p => p.cdSKU && p.cdSKU !== 0) || null;
     } catch (e) {
       if (e.name === "AbortError") throw e;
       // TypeError normalmente é falta de conexão do próprio usuário — não
