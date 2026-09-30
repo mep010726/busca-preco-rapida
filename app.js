@@ -1925,10 +1925,31 @@ async function iniciarCameraNativa() {
   let errosSeguidos = 0;
   const LIMITE_ERROS_SEGUIDOS = 8;
 
+  // EXPERIMENTO: recorta só a faixa central do quadro (onde o código de
+  // barras cai quando a pessoa mira) antes de mandar pro decodificador, em
+  // vez do quadro inteiro. Menos pixel pra processar deve deixar a
+  // identificação mais rápida no iPhone, onde o BarcodeDetector é um
+  // polyfill em JS (não a API nativa) e cada quadro processado custa CPU.
+  const canvasRecorte = document.createElement("canvas");
+  const ctxRecorte = canvasRecorte.getContext("2d", { willReadFrequently: true });
+  function quadroRecortado() {
+    const vw = $nativeVideo.videoWidth, vh = $nativeVideo.videoHeight;
+    if (!vw || !vh) return null;
+    const larguraRecorte = vw * 0.8;
+    const alturaRecorte = vh * 0.5;
+    const x = (vw - larguraRecorte) / 2;
+    const y = (vh - alturaRecorte) / 2;
+    canvasRecorte.width = larguraRecorte;
+    canvasRecorte.height = alturaRecorte;
+    ctxRecorte.drawImage($nativeVideo, x, y, larguraRecorte, alturaRecorte, 0, 0, larguraRecorte, alturaRecorte);
+    return canvasRecorte;
+  }
+
   (async function loop() {
     while (ativo) {
       try {
-        const codes = await detector.detect($nativeVideo);
+        const quadro = quadroRecortado() || $nativeVideo;
+        const codes = await detector.detect(quadro);
         tentativasNativo++;
         errosSeguidos = 0;
         if (codes.length > 0) {
@@ -1947,7 +1968,7 @@ async function iniciarCameraNativa() {
           return;
         }
       }
-      await new Promise(r => setTimeout(r, 80));
+      await new Promise(r => setTimeout(r, 50));
     }
   })();
 }
