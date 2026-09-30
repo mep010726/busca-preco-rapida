@@ -671,7 +671,6 @@ async function mostrarAppLogado(user) {
   const { data: souAdmin } = await sb.rpc("sou_admin");
   souAdminCache = !!souAdmin;
   $tabAdmin.classList.toggle("hidden", !ehAdmin());
-  $tabTesteScanner.classList.toggle("hidden", !ehAdmin());
 
   carregarHistorico();
   atualizarBadgeAdmin();
@@ -793,7 +792,6 @@ $tabAdmin.addEventListener("click", () => {
 });
 
 $tabTesteScanner.addEventListener("click", () => {
-  if (!ehAdmin()) return;
   mostrarAba($tabTesteScanner);
 });
 
