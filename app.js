@@ -141,6 +141,7 @@ const $cfgSenhaMsg = document.getElementById("cfgSenhaMsg");
 const $btnSalvarSenhaConfig = document.getElementById("btnSalvarSenhaConfig");
 const $cfgBipador = document.getElementById("cfgBipador");
 const $cfgTemaClaro = document.getElementById("cfgTemaClaro");
+const $btnAtualizarApp = document.getElementById("btnAtualizarApp");
 
 const $tabBusca = document.getElementById("tabBusca");
 const $tabHistorico = document.getElementById("tabHistorico");
@@ -511,6 +512,12 @@ $cfgBipador.addEventListener("change", () => {
 
 $cfgTemaClaro.addEventListener("change", () => {
   aplicarTema($cfgTemaClaro.checked ? "light" : "dark");
+});
+
+// No iPhone instalado como app (PWA) não tem "puxar pra baixo" nem botão de
+// recarregar do navegador — esse botão é o substituto.
+$btnAtualizarApp.addEventListener("click", () => {
+  window.location.reload();
 });
 
 $btnFecharConfig.addEventListener("click", () => $configModal.classList.add("hidden"));
