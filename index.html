@@ -169,6 +169,7 @@
         <button id="tabMaisProcurados">Mais Procurados</button>
         <button id="tabComissao">Comissão</button>
         <button id="tabAdmin" class="hidden" style="position:relative;">Admin<span id="ajudaBadge" class="badge hidden"></span></button>
+        <button id="tabTesteScanner" class="hidden">Teste Scanner</button>
         <button id="tabAjuda">Ajuda</button>
       </div>
     </div>
@@ -522,6 +523,19 @@
 
         <button id="btnSalvarComissaoConfig" class="full" style="margin-top:4px;">Salvar</button>
         <div id="comissaoConfigMsg" class="msg"></div>
+      </div>
+    </div>
+
+    <div id="painelTesteScanner" class="hidden">
+      <div class="card">
+        <div class="loja-titulo" style="margin-bottom:10px;">Teste de leitura rápida (só pra testar)</div>
+        <p style="font-size:0.85rem; color:var(--muted); margin-top:0;">Versão experimental do leitor, com o quadro recortado pro centro (processa menos pixel, deve identificar mais rápido). Não afeta a busca normal — é só pra comparar.</p>
+        <button id="btnTesteScannerIniciar" class="full">Iniciar teste</button>
+        <div id="testeScannerVideoWrap" class="hidden" style="position:relative; margin-top:12px;">
+          <video id="testeScannerVideo" playsinline muted autoplay style="width:100%; border-radius:8px; display:block;"></video>
+          <div style="position:absolute; left:10%; right:10%; top:25%; bottom:25%; border:2px solid var(--accent); border-radius:6px; opacity:0.85; pointer-events:none;"></div>
+        </div>
+        <div id="testeScannerResultado" class="msg" style="margin-top:12px;"></div>
       </div>
     </div>
 

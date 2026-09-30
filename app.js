@@ -148,6 +148,12 @@ const $tabFavoritos = document.getElementById("tabFavoritos");
 const $tabMaisProcurados = document.getElementById("tabMaisProcurados");
 const $tabVendas = document.getElementById("tabVendas");
 const $tabAdmin = document.getElementById("tabAdmin");
+const $tabTesteScanner = document.getElementById("tabTesteScanner");
+const $painelTesteScanner = document.getElementById("painelTesteScanner");
+const $btnTesteScannerIniciar = document.getElementById("btnTesteScannerIniciar");
+const $testeScannerVideoWrap = document.getElementById("testeScannerVideoWrap");
+const $testeScannerVideo = document.getElementById("testeScannerVideo");
+const $testeScannerResultado = document.getElementById("testeScannerResultado");
 const $ajudaBadge = document.getElementById("ajudaBadge");
 const $tabAjuda = document.getElementById("tabAjuda");
 const $painelBusca = document.getElementById("painelBusca");
@@ -658,6 +664,7 @@ async function mostrarAppLogado(user) {
   const { data: souAdmin } = await sb.rpc("sou_admin");
   souAdminCache = !!souAdmin;
   $tabAdmin.classList.toggle("hidden", !ehAdmin());
+  $tabTesteScanner.classList.toggle("hidden", !ehAdmin());
 
   carregarHistorico();
   atualizarBadgeAdmin();
@@ -723,6 +730,7 @@ const ABAS = [
   { tab: $tabPromocao, painel: $painelPromocao },
   { tab: $tabComissao, painel: $painelComissao },
   { tab: $tabAdmin, painel: $painelAdmin },
+  { tab: $tabTesteScanner, painel: $painelTesteScanner },
   { tab: $tabAjuda, painel: $painelAjuda },
 ];
 
@@ -776,6 +784,105 @@ $tabAdmin.addEventListener("click", () => {
   carregarLayoutAdmin();
   carregarTentativasBot();
 });
+
+$tabTesteScanner.addEventListener("click", () => {
+  if (!ehAdmin()) return;
+  mostrarAba($tabTesteScanner);
+});
+
+// ---------- TESTE DE LEITURA RAPIDA (aba so pra comparar, nao afeta a busca normal) ----------
+
+let pararTesteScanner = null;
+
+async function testarLeituraRapida() {
+  if (pararTesteScanner) { pararTesteScanner(); pararTesteScanner = null; }
+
+  if (!("BarcodeDetector" in window)) {
+    $testeScannerResultado.textContent = "Esse navegador não tem leitor disponível pra testar.";
+    $testeScannerResultado.className = "msg err";
+    return;
+  }
+
+  $btnTesteScannerIniciar.disabled = true;
+  $testeScannerResultado.textContent = "Abrindo câmera...";
+  $testeScannerResultado.className = "msg";
+
+  try {
+    const formatos = await BarcodeDetector.getSupportedFormats().catch(() => [
+      "qr_code", "ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "codabar", "itf",
+    ]);
+    const detector = new BarcodeDetector({ formats: formatos });
+
+    let videoConstraints = { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } };
+    try {
+      const cameras = await Html5Qrcode.getCameras();
+      if (cameras && cameras.length > 0) {
+        const traseiras = cameras.filter(c => /back|tras|rear/i.test(c.label || ""));
+        const principal = (traseiras[0] || cameras[0]).id;
+        videoConstraints = { deviceId: { exact: principal }, width: { ideal: 1280 }, height: { ideal: 720 } };
+      }
+    } catch (e) {}
+
+    const stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: false });
+    $testeScannerVideo.srcObject = stream;
+    await $testeScannerVideo.play();
+    $testeScannerVideoWrap.classList.remove("hidden");
+
+    const track = stream.getVideoTracks()[0];
+    if (track) track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }).catch(() => {});
+
+    const canvasRecorte = document.createElement("canvas");
+    const ctxRecorte = canvasRecorte.getContext("2d", { willReadFrequently: true });
+    function quadroRecortado() {
+      const vw = $testeScannerVideo.videoWidth, vh = $testeScannerVideo.videoHeight;
+      if (!vw || !vh) return null;
+      const larguraRecorte = vw * 0.8;
+      const alturaRecorte = vh * 0.5;
+      const x = (vw - larguraRecorte) / 2;
+      const y = (vh - alturaRecorte) / 2;
+      canvasRecorte.width = larguraRecorte;
+      canvasRecorte.height = alturaRecorte;
+      ctxRecorte.drawImage($testeScannerVideo, x, y, larguraRecorte, alturaRecorte, 0, 0, larguraRecorte, alturaRecorte);
+      return canvasRecorte;
+    }
+
+    let ativo = true;
+    let tentativas = 0;
+    const inicio = performance.now();
+    pararTesteScanner = () => {
+      ativo = false;
+      stream.getTracks().forEach(t => t.stop());
+      $testeScannerVideoWrap.classList.add("hidden");
+      $testeScannerVideo.srcObject = null;
+      $btnTesteScannerIniciar.disabled = false;
+    };
+
+    $testeScannerResultado.textContent = "Mirando... aponte o código dentro da caixa.";
+
+    (async function loop() {
+      while (ativo) {
+        try {
+          const codes = await detector.detect(quadroRecortado() || $testeScannerVideo);
+          tentativas++;
+          if (codes.length > 0) {
+            const ms = Math.round(performance.now() - inicio);
+            $testeScannerResultado.innerHTML = `<strong style="color:var(--accent);">Identificado em ${ms}ms</strong> (${tentativas} tentativa${tentativas === 1 ? "" : "s"})<br>Código: ${escapeHtml(codes[0].rawValue)}`;
+            pararTesteScanner();
+            pararTesteScanner = null;
+            return;
+          }
+        } catch (e) {}
+        await new Promise(r => setTimeout(r, 50));
+      }
+    })();
+  } catch (e) {
+    $testeScannerResultado.textContent = "Erro ao abrir a câmera: " + (e.message || e);
+    $testeScannerResultado.className = "msg err";
+    $btnTesteScannerIniciar.disabled = false;
+  }
+}
+
+$btnTesteScannerIniciar.addEventListener("click", testarLeituraRapida);
 
 $tabAjuda.addEventListener("click", () => {
   mostrarAba($tabAjuda);
