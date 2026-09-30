@@ -305,7 +305,6 @@ const $sugestaoMsg = document.getElementById("sugestaoMsg");
 const $btnEnviarSugestao = document.getElementById("btnEnviarSugestao");
 const $statsAdminLista = document.getElementById("statsAdminLista");
 const $tentativasBotLista = document.getElementById("tentativasBotLista");
-const $migrationsLista = document.getElementById("migrationsLista");
 const $sugestoesLista = document.getElementById("sugestoesLista");
 const $layoutCorDestaque = document.getElementById("layoutCorDestaque");
 const $layoutCorDestaqueHex = document.getElementById("layoutCorDestaqueHex");
@@ -773,35 +772,8 @@ $tabAdmin.addEventListener("click", () => {
   carregarSugestoes();
   carregarLayoutAdmin();
   carregarTentativasBot();
-  carregarStatusMigrations();
 });
 
-async function carregarStatusMigrations() {
-  if (!ehAdmin()) return;
-  $migrationsLista.innerHTML = `<div class="msg">Carregando...</div>`;
-
-  const { data, error } = await sb.rpc("status_migrations");
-  if (error) {
-    $migrationsLista.innerHTML = `<div class="msg">Ainda não rodou a migration do rastreador (migration-rastreador-migrations.sql) — rode ela primeiro pra essa lista funcionar.</div>`;
-    return;
-  }
-
-  const pendentes = (data || []).filter(m => !m.aplicada);
-
-  $migrationsLista.innerHTML = `
-    ${pendentes.length > 0 ? `<div class="msg err" style="margin-bottom:8px;">${pendentes.length} migration(s) pendente(s).</div>` : `<div class="msg" style="margin-bottom:8px;">Tudo em dia!</div>`}
-    <table style="width:100%;">
-      <tbody>
-        ${(data || []).map(m => `
-          <tr>
-            <td style="padding:6px 0; color:var(--muted); font-family:monospace; font-size:0.78rem;">${escapeHtml(m.nome)}</td>
-            <td style="padding:6px 0; text-align:right; font-weight:700; color:${m.aplicada ? "var(--accent)" : "var(--danger)"};">${m.aplicada ? "✓ aplicada" : "✗ pendente"}</td>
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>
-  `;
-}
 $tabAjuda.addEventListener("click", () => {
   mostrarAba($tabAjuda);
   checarMutePropio();
