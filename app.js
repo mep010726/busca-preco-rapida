@@ -478,7 +478,10 @@ function bipadorAtivo() {
 }
 
 function talvezFocarCodigo() {
-  if (bipadorAtivo()) $codigo.focus();
+  if (bipadorAtivo()) {
+    $codigo.focus();
+    $codigo.select(); // deixa pronto pra uma bipada sobrescrever, não colar no final
+  }
 }
 
 $btnConfig.addEventListener("click", () => {
@@ -2493,7 +2496,16 @@ function buscar() {
   const multiplo = $modoMultiplo.checked;
   if (!codigo) return;
 
-  if (multiplo) $codigo.value = ""; // libera o campo na hora pro próximo item
+  if (multiplo) {
+    $codigo.value = ""; // libera o campo na hora pro próximo item
+  } else {
+    // Seleciona o texto pra qualquer bipada/digitação seguinte SOBRESCREVER
+    // em vez de colar no final. Sem isso, bipar de novo rápido demais (antes
+    // de tocar no campo) concatenava o código novo em cima do antigo — ex:
+    // "123456789" virava "123456789987654321" — e a busca falhava porque
+    // esse "código" simplesmente não existe.
+    $codigo.select();
+  }
 
   executarBusca(codigo, lojasStr, multiplo);
 }
