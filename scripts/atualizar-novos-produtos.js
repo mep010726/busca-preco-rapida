@@ -10,7 +10,7 @@ const SUPABASE_URL = "https://izjymicfgxtqafhlceyf.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const MERSAN_API = "https://credito.mersan.co/api/v1/buscapreco";
 const LOJA_PARA_CONSULTA = 1;
-const CONCORRENCIA = 2;
+const CONCORRENCIA = 8;
 const PAUSA_ENTRE_REQUISICOES_MS = 450;
 const TAMANHO_JANELA = Number(process.env.TAMANHO_JANELA || 8000);
 
@@ -51,7 +51,7 @@ async function salvarEstado(novoValor) {
 
 async function buscarProduto(sku, tentativas = 8) {
   for (let i = 0; i < tentativas; i++) {
-    const resp = await fetch(`${MERSAN_API}/${sku}/${LOJA_PARA_CONSULTA}`);
+    const resp = await fetch(`${MERSAN_API}/${sku}/${LOJA_PARA_CONSULTA}`, { signal: AbortSignal.timeout(15000) });
     if (resp.status === 429) {
       await dormir(2000 * (i + 1));
       continue;
