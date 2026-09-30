@@ -125,6 +125,20 @@ async function main() {
       if (processados % 500 === 0) {
         console.log(`Progresso: ${processados}/${TAMANHO_JANELA} | encontrados=${encontrados} erros=${erros}`);
       }
+      // Salva o ponteiro periodicamente: sem isso, se o job for cancelado
+      // no meio (ex: bate o timeout de 2h do GitHub Actions, o que vem
+      // acontecendo todo dia desde que a Mersan ficou mais lenta), o
+      // ponteiro nunca avanca - o proximo run repete a mesma janela do
+      // zero, pra sempre, sem nenhum progresso real (foi o que estava
+      // acontecendo aqui ha mais de um mes).
+      if (processados % 200 === 0) {
+        await flushBuffer();
+        try {
+          await salvarEstado(Math.min(atual - 1, fim));
+        } catch (e) {
+          console.error("Falha ao salvar checkpoint (tenta de novo no proximo):", e.message);
+        }
+      }
       await dormir(PAUSA_ENTRE_REQUISICOES_MS);
     }
   }
